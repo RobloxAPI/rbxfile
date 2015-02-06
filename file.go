@@ -146,13 +146,17 @@ func RegisterAPI(api *rbxdump.API) {
 
 // Decode attempts to determine and decode the format of the underlying data
 // stream in `r` by reading the header. Only registered formats are detected.
+//
+// Returns ErrFormat if the format could not be detected.
 func Decode(r io.Reader) (root *Root, err error) {
 	return DefaultCodec.Decode(r)
 }
 
-// Encode attempts to encode a data structure to a given format. The format
+// Encode attempts to encode a data structure to a given format. The fmt
 // argument should match the name given by the format's Name() method. Only
 // registered formats can be encoded to.
-func Encode(w io.Writer, format string, root *Root) (err error) {
-	return DefaultCodec.Encode(w, format, root)
+//
+// Returns ErrFormat if the given format is not registered.
+func Encode(w io.Writer, fmt string, root *Root) (err error) {
+	return DefaultCodec.Encode(w, fmt, root)
 }
