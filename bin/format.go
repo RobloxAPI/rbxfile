@@ -34,10 +34,13 @@ func (RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) {
 	return nil, errors.New("not implemented")
 }
 
+// Decode decodes data from a Reader into a Root structure using the default
+// RobloxCodec.
 func Decode(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
 	return nil, errors.New("not implemented")
 }
 
+// Encode encodes a Root structure to a Writer using the default RobloxCodec.
 func Encode(w io.Writer, api *rbxdump.API, root *Root) (err error) {
 	return errors.New("not implemented")
 }
