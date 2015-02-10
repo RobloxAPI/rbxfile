@@ -2,6 +2,7 @@
 package bin
 
 import (
+	"errors"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
 	"io"
@@ -41,7 +42,7 @@ func Decode(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
 }
 
 // Encode encodes a Root structure to a Writer using the default RobloxCodec.
-func Encode(w io.Writer, api *rbxdump.API, root *Root) (err error) {
+func Encode(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
 	return errors.New("not implemented")
 }
 
@@ -61,7 +62,7 @@ func (Format) Decode(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err err
 	return Decode(r, api)
 }
 
-func (Format) Encode(w io.Writer, api *rbxdump.API, root *Root) (err error) {
+func (Format) Encode(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
 	return Encode(w, api, root)
 }
 

@@ -3,10 +3,12 @@ package bin
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"github.com/bkaradzic/go-lz4"
-	"github.com/robloxapi/rbxfile/rbxtype"
 	"io"
 	"io/ioutil"
+	"math"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -67,6 +69,8 @@ func interleave(bytes []byte, length int) error {
 			bytes[i] = b
 		}
 	}
+
+	return nil
 }
 
 func deinterleave(bytes []byte, size int) error {
@@ -161,7 +165,7 @@ func decodeZigzag(n uint32) int32 {
 
 // Encodes a Binary32 float with sign at LSB instead of MSB.
 func encodeRobloxFloat(f float32) uint32 {
-	n := math.Float32bits(n)
+	n := math.Float32bits(f)
 	return (n << 1) | (n >> 31)
 }
 
@@ -172,7 +176,7 @@ func decodeRobloxFloat(n uint32) float32 {
 
 // Returns the size of an integer.
 func intDataSize(data interface{}) int {
-	switch data := data.(type) {
+	switch data.(type) {
 	case int8, *int8, *uint8:
 		return 1
 	case int16, *int16, *uint16:
@@ -193,7 +197,7 @@ func readNumber(r io.Reader, order binary.ByteOrder, data interface{}, n *int64)
 		bs := b[:m]
 
 		nn, err := io.ReadFull(r, bs)
-		*n += nn
+		*n += int64(nn)
 		if err != nil {
 			return err
 		}
@@ -236,7 +240,7 @@ func readString(r io.Reader, n *int64) (str string, err error) {
 
 	s := make([]byte, length)
 	nn, err := io.ReadFull(r, s)
-	*n += nn
+	*n += int64(nn)
 	if err != nil {
 		return "", err
 	}
@@ -294,7 +298,7 @@ type FormatModel struct {
 // of the format codec.
 func NewFormatModel() *FormatModel {
 	f := new(FormatModel)
-	f.chunkGenerators = map[[4]byte]ChunkGenerator{
+	f.ChunkGenerators = map[[4]byte]ChunkGenerator{
 		newChunkInstance().Signature(): newChunkInstance,
 		newChunkProperty().Signature(): newChunkProperty,
 		newChunkParent().Signature():   newChunkParent,
@@ -311,12 +315,12 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 
 	header := make([]byte, len(BinaryHeader))
 	nn, err := io.ReadFull(r, header)
-	n += nn
+	n += int64(nn)
 	if err != nil {
 		return n, err
 	}
 
-	if !bytes.Equal(header, BinaryHeader) {
+	if !bytes.Equal(header, []byte(BinaryHeader)) {
 		return n, ErrCorruptHeader
 	}
 
@@ -325,20 +329,19 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 		return n, err
 	}
 	if version != 0 {
-		return n, ErrMismatchedVersion{ExpectedVersion: 0, ActualVersion: version}
+		return n, ErrMismatchedVersion{ExpectedVersion: 0, DecodedVersion: version}
 	}
 
 	if err = readNumber(r, binary.LittleEndian, &f.GroupCount, &n); err != nil {
 		return n, err
 	}
 
-	var InstanceCount uint32
 	if err = readNumber(r, binary.LittleEndian, &f.InstanceCount, &n); err != nil {
 		return n, err
 	}
 
 	var reserved uint64
-	if err = readNumber(r, binary.LittleEndian, &f.reserved, &n); err != nil {
+	if err = readNumber(r, binary.LittleEndian, &reserved, &n); err != nil {
 		return n, err
 	}
 	if reserved != 0 {
@@ -348,12 +351,12 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 loop:
 	for {
 		data, n, err := decompressChunk(r)
-		n += nn
+		n += int64(nn)
 		if err != nil {
 			return n, err
 		}
 
-		newChunk, ok := f.chunkGenerators[data.signature]
+		newChunk, ok := f.ChunkGenerators[data.signature]
 		if !ok {
 			f.Warnings = append(f.Warnings, warning("unknown chunk signature `"+string(data.signature[:])+"`"))
 			continue loop
@@ -361,13 +364,21 @@ loop:
 
 		chunk := newChunk()
 		chunk.SetCompressed(data.compressedLength != 0)
-		if _, err := chunk.ReadFrom(data.reader); err != nil {
+		if _, err := chunk.ReadFrom(data.decompressedData); err != nil {
 			return n, err
 		}
 
 		f.Chunks = append(f.Chunks, chunk)
 
-		if _, ok := chunk.(ChunkEnd); ok {
+		if endChunk, ok := chunk.(*ChunkEnd); ok {
+			if !endChunk.isCompressed {
+				f.Warnings = append(f.Warnings, warning("END chunk is not uncompressed"))
+			}
+
+			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
+				f.Warnings = append(f.Warnings, warning("END chunk content is not `</roblox>`"))
+			}
+
 			break loop
 		}
 	}
@@ -417,7 +428,7 @@ type compressedChunk struct {
 func decompressChunk(r io.Reader) (data *compressedChunk, n int64, err error) {
 	sigb := data.signature[:]
 	nn, err := io.ReadFull(r, sigb)
-	n += nn
+	n += int64(nn)
 	if err != nil {
 		return nil, n, err
 	}
@@ -439,7 +450,7 @@ func decompressChunk(r io.Reader) (data *compressedChunk, n int64, err error) {
 	// If compressed length is 0, then the data is not compressed.
 	if data.compressedLength == 0 {
 		nn, err := io.ReadFull(r, decompressedData)
-		n += nn
+		n += int64(nn)
 		if err != nil {
 			return nil, n, err
 		}
@@ -450,7 +461,7 @@ func decompressChunk(r io.Reader) (data *compressedChunk, n int64, err error) {
 		binary.LittleEndian.PutUint32(compressedData, data.decompressedLength)
 
 		nn, err := io.ReadFull(r, compressedData[4:])
-		n += nn
+		n += int64(nn)
 		if err != nil {
 			return nil, n, err
 		}
@@ -504,7 +515,7 @@ type ChunkInstance struct {
 }
 
 func newChunkInstance() Chunk {
-	return *new(ChunkInstance)
+	return new(ChunkInstance)
 }
 
 func (ChunkInstance) Signature() [4]byte {
@@ -541,7 +552,7 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 
 	groupRaw := make([]byte, groupLength*4)
 	nn, err := io.ReadFull(r, groupRaw)
-	n += nn
+	n += int64(nn)
 	if err != nil {
 		return n, err
 	}
@@ -551,7 +562,7 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 	c.InstanceIDs = make([]int32, groupLength)
 	if groupLength > 0 {
 		c.InstanceIDs[0] = decodeZigzag(binary.BigEndian.Uint32(groupRaw[0:4]))
-		for i := 1; i < groupLength; i++ {
+		for i := uint32(1); i < groupLength; i++ {
 			// Each entry is relative to the previous
 			c.InstanceIDs[i] = c.InstanceIDs[i-1] + decodeZigzag(binary.BigEndian.Uint32(groupRaw[i*4:i*4+4]))
 		}
@@ -560,7 +571,7 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 	if c.IsService {
 		c.GetService = make([]byte, groupLength)
 		nn, err := io.ReadFull(r, c.GetService)
-		n += nn
+		n += int64(nn)
 		if err != nil {
 			return n, err
 		}
@@ -589,7 +600,7 @@ type ChunkEnd struct {
 }
 
 func newChunkEnd() Chunk {
-	return *new(ChunkEnd)
+	return new(ChunkEnd)
 }
 
 func (ChunkEnd) Signature() [4]byte {
@@ -605,18 +616,10 @@ func (c *ChunkEnd) SetCompressed(b bool) {
 }
 
 func (c *ChunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
-	if !c.isCompressed {
-		f.Warnings = append(f.Warnings, warning("END chunk is not uncompressed"))
-	}
-
 	c.Content, err = ioutil.ReadAll(r)
-	n += len(c.Content)
+	n += int64(len(c.Content))
 	if err != nil {
 		return n, err
-	}
-
-	if !bytes.Equal(c.Content, []byte("</roblox>")) {
-		f.Warnings = append(f.Warnings, warning("END chunk content is not `</roblox>`"))
 	}
 
 	return n, nil
@@ -631,6 +634,9 @@ func (c *ChunkEnd) WriteTo(w io.Writer) (n int64, err error) {
 // ChunkParent is a Chunk that contains information about the parent-child
 // relationships between instances in the model.
 type ChunkParent struct {
+	// Whether the chunk is compressed.
+	isCompressed bool
+
 	// Version is the version of the chunk. Reserved so that the format of the
 	// parent chunk can be changed without changing the version of the entire
 	// file format.
@@ -651,7 +657,7 @@ type ChunkParent struct {
 }
 
 func newChunkParent() Chunk {
-	return *new(ChunkParent)
+	return new(ChunkParent)
 }
 
 func (ChunkParent) Signature() [4]byte {
@@ -677,7 +683,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 
 	childrenRaw := make([]byte, c.InstanceCount*4)
 	nn, err := io.ReadFull(r, childrenRaw)
-	n += nn
+	n += int64(nn)
 	if err != nil {
 		return n, err
 	}
@@ -687,7 +693,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 	c.Children = make([]int32, c.InstanceCount)
 	if c.InstanceCount > 0 {
 		c.Children[0] = decodeZigzag(binary.BigEndian.Uint32(childrenRaw[0:4]))
-		for i := 1; i < c.InstanceCount; i++ {
+		for i := uint32(1); i < c.InstanceCount; i++ {
 			// Each entry is relative to the previous
 			c.Children[i] = c.Children[i-1] + decodeZigzag(binary.BigEndian.Uint32(childrenRaw[i*4:i*4+4]))
 		}
@@ -695,7 +701,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 
 	parentsRaw := make([]byte, c.InstanceCount*4)
 	nn, err = io.ReadFull(r, parentsRaw)
-	n += nn
+	n += int64(nn)
 	if err != nil {
 		return n, err
 	}
@@ -705,7 +711,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 	c.Parents = make([]int32, c.InstanceCount)
 	if c.InstanceCount > 0 {
 		c.Parents[0] = decodeZigzag(binary.BigEndian.Uint32(parentsRaw[0:4]))
-		for i := 1; i < c.InstanceCount; i++ {
+		for i := uint32(1); i < c.InstanceCount; i++ {
 			// Each entry is relative to the previous
 			c.Parents[i] = c.Parents[i-1] + decodeZigzag(binary.BigEndian.Uint32(parentsRaw[i*4:i*4+4]))
 		}
@@ -723,6 +729,9 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 // ChunkProperty is a Chunk that contains information about the properties of
 // a group of instances.
 type ChunkProperty struct {
+	// Whether the chunk is compressed.
+	isCompressed bool
+
 	// GroupID is the ID of an instance group contained in a ChunkInstance.
 	GroupID uint32
 
@@ -741,7 +750,7 @@ type ChunkProperty struct {
 }
 
 func newChunkProperty() Chunk {
-	return *new(ChunkProperty)
+	return new(ChunkProperty)
 }
 
 func (ChunkProperty) Signature() [4]byte {
@@ -770,7 +779,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 
 	rawBytes, err := ioutil.ReadAll(r)
-	n += len(rawBytes)
+	n += int64(len(rawBytes))
 	if err != nil {
 		return n, nil
 	}

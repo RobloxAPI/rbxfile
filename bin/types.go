@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 )
 
@@ -20,7 +21,7 @@ type Value interface {
 	FromBytes([]byte) error
 
 	// Bytes returns the encoded value of the type as a byte array.
-	Bytes() ([]byte, error)
+	Bytes() []byte
 
 	// FromArrayBytes receives an array of values of the type from a byte
 	// array.
@@ -90,7 +91,7 @@ func appendByteValues(id byte, b []byte, size int) (a []Value, err error) {
 type TypeString []byte
 
 func newTypeString() Value {
-	return *new(TypeString)
+	return new(TypeString)
 }
 
 func (TypeString) TypeID() byte {
@@ -101,7 +102,7 @@ func (TypeString) TypeString() string {
 	return "String"
 }
 
-func (t TypeString) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeString) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
@@ -120,7 +121,7 @@ func (t TypeString) FromArrayBytes(b []byte) (a []Value, err error) {
 			return nil, errors.New("unexpected EOF")
 		}
 
-		var v TypeString
+		var v *TypeString
 		if err = v.FromBytes(vb); err != nil {
 			return nil, err
 		}
@@ -143,12 +144,14 @@ func (t *TypeString) FromBytes(b []byte) error {
 	}
 
 	length := binary.LittleEndian.Uint32(b[:4])
-	if length != len(b)-4 {
+	if len(b)-4 >= 0 && length != uint32(len(b)-4) {
 		return errors.New("string length does not match integer length")
 	}
 
 	*t = make(TypeString, len(b)-4)
 	copy(*t, b)
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -156,7 +159,7 @@ func (t *TypeString) FromBytes(b []byte) error {
 type TypeBool bool
 
 func newTypeBool() Value {
-	return *new(TypeBool)
+	return new(TypeBool)
 }
 
 func (TypeBool) TypeID() byte {
@@ -167,7 +170,7 @@ func (TypeBool) TypeString() string {
 	return "Bool"
 }
 
-func (t TypeBool) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeBool) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
@@ -194,6 +197,8 @@ func (t *TypeBool) FromBytes(b []byte) error {
 	}
 
 	*t = b[0] != 0
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -201,7 +206,7 @@ func (t *TypeBool) FromBytes(b []byte) error {
 type TypeInt int32
 
 func newTypeInt() Value {
-	return *new(TypeInt)
+	return new(TypeInt)
 }
 
 func (TypeInt) TypeID() byte {
@@ -212,7 +217,7 @@ func (TypeInt) TypeString() string {
 	return "Int"
 }
 
-func (t TypeInt) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeInt) ArrayBytes(a []Value) (b []byte, err error) {
 	b, err = appendValueBytes(t, a)
 	if err != nil {
 		return nil, err
@@ -242,7 +247,7 @@ func (t TypeInt) FromArrayBytes(b []byte) (a []Value, err error) {
 
 func (t TypeInt) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, encodeZigzag(t))
+	binary.BigEndian.PutUint32(b, encodeZigzag(int32(t)))
 	return b
 }
 
@@ -251,9 +256,10 @@ func (t *TypeInt) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	var v uint32
-	binary.BigEndian.PutUint32(b, &v)
+	v := binary.BigEndian.Uint32(b)
 	*t = TypeInt(decodeZigzag(v))
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -261,7 +267,7 @@ func (t *TypeInt) FromBytes(b []byte) error {
 type TypeFloat float32
 
 func newTypeFloat() Value {
-	return *new(TypeFloat)
+	return new(TypeFloat)
 }
 
 func (TypeFloat) TypeID() byte {
@@ -272,7 +278,7 @@ func (TypeFloat) TypeString() string {
 	return "Float"
 }
 
-func (t TypeFloat) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeFloat) ArrayBytes(a []Value) (b []byte, err error) {
 	b, err = appendValueBytes(t, a)
 	if err != nil {
 		return nil, err
@@ -302,7 +308,7 @@ func (t TypeFloat) FromArrayBytes(b []byte) (a []Value, err error) {
 
 func (t TypeFloat) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, encodeRobloxFloat(t))
+	binary.BigEndian.PutUint32(b, encodeRobloxFloat(float32(t)))
 	return b
 }
 
@@ -311,9 +317,10 @@ func (t *TypeFloat) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	var v uint32
-	binary.BigEndian.PutUint32(b, &v)
+	v := binary.BigEndian.Uint32(b)
 	*t = TypeFloat(decodeRobloxFloat(v))
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -321,7 +328,7 @@ func (t *TypeFloat) FromBytes(b []byte) error {
 type TypeDouble float64
 
 func newTypeDouble() Value {
-	return *new(TypeDouble)
+	return new(TypeDouble)
 }
 
 func (TypeDouble) TypeID() byte {
@@ -332,7 +339,7 @@ func (TypeDouble) TypeString() string {
 	return "Double"
 }
 
-func (t TypeDouble) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeDouble) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
@@ -347,7 +354,7 @@ func (t TypeDouble) FromArrayBytes(b []byte) (a []Value, err error) {
 
 func (t TypeDouble) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, math.Float64bits(float64(t)))
+	binary.LittleEndian.PutUint32(b, uint32(math.Float64bits(float64(t))))
 	return b
 }
 
@@ -356,9 +363,10 @@ func (t *TypeDouble) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	var v uint64
-	binary.LittleEndian.PutUint64(b, &v)
+	v := binary.LittleEndian.Uint64(b)
 	*t = TypeDouble(math.Float64frombits(v))
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -371,7 +379,7 @@ type TypeUDim2 struct {
 }
 
 func newTypeUDim2() Value {
-	return *new(TypeUDim2)
+	return new(TypeUDim2)
 }
 
 func (TypeUDim2) TypeID() byte {
@@ -382,7 +390,7 @@ func (TypeUDim2) TypeString() string {
 	return "UDim2"
 }
 
-func (t TypeUDim2) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeUDim2) ArrayBytes(a []Value) (b []byte, err error) {
 	/*
 		l := len(a)
 		b = make([]byte, l*16)
@@ -403,10 +411,16 @@ func (t TypeUDim2) ArrayBytes(a []Value) (b []byte, err error) {
 	b, err = appendValueBytes(t, a)
 
 	// Interleave fields of each UDim2 (field length, fields per UDim2).
-	bigInterleave(b, 4, 4)
+	if err := bigInterleave(b, 4, 4); err != nil {
+		return nil, err
+	}
 
 	// Interleave bytes of each field (byte length, bytes per field).
-	bigInterleave(b, 1, 4)
+	if err := bigInterleave(b, 1, 4); err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 func (t TypeUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
@@ -449,6 +463,8 @@ func (t *TypeUDim2) FromBytes(b []byte) error {
 	t.ScaleY.FromBytes(b[4:8])
 	t.OffsetX.FromBytes(b[8:12])
 	t.OffsetY.FromBytes(b[12:16])
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -463,7 +479,7 @@ type TypeRay struct {
 }
 
 func newTypeRay() Value {
-	return *new(TypeRay)
+	return new(TypeRay)
 }
 
 func (TypeRay) TypeID() byte {
@@ -474,7 +490,7 @@ func (TypeRay) TypeString() string {
 	return "Ray"
 }
 
-func (t TypeRay) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeRay) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
@@ -503,12 +519,14 @@ func (t *TypeRay) FromBytes(b []byte) error {
 		return errors.New("array length must be 24")
 	}
 
-	t.OriginX.FromBytes(b[0:4])
-	t.OriginY.FromBytes(b[4:8])
-	t.OriginZ.FromBytes(b[8:12])
-	t.DirectionX.FromBytes(b[12:16])
-	t.DirectionY.FromBytes(b[16:20])
-	t.DirectionZ.FromBytes(b[20:24])
+	t.OriginX = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
+	t.OriginY = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
+	t.OriginZ = math.Float32frombits(binary.LittleEndian.Uint32(b[8:12]))
+	t.DirectionX = math.Float32frombits(binary.LittleEndian.Uint32(b[12:16]))
+	t.DirectionY = math.Float32frombits(binary.LittleEndian.Uint32(b[16:20]))
+	t.DirectionZ = math.Float32frombits(binary.LittleEndian.Uint32(b[20:24]))
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -518,7 +536,7 @@ type TypeFaces struct {
 }
 
 func newTypeFaces() Value {
-	return *new(TypeFaces)
+	return new(TypeFaces)
 }
 
 func (TypeFaces) TypeID() byte {
@@ -529,7 +547,7 @@ func (TypeFaces) TypeString() string {
 	return "Faces"
 }
 
-func (t TypeFaces) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *TypeFaces) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
@@ -565,6 +583,8 @@ func (t *TypeFaces) FromBytes(b []byte) error {
 	t.Back = b[0]&(1<<3) != 0
 	t.Top = b[0]&(1<<4) != 0
 	t.Right = b[0]&(1<<5) != 0
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
