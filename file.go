@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"github.com/robloxapi/rbxdump"
-	"github.com/robloxapi/rbxfile/type"
+	"github.com/robloxapi/rbxfile/rbxtype"
 	"io"
 )
 
