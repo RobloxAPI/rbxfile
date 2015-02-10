@@ -87,47 +87,6 @@ func appendByteValues(id byte, b []byte, size int) (a []Value, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-type TypeTemplate bool
-
-func newTypeTemplate() Value {
-	return *new(TypeTemplate)
-}
-
-func (TypeTemplate) TypeID() byte {
-	return 0x0
-}
-
-func (TypeTemplate) TypeString() string {
-	return ""
-}
-
-func (t TypeTemplate) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
-}
-
-func (t TypeTemplate) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	return a, nil
-}
-
-func (t TypeTemplate) Bytes() []byte {
-}
-
-func (t *TypeTemplate) FromBytes(b []byte) error {
-}
-
-func (t TypeTemplate) String() string {
-}
-
-func (t *TypeTemplate) FromString(s string) error {
-}
-
-////////////////////////////////////////////////////////////////
-
 type TypeString []byte
 
 func newTypeString() Value {
