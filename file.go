@@ -22,10 +22,11 @@ import (
 
 ////////////////////////////////////////////////////////////////
 
-// Root represents the root of an instance tree.
+// Root represents the root of an instance tree. Root is not itself an
+// instance, but a container for multiple root instances.
 type Root struct {
-	// Children contains instances that are children of the root.
-	Children []*Instance
+	// Instances contains root instances contained in the tree.
+	Instances []*Instance
 
 	// Meta contains metadata provided by the format that decoded the tree.
 	Meta []string
