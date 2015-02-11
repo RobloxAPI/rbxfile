@@ -37,8 +37,8 @@ type Instance struct {
 	// elsewhere in the tree.
 	Referent string
 
-	// Type indicates the instance's ClassName.
-	Type string
+	// ClassName indicates the instance's type.
+	ClassName string
 
 	// Properties is a map of properties of the instance. It maps the name of
 	// the property to its current value.
