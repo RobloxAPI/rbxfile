@@ -35,26 +35,26 @@ type Value interface {
 type valueGenerator func() Value
 
 var valueGenerators = map[byte]valueGenerator{
-	newTypeString().TypeID(): newTypeString,
-	newTypeBool().TypeID():   newTypeBool,
-	newTypeInt().TypeID():    newTypeInt,
-	newTypeFloat().TypeID():  newTypeFloat,
-	newTypeDouble().TypeID(): newTypeDouble,
-	//0x6: newTypeUDim,
-	newTypeUDim2().TypeID(): newTypeUDim2,
-	newTypeRay().TypeID():   newTypeRay,
-	newTypeFaces().TypeID(): newTypeFaces,
-	//newTypeAxes().TypeID():       newTypeAxes,
-	//newTypeBrickColor().TypeID(): newTypeBrickColor,
-	//newTypeColor3().TypeID():     newTypeColor3,
-	//newTypeVector2().TypeID():    newTypeVector2,
-	//newTypeVector3().TypeID():    newTypeVector3,
-	//0xF: newTypeVector2int16,
-	//newTypeCFrame().TypeID():     newTypeCFrame,
-	//0x11: newTypeCFrameQuat,
-	//newTypeToken().TypeID():      newTypeToken,
-	//newTypeReferent().TypeID():   newTypeReferent,
-	//0x14: newTypeVector3int16,
+	newValueString().TypeID(): newValueString,
+	newValueBool().TypeID():   newValueBool,
+	newValueInt().TypeID():    newValueInt,
+	newValueFloat().TypeID():  newValueFloat,
+	newValueDouble().TypeID(): newValueDouble,
+	//0x6: newValueUDim,
+	newValueUDim2().TypeID(): newValueUDim2,
+	newValueRay().TypeID():   newValueRay,
+	newValueFaces().TypeID(): newValueFaces,
+	//newValueAxes().TypeID():       newValueAxes,
+	//newValueBrickColor().TypeID(): newValueBrickColor,
+	//newValueColor3().TypeID():     newValueColor3,
+	//newValueVector2().TypeID():    newValueVector2,
+	//newValueVector3().TypeID():    newValueVector3,
+	//0xF: newValueVector2int16,
+	//newValueCFrame().TypeID():     newValueCFrame,
+	//0x11: newValueCFrameQuat,
+	//newValueToken().TypeID():      newValueToken,
+	//newValueReferent().TypeID():   newValueReferent,
+	//0x14: newValueVector3int16,
 }
 
 // Appends the bytes of a list of Values into a byte array.
@@ -88,25 +88,25 @@ func appendByteValues(id byte, b []byte, size int) (a []Value, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-type TypeString []byte
+type ValueString []byte
 
-func newTypeString() Value {
-	return new(TypeString)
+func newValueString() Value {
+	return new(ValueString)
 }
 
-func (TypeString) TypeID() byte {
+func (ValueString) TypeID() byte {
 	return 0x1
 }
 
-func (TypeString) TypeString() string {
+func (ValueString) ValueString() string {
 	return "String"
 }
 
-func (t *TypeString) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
-func (t TypeString) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
 	r := bytes.NewReader(b)
 
 	for r.Len() > 0 {
@@ -121,7 +121,7 @@ func (t TypeString) FromArrayBytes(b []byte) (a []Value, err error) {
 			return nil, errors.New("unexpected EOF")
 		}
 
-		var v *TypeString
+		var v *ValueString
 		if err = v.FromBytes(vb); err != nil {
 			return nil, err
 		}
@@ -131,14 +131,14 @@ func (t TypeString) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeString) Bytes() []byte {
+func (t ValueString) Bytes() []byte {
 	b := make([]byte, len(t)+4)
 	binary.LittleEndian.PutUint32(b, uint32(len(t)))
 	copy(b[4:], t)
 	return b
 }
 
-func (t *TypeString) FromBytes(b []byte) error {
+func (t *ValueString) FromBytes(b []byte) error {
 	if len(b) < 4 {
 		return errors.New("array length must be greater than or equal to 4")
 	}
@@ -148,7 +148,7 @@ func (t *TypeString) FromBytes(b []byte) error {
 		return errors.New("string length does not match integer length")
 	}
 
-	*t = make(TypeString, len(b)-4)
+	*t = make(ValueString, len(b)-4)
 	copy(*t, b)
 
 	return nil
@@ -156,25 +156,25 @@ func (t *TypeString) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-type TypeBool bool
+type ValueBool bool
 
-func newTypeBool() Value {
-	return new(TypeBool)
+func newValueBool() Value {
+	return new(ValueBool)
 }
 
-func (TypeBool) TypeID() byte {
+func (ValueBool) TypeID() byte {
 	return 0x2
 }
 
-func (TypeBool) TypeString() string {
+func (ValueBool) ValueString() string {
 	return "Bool"
 }
 
-func (t *TypeBool) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
-func (t TypeBool) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
 	a, err = appendByteValues(t.TypeID(), b, 1)
 	if err != nil {
 		return nil, err
@@ -183,7 +183,7 @@ func (t TypeBool) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeBool) Bytes() []byte {
+func (t ValueBool) Bytes() []byte {
 	if t {
 		return []byte{0}
 	} else {
@@ -191,7 +191,7 @@ func (t TypeBool) Bytes() []byte {
 	}
 }
 
-func (t *TypeBool) FromBytes(b []byte) error {
+func (t *ValueBool) FromBytes(b []byte) error {
 	if len(b) != 1 {
 		return errors.New("array length must be 1")
 	}
@@ -203,21 +203,21 @@ func (t *TypeBool) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-type TypeInt int32
+type ValueInt int32
 
-func newTypeInt() Value {
-	return new(TypeInt)
+func newValueInt() Value {
+	return new(ValueInt)
 }
 
-func (TypeInt) TypeID() byte {
+func (ValueInt) TypeID() byte {
 	return 0x3
 }
 
-func (TypeInt) TypeString() string {
+func (ValueInt) ValueString() string {
 	return "Int"
 }
 
-func (t *TypeInt) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueInt) ArrayBytes(a []Value) (b []byte, err error) {
 	b, err = appendValueBytes(t, a)
 	if err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func (t *TypeInt) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t TypeInt) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueInt) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	if err = deinterleave(bc, 4); err != nil {
@@ -245,40 +245,40 @@ func (t TypeInt) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeInt) Bytes() []byte {
+func (t ValueInt) Bytes() []byte {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, encodeZigzag(int32(t)))
 	return b
 }
 
-func (t *TypeInt) FromBytes(b []byte) error {
+func (t *ValueInt) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
 
 	v := binary.BigEndian.Uint32(b)
-	*t = TypeInt(decodeZigzag(v))
+	*t = ValueInt(decodeZigzag(v))
 
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////
 
-type TypeFloat float32
+type ValueFloat float32
 
-func newTypeFloat() Value {
-	return new(TypeFloat)
+func newValueFloat() Value {
+	return new(ValueFloat)
 }
 
-func (TypeFloat) TypeID() byte {
+func (ValueFloat) TypeID() byte {
 	return 0x4
 }
 
-func (TypeFloat) TypeString() string {
+func (ValueFloat) ValueString() string {
 	return "Float"
 }
 
-func (t *TypeFloat) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueFloat) ArrayBytes(a []Value) (b []byte, err error) {
 	b, err = appendValueBytes(t, a)
 	if err != nil {
 		return nil, err
@@ -291,7 +291,7 @@ func (t *TypeFloat) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t TypeFloat) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueFloat) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	if err = deinterleave(bc, 4); err != nil {
@@ -306,44 +306,44 @@ func (t TypeFloat) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeFloat) Bytes() []byte {
+func (t ValueFloat) Bytes() []byte {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, encodeRobloxFloat(float32(t)))
 	return b
 }
 
-func (t *TypeFloat) FromBytes(b []byte) error {
+func (t *ValueFloat) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
 
 	v := binary.BigEndian.Uint32(b)
-	*t = TypeFloat(decodeRobloxFloat(v))
+	*t = ValueFloat(decodeRobloxFloat(v))
 
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////
 
-type TypeDouble float64
+type ValueDouble float64
 
-func newTypeDouble() Value {
-	return new(TypeDouble)
+func newValueDouble() Value {
+	return new(ValueDouble)
 }
 
-func (TypeDouble) TypeID() byte {
+func (ValueDouble) TypeID() byte {
 	return 0x5
 }
 
-func (TypeDouble) TypeString() string {
+func (ValueDouble) ValueString() string {
 	return "Double"
 }
 
-func (t *TypeDouble) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
-func (t TypeDouble) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
 	a, err = appendByteValues(t.TypeID(), b, 4)
 	if err != nil {
 		return nil, err
@@ -352,45 +352,45 @@ func (t TypeDouble) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeDouble) Bytes() []byte {
+func (t ValueDouble) Bytes() []byte {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, uint32(math.Float64bits(float64(t))))
 	return b
 }
 
-func (t *TypeDouble) FromBytes(b []byte) error {
+func (t *ValueDouble) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
 
 	v := binary.LittleEndian.Uint64(b)
-	*t = TypeDouble(math.Float64frombits(v))
+	*t = ValueDouble(math.Float64frombits(v))
 
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////
 
-type TypeUDim2 struct {
-	ScaleX  TypeFloat
-	ScaleY  TypeFloat
-	OffsetX TypeInt
-	OffsetY TypeInt
+type ValueUDim2 struct {
+	ScaleX  ValueFloat
+	ScaleY  ValueFloat
+	OffsetX ValueInt
+	OffsetY ValueInt
 }
 
-func newTypeUDim2() Value {
-	return new(TypeUDim2)
+func newValueUDim2() Value {
+	return new(ValueUDim2)
 }
 
-func (TypeUDim2) TypeID() byte {
+func (ValueUDim2) TypeID() byte {
 	return 0x7
 }
 
-func (TypeUDim2) TypeString() string {
+func (ValueUDim2) ValueString() string {
 	return "UDim2"
 }
 
-func (t *TypeUDim2) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
 	/*
 		l := len(a)
 		b = make([]byte, l*16)
@@ -423,7 +423,7 @@ func (t *TypeUDim2) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t TypeUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 
@@ -445,7 +445,7 @@ func (t TypeUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeUDim2) Bytes() []byte {
+func (t ValueUDim2) Bytes() []byte {
 	b := make([]byte, 16)
 	copy(b[0:4], t.ScaleX.Bytes())
 	copy(b[4:8], t.ScaleY.Bytes())
@@ -454,7 +454,7 @@ func (t TypeUDim2) Bytes() []byte {
 	return b
 }
 
-func (t *TypeUDim2) FromBytes(b []byte) error {
+func (t *ValueUDim2) FromBytes(b []byte) error {
 	if len(b) != 16 {
 		return errors.New("array length must be 16")
 	}
@@ -469,7 +469,7 @@ func (t *TypeUDim2) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-type TypeRay struct {
+type ValueRay struct {
 	OriginX    float32
 	OriginY    float32
 	OriginZ    float32
@@ -478,23 +478,23 @@ type TypeRay struct {
 	DirectionZ float32
 }
 
-func newTypeRay() Value {
-	return new(TypeRay)
+func newValueRay() Value {
+	return new(ValueRay)
 }
 
-func (TypeRay) TypeID() byte {
+func (ValueRay) TypeID() byte {
 	return 0x8
 }
 
-func (TypeRay) TypeString() string {
+func (ValueRay) ValueString() string {
 	return "Ray"
 }
 
-func (t *TypeRay) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
-func (t TypeRay) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueRay) FromArrayBytes(b []byte) (a []Value, err error) {
 	a, err = appendByteValues(t.TypeID(), b, 24)
 	if err != nil {
 		return nil, err
@@ -503,7 +503,7 @@ func (t TypeRay) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeRay) Bytes() []byte {
+func (t ValueRay) Bytes() []byte {
 	b := make([]byte, 24)
 	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(t.OriginX))
 	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(t.OriginY))
@@ -514,7 +514,7 @@ func (t TypeRay) Bytes() []byte {
 	return b
 }
 
-func (t *TypeRay) FromBytes(b []byte) error {
+func (t *ValueRay) FromBytes(b []byte) error {
 	if len(b) != 24 {
 		return errors.New("array length must be 24")
 	}
@@ -531,27 +531,27 @@ func (t *TypeRay) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-type TypeFaces struct {
+type ValueFaces struct {
 	Right, Top, Back, Left, Bottom, Front bool
 }
 
-func newTypeFaces() Value {
-	return new(TypeFaces)
+func newValueFaces() Value {
+	return new(ValueFaces)
 }
 
-func (TypeFaces) TypeID() byte {
+func (ValueFaces) TypeID() byte {
 	return 0x9
 }
 
-func (TypeFaces) TypeString() string {
+func (ValueFaces) ValueString() string {
 	return "Faces"
 }
 
-func (t *TypeFaces) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(t, a)
 }
 
-func (t TypeFaces) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
 	a, err = appendByteValues(t.TypeID(), b, 0)
 	if err != nil {
 		return nil, err
@@ -560,7 +560,7 @@ func (t TypeFaces) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t TypeFaces) Bytes() []byte {
+func (t ValueFaces) Bytes() []byte {
 	flags := [6]bool{t.Front, t.Bottom, t.Left, t.Back, t.Top, t.Right}
 	var b byte
 	for i, flag := range flags {
@@ -572,7 +572,7 @@ func (t TypeFaces) Bytes() []byte {
 	return []byte{b}
 }
 
-func (t *TypeFaces) FromBytes(b []byte) error {
+func (t *ValueFaces) FromBytes(b []byte) error {
 	if len(b) != 1 {
 		return errors.New("array length must be 1")
 	}
