@@ -1,3 +1,15 @@
+// Package rbxfile implements a library for decoding and encoding Roblox
+// instance file formats.
+//
+// This package can be used to manipulate Roblox instance trees outside of the
+// Roblox client. Such data structures begin with a Root struct. A Root
+// contains a list of child Instances, which in turn contain more child
+// Instances, and so on, forming a tree of Instances. These Instances can be
+// accessed and manipulated using an API similar to that of Roblox.
+//
+// Each Instance also has a set of "properties". Each property has a specific
+// value of a certain type. Every available type is represented in the rbxtype
+// subpackage.
 package rbxfile
 
 import (
