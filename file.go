@@ -33,10 +33,6 @@ type Root struct {
 
 // Instance represents a single Roblox instance.
 type Instance struct {
-	// Referent is a unique string used to refer to the instance from
-	// elsewhere in the tree.
-	Referent string
-
 	// ClassName indicates the instance's type.
 	ClassName string
 
@@ -47,6 +43,10 @@ type Instance struct {
 	// Children contains instances that are the children of the current
 	// instance.
 	Children []*Instance
+
+	// Referent is a unique string used to refer to the instance from
+	// elsewhere in the tree.
+	Referent string
 }
 
 ////////////////////////////////////////////////////////////////
