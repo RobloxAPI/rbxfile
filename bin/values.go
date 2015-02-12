@@ -703,3 +703,79 @@ func (t *ValueBrickColor) FromBytes(b []byte) error {
 }
 
 ////////////////////////////////////////////////////////////////
+
+type ValueColor3 struct {
+	R, G, B ValueFloat
+}
+
+func newValueColor3() Value {
+	return new(ValueColor3)
+}
+
+func (ValueColor3) TypeID() byte {
+	return 0xC
+}
+
+func (ValueColor3) TypeString() string {
+	return "Color3"
+}
+
+func (t *ValueColor3) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(t, a)
+
+	// Interleave fields of each struct (field length, fields per struct).
+	if err := bigInterleave(b, 4, 3); err != nil {
+		return nil, err
+	}
+
+	// Interleave bytes of each field (byte length, bytes per field).
+	if err := bigInterleave(b, 1, 4); err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func (t ValueColor3) FromArrayBytes(b []byte) (a []Value, err error) {
+	bc := make([]byte, len(b))
+	copy(bc, b)
+
+	// Deinterleave bytes of each field (byte length, bytes per field).
+	if err = bigDeinterleave(bc, 1, 4); err != nil {
+		return nil, err
+	}
+
+	// Deinterleave fields of each struct (field length, fields per struct).
+	if err = bigDeinterleave(bc, 4, 3); err != nil {
+		return nil, err
+	}
+
+	a, err = appendByteValues(t.TypeID(), bc, 12)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (t ValueColor3) Bytes() []byte {
+	b := make([]byte, 12)
+	copy(b[0:4], t.R.Bytes())
+	copy(b[4:8], t.G.Bytes())
+	copy(b[8:12], t.B.Bytes())
+	return b
+}
+
+func (t *ValueColor3) FromBytes(b []byte) error {
+	if len(b) != 12 {
+		return errors.New("array length must be 12")
+	}
+
+	t.R.FromBytes(b[0:4])
+	t.G.FromBytes(b[4:8])
+	t.B.FromBytes(b[8:12])
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
