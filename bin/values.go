@@ -929,3 +929,63 @@ func (t *ValueVector3) FromBytes(b []byte) error {
 }
 
 ////////////////////////////////////////////////////////////////
+
+type ValueToken uint32
+
+func newValueToken() Value {
+	return new(ValueToken)
+}
+
+func (ValueToken) TypeID() byte {
+	return 0x12
+}
+
+func (ValueToken) TypeString() string {
+	return "Token"
+}
+
+func (t *ValueToken) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(t, a)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = interleave(b, 4); err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func (t ValueToken) FromArrayBytes(b []byte) (a []Value, err error) {
+	bc := make([]byte, len(b))
+	copy(bc, b)
+	if err = deinterleave(bc, 4); err != nil {
+		return nil, err
+	}
+
+	a, err = appendByteValues(t.TypeID(), bc, 4)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (t ValueToken) Bytes() []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(t))
+	return b
+}
+
+func (t *ValueToken) FromBytes(b []byte) error {
+	if len(b) != 4 {
+		return errors.New("array length must be 4")
+	}
+
+	*t = ValueToken(binary.BigEndian.Uint32(b))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
