@@ -410,7 +410,7 @@ func (t *ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
 
 	b, err = appendValueBytes(t, a)
 
-	// Interleave fields of each UDim2 (field length, fields per UDim2).
+	// Interleave fields of each struct (field length, fields per struct).
 	if err := bigInterleave(b, 4, 4); err != nil {
 		return nil, err
 	}
@@ -432,7 +432,7 @@ func (t ValueUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	// Deinterleave fields of each UDim2 (field length, fields per UDim2).
+	// Deinterleave fields of each struct (field length, fields per struct).
 	if err = bigDeinterleave(bc, 4, 4); err != nil {
 		return nil, err
 	}
