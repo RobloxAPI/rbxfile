@@ -887,20 +887,20 @@ func (t *ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueVector3) FromArrayBytes(b []byte) (a []Value, err error) {
-	c := make([]byte, len(b))
-	copy(c, b)
+	bc := make([]byte, len(b))
+	copy(bc, b)
 
 	// Deinterleave bytes of each field (byte length, bytes per field).
-	if err = bigDeinterleave(c, 1, 4); err != nil {
+	if err = bigDeinterleave(bc, 1, 4); err != nil {
 		return nil, err
 	}
 
 	// Deinterleave fields of each struct (field length, fields per struct).
-	if err = bigDeinterleave(c, 4, 3); err != nil {
+	if err = bigDeinterleave(bc, 4, 3); err != nil {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.TypeID(), c, 12)
+	a, err = appendByteValues(t.TypeID(), bc, 12)
 	if err != nil {
 		return nil, err
 	}
