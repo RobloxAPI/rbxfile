@@ -54,7 +54,7 @@ var valueGenerators = map[byte]valueGenerator{
 	//0x11: newValueCFrameQuat,
 	newValueToken().TypeID(): newValueToken,
 	//newValueReferent().TypeID():   newValueReferent,
-	//0x14: newValueVector3int16,
+	newValueVector3int16().TypeID(): newValueVector3int16,
 }
 
 // Appends the bytes of a list of Values into a byte array.
@@ -984,6 +984,54 @@ func (t *ValueToken) FromBytes(b []byte) error {
 	}
 
 	*t = ValueToken(binary.BigEndian.Uint32(b))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValueVector3int16 struct {
+	X, Y, Z int16
+}
+
+func newValueVector3int16() Value {
+	return new(ValueVector3int16)
+}
+
+func (ValueVector3int16) TypeID() byte {
+	return 0x14
+}
+
+func (ValueVector3int16) TypeString() string {
+	return "Vector3int16"
+}
+
+func (t *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(t, a)
+}
+
+func (t ValueVector3int16) FromArrayBytes(b []byte) (a []Value, err error) {
+	return appendByteValues(t.TypeID(), b, 6)
+}
+
+func (t ValueVector3int16) Bytes() []byte {
+	b := make([]byte, 6)
+
+	binary.LittleEndian.PutUint16(b[0:2], t.X)
+	binary.LittleEndian.PutUint16(b[2:4], t.Y)
+	binary.LittleEndian.PutUint16(b[4:6], t.Z)
+
+	return b
+}
+
+func (t *ValueVector3int16) FromBytes(b []byte) error {
+	if len(b) != 6 {
+		return errors.New("array length must be 6")
+	}
+
+	t.X = binary.LittleEndian.Uint16(b[0:2])
+	t.Y = binary.LittleEndian.Uint16(b[2:4])
+	t.Z = binary.LittleEndian.Uint16(b[4:6])
 
 	return nil
 }
