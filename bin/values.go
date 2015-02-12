@@ -643,3 +643,63 @@ func (t *ValueAxes) FromBytes(b []byte) error {
 }
 
 ////////////////////////////////////////////////////////////////
+
+type ValueBrickColor uint32
+
+func newValueBrickColor() Value {
+	return new(ValueBrickColor)
+}
+
+func (ValueBrickColor) TypeID() byte {
+	return 0xB
+}
+
+func (ValueBrickColor) TypeString() string {
+	return "BrickColor"
+}
+
+func (t *ValueBrickColor) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(t, a)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = interleave(b, 4); err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func (t ValueBrickColor) FromArrayBytes(b []byte) (a []Value, err error) {
+	bc := make([]byte, len(b))
+	copy(bc, b)
+	if err = deinterleave(bc, 4); err != nil {
+		return nil, err
+	}
+
+	a, err = appendByteValues(t.TypeID(), bc, 4)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (t ValueBrickColor) Bytes() []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(t))
+	return b
+}
+
+func (t *ValueBrickColor) FromBytes(b []byte) error {
+	if len(b) != 4 {
+		return errors.New("array length must be 4")
+	}
+
+	*t = ValueBrickColor(binary.BigEndian.Uint32(b))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
