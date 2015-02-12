@@ -35,12 +35,12 @@ type Value interface {
 type valueGenerator func() Value
 
 var valueGenerators = map[byte]valueGenerator{
-	newValueString().TypeID(): newValueString,
-	newValueBool().TypeID():   newValueBool,
-	newValueInt().TypeID():    newValueInt,
-	newValueFloat().TypeID():  newValueFloat,
-	newValueDouble().TypeID(): newValueDouble,
-	//0x6: newValueUDim,
+	newValueString().TypeID():     newValueString,
+	newValueBool().TypeID():       newValueBool,
+	newValueInt().TypeID():        newValueInt,
+	newValueFloat().TypeID():      newValueFloat,
+	newValueDouble().TypeID():     newValueDouble,
+	newValueUDim().TypeID():       newValueUDim,
 	newValueUDim2().TypeID():      newValueUDim2,
 	newValueRay().TypeID():        newValueRay,
 	newValueFaces().TypeID():      newValueFaces,
@@ -365,6 +365,53 @@ func (t *ValueDouble) FromBytes(b []byte) error {
 
 	v := binary.LittleEndian.Uint64(b)
 	*t = ValueDouble(math.Float64frombits(v))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValueUDim struct {
+	Scale  ValueFloat
+	Offset ValueInt
+}
+
+func newValueUDim() Value {
+	return new(ValueUDim)
+}
+
+func (ValueUDim) TypeID() byte {
+	return 0x6
+}
+
+func (ValueUDim) TypeString() string {
+	return "UDim"
+}
+
+func (t *ValueUDim) ArrayBytes(a []Value) (b []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
+func (t ValueUDim) FromArrayBytes(b []byte) (a []Value, err error) {
+	return nil, errors.New("not implemented")
+}
+
+func (t ValueUDim) Bytes() []byte {
+	b := make([]byte, 8)
+
+	copy(b[0:4], t.Scale.Bytes())
+	copy(b[4:8], t.Offset.Bytes())
+
+	return b
+}
+
+func (t *ValueUDim) FromBytes(b []byte) error {
+	if len(b) != 8 {
+		return errors.New("array length must be 8")
+	}
+
+	t.Scale.FromBytes(b[0:4])
+	t.Offset.FromBytes(b[4:8])
 
 	return nil
 }
