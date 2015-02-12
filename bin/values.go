@@ -1037,6 +1037,105 @@ func (t *ValueToken) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+type ValueReferent int32
+
+func newValueReferent() Value {
+	return new(ValueReferent)
+}
+
+func (ValueReferent) TypeID() byte {
+	return 0x13
+}
+
+func (ValueReferent) TypeString() string {
+	return "Referent"
+}
+
+func (t *ValueReferent) ArrayBytes(a []Value) (b []byte, err error) {
+	if len(a) == 0 {
+		return b, nil
+	}
+
+	size := 4
+	b = make([]byte, len(a)*size)
+
+	var prev ValueReferent
+	for i, v := range a {
+		ref, ok := v.(*ValueReferent)
+		if !ok {
+			return nil, errors.New(
+				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, v.TypeString(), t.TypeString()),
+			)
+		}
+
+		if i == 0 {
+			copy(b[i*size:i*size+size], ref.Bytes())
+		} else {
+			// Convert absolute ref to relative ref.
+			copy(b[i*size:i*size+size], (*ref - prev).Bytes())
+		}
+
+		prev = *ref
+	}
+
+	if err = interleave(b, size); err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func (t ValueReferent) FromArrayBytes(b []byte) (a []Value, err error) {
+	if len(b) == 0 {
+		return a, nil
+	}
+
+	size := 4
+	if len(b)%size != 0 {
+		return nil, errors.New(fmt.Sprintf("array must be divisible by %d", size))
+	}
+
+	bc := make([]byte, len(b))
+	copy(bc, b)
+	if err = deinterleave(bc, size); err != nil {
+		return nil, err
+	}
+
+	a = make([]Value, len(bc)/size)
+	for i := 0; i < len(bc)/size; i++ {
+		ref := new(ValueReferent)
+		ref.FromBytes(bc[i*size : i*size+size])
+
+		if i > 0 {
+			// Convert relative ref to absolute ref.
+			*ref = *a[i-1].(*ValueReferent) + *ref
+		}
+
+		a[i] = ref
+	}
+
+	return a, nil
+}
+
+func (t ValueReferent) Bytes() []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, encodeZigzag(int32(t)))
+	return b
+}
+
+func (t *ValueReferent) FromBytes(b []byte) error {
+	if len(b) != 4 {
+		return errors.New("array length must be 4")
+	}
+
+	v := binary.BigEndian.Uint32(b)
+	*t = ValueReferent(decodeZigzag(v))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
 type ValueVector3int16 struct {
 	X, Y, Z int16
 }
