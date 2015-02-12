@@ -977,6 +977,52 @@ func (t *ValueVector3) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+type ValueVector2int16 struct {
+	X, Y int16
+}
+
+func newValueVector2int16() Value {
+	return new(ValueVector2int16)
+}
+
+func (ValueVector2int16) TypeID() byte {
+	return 0xF
+}
+
+func (ValueVector2int16) TypeString() string {
+	return "Vector2int16"
+}
+
+func (t *ValueVector2int16) ArrayBytes(a []Value) (b []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
+func (t ValueVector2int16) FromArrayBytes(b []byte) (a []Value, err error) {
+	return nil, errors.New("not implemented")
+}
+
+func (t ValueVector2int16) Bytes() []byte {
+	b := make([]byte, 4)
+
+	binary.LittleEndian.PutUint16(b[0:2], uint16(t.X))
+	binary.LittleEndian.PutUint16(b[2:4], uint16(t.Y))
+
+	return b
+}
+
+func (t *ValueVector2int16) FromBytes(b []byte) error {
+	if len(b) != 4 {
+		return errors.New("array length must be 4")
+	}
+
+	t.X = int16(binary.LittleEndian.Uint16(b[0:2]))
+	t.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
 type ValueCFrame struct {
 	Special  uint8
 	Rotation [9]float32
