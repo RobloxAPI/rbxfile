@@ -977,6 +977,155 @@ func (t *ValueVector3) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+type ValueCFrame struct {
+	Special  uint8
+	Rotation [9]float32
+	Position ValueVector3
+}
+
+func newValueCFrame() Value {
+	return new(ValueCFrame)
+}
+
+func (ValueCFrame) TypeID() byte {
+	return 0x10
+}
+
+func (ValueCFrame) TypeString() string {
+	return "CFrame"
+}
+
+func (t *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
+	p := make([]Value, len(a))
+
+	for i, v := range a {
+		cf, ok := v.(*ValueCFrame)
+		if !ok {
+			return nil, errors.New(
+				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.TypeString(), t.TypeString()),
+			)
+		}
+
+		// Build matrix part.
+		b = append(b, cf.Special)
+		if cf.Special == 0 {
+			r := make([]byte, len(t.Rotation)*4)
+			for i, f := range t.Rotation {
+				binary.LittleEndian.PutUint32(r[i*4:i*4+4], math.Float32bits(f))
+			}
+			b = append(b, r...)
+		}
+
+		// Prepare position part.
+		p[i] = &cf.Position
+	}
+
+	// Build position part.
+	pb, _ := appendValueBytes(&t.Position, p)
+	b = append(b, pb...)
+
+	return b, nil
+}
+
+func (t ValueCFrame) FromArrayBytes(b []byte) (a []Value, err error) {
+	cfs := make([]*ValueCFrame, 0)
+
+	// This loop reads the matrix data. i is the current position in the byte
+	// array. n is the expected size of the position data, which increases
+	// every time another CFrame is read. As long as the number of remaining
+	// bytes is greater than n, then the next byte can be assumed to be matrix
+	// data. By the end, the number of remaining bytes should be exactly equal
+	// to n.
+	i := 0
+	for n := 0; len(b)-i > n; n += 12 {
+		cf := new(ValueCFrame)
+
+		cf.Special = b[i]
+		i++
+
+		if cf.Special == 0 {
+			q := len(t.Rotation) * 4
+			r := b[i:]
+			if len(r) < q {
+				return nil, errors.New(fmt.Sprintf("expected %d more bytes in array", q))
+			}
+			for i := range t.Rotation {
+				t.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
+			}
+			i += q
+		}
+
+		cfs = append(cfs, cf)
+	}
+
+	// Read remaining position data using the Position field, which is a
+	// ValueVector3. FromArrayBytes doesn't modify the value, so it's safe to
+	// use from a non-pointer ValueVector3.
+	a, err = t.Position.FromArrayBytes(b[i:])
+	if err != nil {
+		return nil, err
+	}
+
+	if len(a) != len(cfs) {
+		return nil, errors.New("number of positions does not match number of matrices")
+	}
+
+	// Hack: use 'a' variable to receive Vector3 values, then replace them
+	// with CFrames. This lets us avoid needing to copy 'cfs' to 'a', and
+	// needing to create a second array.
+	for i, p := range a {
+		cfs[i].Position = *p.(*ValueVector3)
+		a[i] = cfs[i]
+	}
+
+	return a, err
+}
+
+func (t ValueCFrame) Bytes() []byte {
+	var b []byte
+	if t.Special == 0 {
+		b = make([]byte, 49)
+		r := b[1:]
+		for i, f := range t.Rotation {
+			binary.LittleEndian.PutUint32(r[i*4:i*4+4], math.Float32bits(f))
+		}
+	} else {
+		b = make([]byte, 13)
+		b[0] = t.Special
+	}
+
+	copy(b[len(b)-12:], t.Position.Bytes())
+
+	return b
+}
+
+func (t *ValueCFrame) FromBytes(b []byte) error {
+	if b[0] == 0 && len(b) != 49 {
+		return errors.New("array length must be 49")
+	} else if b[0] != 0 && len(b) != 13 {
+		return errors.New("array length must be 13")
+	}
+
+	t.Special = b[0]
+
+	if b[0] == 0 {
+		r := b[1:]
+		for i := range t.Rotation {
+			t.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
+		}
+	} else {
+		for i := range t.Rotation {
+			t.Rotation[i] = 0
+		}
+	}
+
+	t.Position.FromBytes(b[len(b)-12:])
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
 type ValueToken uint32
 
 func newValueToken() Value {
