@@ -588,3 +588,58 @@ func (t *ValueFaces) FromBytes(b []byte) error {
 }
 
 ////////////////////////////////////////////////////////////////
+
+type ValueAxes struct {
+	X, Y, Z bool
+}
+
+func newValueAxes() Value {
+	return new(ValueAxes)
+}
+
+func (ValueAxes) TypeID() byte {
+	return 0xA
+}
+
+func (ValueAxes) TypeString() string {
+	return "Axes"
+}
+
+func (t *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(t, a)
+}
+
+func (t ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
+	a, err = appendByteValues(t.TypeID(), b, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (t ValueAxes) Bytes() []byte {
+	flags := [3]bool{t.X, t.Y, t.Z}
+	var b byte
+	for i, flag := range flags {
+		if flag {
+			b = b | (1 << uint(i))
+		}
+	}
+
+	return []byte{b}
+}
+
+func (t *ValueAxes) FromBytes(b []byte) error {
+	if len(b) != 1 {
+		return errors.New("array length must be 1")
+	}
+
+	t.X = b[0]&(1<<0) != 0
+	t.Y = b[0]&(1<<1) != 0
+	t.Z = b[0]&(1<<2) != 0
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
