@@ -1064,9 +1064,9 @@ func (t ValueVector3int16) FromArrayBytes(b []byte) (a []Value, err error) {
 func (t ValueVector3int16) Bytes() []byte {
 	b := make([]byte, 6)
 
-	binary.LittleEndian.PutUint16(b[0:2], t.X)
-	binary.LittleEndian.PutUint16(b[2:4], t.Y)
-	binary.LittleEndian.PutUint16(b[4:6], t.Z)
+	binary.LittleEndian.PutUint16(b[0:2], uint16(t.X))
+	binary.LittleEndian.PutUint16(b[2:4], uint16(t.Y))
+	binary.LittleEndian.PutUint16(b[4:6], uint16(t.Z))
 
 	return b
 }
@@ -1076,9 +1076,9 @@ func (t *ValueVector3int16) FromBytes(b []byte) error {
 		return errors.New("array length must be 6")
 	}
 
-	t.X = binary.LittleEndian.Uint16(b[0:2])
-	t.Y = binary.LittleEndian.Uint16(b[2:4])
-	t.Z = binary.LittleEndian.Uint16(b[4:6])
+	t.X = int16(binary.LittleEndian.Uint16(b[0:2]))
+	t.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
+	t.Z = int16(binary.LittleEndian.Uint16(b[4:6]))
 
 	return nil
 }
