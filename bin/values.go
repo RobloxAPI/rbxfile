@@ -98,7 +98,7 @@ func (ValueString) TypeID() byte {
 	return 0x1
 }
 
-func (ValueString) ValueString() string {
+func (ValueString) TypeString() string {
 	return "String"
 }
 
@@ -166,7 +166,7 @@ func (ValueBool) TypeID() byte {
 	return 0x2
 }
 
-func (ValueBool) ValueString() string {
+func (ValueBool) TypeString() string {
 	return "Bool"
 }
 
@@ -213,7 +213,7 @@ func (ValueInt) TypeID() byte {
 	return 0x3
 }
 
-func (ValueInt) ValueString() string {
+func (ValueInt) TypeString() string {
 	return "Int"
 }
 
@@ -274,7 +274,7 @@ func (ValueFloat) TypeID() byte {
 	return 0x4
 }
 
-func (ValueFloat) ValueString() string {
+func (ValueFloat) TypeString() string {
 	return "Float"
 }
 
@@ -335,7 +335,7 @@ func (ValueDouble) TypeID() byte {
 	return 0x5
 }
 
-func (ValueDouble) ValueString() string {
+func (ValueDouble) TypeString() string {
 	return "Double"
 }
 
@@ -386,7 +386,7 @@ func (ValueUDim2) TypeID() byte {
 	return 0x7
 }
 
-func (ValueUDim2) ValueString() string {
+func (ValueUDim2) TypeString() string {
 	return "UDim2"
 }
 
@@ -486,7 +486,7 @@ func (ValueRay) TypeID() byte {
 	return 0x8
 }
 
-func (ValueRay) ValueString() string {
+func (ValueRay) TypeString() string {
 	return "Ray"
 }
 
@@ -543,7 +543,7 @@ func (ValueFaces) TypeID() byte {
 	return 0x9
 }
 
-func (ValueFaces) ValueString() string {
+func (ValueFaces) TypeString() string {
 	return "Faces"
 }
 
