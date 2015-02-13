@@ -471,10 +471,14 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 
 	c.InstanceIDs = make([]int32, groupLength)
 	if groupLength > 0 {
-		c.InstanceIDs[0] = decodeZigzag(binary.BigEndian.Uint32(groupRaw[0:4]))
+		v := new(ValueInt)
+
+		v.FromBytes(groupRaw[0:4])
+		c.InstanceIDs[0] = int32(*v)
 		for i := uint32(1); i < groupLength; i++ {
 			// Each entry is relative to the previous
-			c.InstanceIDs[i] = c.InstanceIDs[i-1] + decodeZigzag(binary.BigEndian.Uint32(groupRaw[i*4:i*4+4]))
+			v.FromBytes(groupRaw[i*4 : i*4+4])
+			c.InstanceIDs[i] = c.InstanceIDs[i-1] + int32(*v)
 		}
 	}
 
@@ -602,10 +606,14 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 
 	c.Children = make([]int32, c.InstanceCount)
 	if c.InstanceCount > 0 {
-		c.Children[0] = decodeZigzag(binary.BigEndian.Uint32(childrenRaw[0:4]))
+		v := new(ValueInt)
+
+		v.FromBytes(childrenRaw[0:4])
+		c.Children[0] = int32(*v)
 		for i := uint32(1); i < c.InstanceCount; i++ {
 			// Each entry is relative to the previous
-			c.Children[i] = c.Children[i-1] + decodeZigzag(binary.BigEndian.Uint32(childrenRaw[i*4:i*4+4]))
+			v.FromBytes(childrenRaw[i*4 : i*4+4])
+			c.Children[i] = c.Children[i-1] + int32(*v)
 		}
 	}
 
@@ -620,10 +628,14 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 
 	c.Parents = make([]int32, c.InstanceCount)
 	if c.InstanceCount > 0 {
-		c.Parents[0] = decodeZigzag(binary.BigEndian.Uint32(parentsRaw[0:4]))
+		v := new(ValueInt)
+
+		v.FromBytes(parentsRaw[0:4])
+		c.Parents[0] = int32(*v)
 		for i := uint32(1); i < c.InstanceCount; i++ {
 			// Each entry is relative to the previous
-			c.Parents[i] = c.Parents[i-1] + decodeZigzag(binary.BigEndian.Uint32(parentsRaw[i*4:i*4+4]))
+			v.FromBytes(parentsRaw[i*4 : i*4+4])
+			c.Parents[i] = c.Parents[i-1] + int32(*v)
 		}
 	}
 
