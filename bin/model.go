@@ -756,17 +756,14 @@ type ChunkParent struct {
 	// file format.
 	Version uint8
 
-	// InstanceCount is the number of instances that are described in the
-	// chunk.
-	InstanceCount uint32
-
 	// Children is a list of instances referred to by instance ID. The length
 	// of this array should be equal to InstanceCount.
 	Children []int32
 
 	// Parents is a list of instances, referred to by instance ID, that
 	// indicate the Parent of the corresponding instance in the Children
-	// array. The length of this array should be equal to InstanceCount.
+	// array. The length of this array should be equal to the length of
+	// Children.
 	Parents []int32
 }
 
@@ -793,13 +790,14 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 
-	if fr.readNumber(binary.LittleEndian, &c.InstanceCount) {
+	var instanceCount uint32
+	if fr.readNumber(binary.LittleEndian, &instanceCount) {
 		return fr.end()
 	}
 
-	c.Children = make([]int32, c.InstanceCount)
-	if c.InstanceCount > 0 {
-		raw := make([]byte, c.InstanceCount*4)
+	c.Children = make([]int32, instanceCount)
+	if instanceCount > 0 {
+		raw := make([]byte, instanceCount*4)
 		if fr.read(raw) {
 			return fr.end()
 		}
@@ -814,9 +812,9 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 	}
 
-	c.Parents = make([]int32, c.InstanceCount)
-	if c.InstanceCount > 0 {
-		raw := make([]byte, c.InstanceCount*4)
+	c.Parents = make([]int32, instanceCount)
+	if instanceCount > 0 {
+		raw := make([]byte, instanceCount*4)
 		if fr.read(raw) {
 			return fr.end()
 		}
