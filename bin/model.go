@@ -363,7 +363,46 @@ loop:
 
 // WriteTo encodes the FormatModel as bytes to w.
 func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, errors.New("not implemented")
+	fw := &formatWriter{w: w}
+
+	if fw.write([]byte(BinaryHeader)) {
+		return fw.end()
+	}
+
+	// version; unknown endianness
+	if fw.writeNumber(binary.LittleEndian, uint16(0)) {
+		return fw.end()
+	}
+
+	if fw.writeNumber(binary.LittleEndian, f.GroupCount) {
+		return fw.end()
+	}
+
+	if fw.writeNumber(binary.LittleEndian, f.InstanceCount) {
+		return fw.end()
+	}
+
+	// reserved
+	if fw.writeNumber(binary.LittleEndian, uint64(0)) {
+		return fw.end()
+	}
+
+	for _, chunk := range f.Chunks {
+		rawChunk := new(rawChunk)
+		rawChunk.signature = chunk.Signature()
+		rawChunk.compressed = chunk.Compressed()
+
+		buf := new(bytes.Buffer)
+		if _, fw.err = chunk.WriteTo(buf); fw.err != nil {
+			return fw.end()
+		}
+
+		if rawChunk.WriteTo(fw) {
+			return fw.end()
+		}
+	}
+
+	return fw.end()
 }
 
 ////////////////////////////////////////////////////////////////
