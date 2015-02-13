@@ -296,7 +296,8 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 
 	if !bytes.Equal(header, []byte(BinaryHeader)) {
-		return fr.n, ErrCorruptHeader
+		fr.err = ErrCorruptHeader
+		return fr.end()
 	}
 
 	var version uint16
@@ -304,7 +305,8 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 	if version != 0 {
-		return fr.n, ErrMismatchedVersion{ExpectedVersion: 0, DecodedVersion: version}
+		fr.err = ErrMismatchedVersion{ExpectedVersion: 0, DecodedVersion: version}
+		return fr.end()
 	}
 
 	if fr.readNumber(binary.LittleEndian, &f.GroupCount) {
@@ -945,7 +947,8 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 
 	newValue, ok := valueGenerators[c.DataType]
 	if !ok {
-		return n, errors.New("unrecognized data type")
+		fr.err = errors.New("unrecognized data type")
+		return fr.end()
 	}
 
 	c.Properties, fr.err = newValue().FromArrayBytes(rawBytes)
@@ -953,7 +956,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 
-	return n, nil
+	return fr.end()
 }
 
 func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
