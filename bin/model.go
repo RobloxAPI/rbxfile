@@ -325,27 +325,28 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 
 loop:
 	for {
-		data, failed := decompressChunk(fr)
-		if failed {
+		rawChunk := new(rawChunk)
+		if rawChunk.ReadFrom(fr) {
 			return fr.end()
 		}
 
-		newChunk, ok := f.ChunkGenerators[data.signature]
+		newChunk, ok := f.ChunkGenerators[rawChunk.signature]
 		if !ok {
-			f.Warnings = append(f.Warnings, warning("unknown chunk signature `"+string(data.signature[:])+"`"))
+			f.Warnings = append(f.Warnings, warning("unknown chunk signature `"+string(rawChunk.signature[:])+"`"))
 			continue loop
 		}
 
 		chunk := newChunk()
-		chunk.SetCompressed(data.compressedLength != 0)
-		if _, fr.err = chunk.ReadFrom(data.decompressedData); fr.err != nil {
+		chunk.SetCompressed(rawChunk.compressed)
+
+		if _, fr.err = chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); fr.err != nil {
 			return fr.end()
 		}
 
 		f.Chunks = append(f.Chunks, chunk)
 
 		if endChunk, ok := chunk.(*ChunkEnd); ok {
-			if !endChunk.isCompressed {
+			if !endChunk.Compressed() {
 				f.Warnings = append(f.Warnings, warning("END chunk is not uncompressed"))
 			}
 
@@ -380,71 +381,130 @@ type Chunk interface {
 	// encoding.
 	SetCompressed(bool)
 
-	// ReadFrom reads data from a stream into the chunk. Assumes the signature
-	// has already been read.
+	// ReadFrom processes the payload of a decompressed chunk.
 	ReadFrom(r io.Reader) (n int64, err error)
 
-	// WriteTo writes the data from a chunk to the stream. This includes the
-	// signature.
+	// WriteTo writes the data from a chunk to an uncompressed payload. The
+	// payload will be compressed afterward depending on the chunk's
+	// compression settings.
 	WriteTo(w io.Writer) (n int64, err error)
 }
 
-// Decompresses a chunk and prepares it for reading.
-type compressedChunk struct {
-	signature          [4]byte
-	compressedLength   uint32
-	decompressedLength uint32
-	decompressedData   io.Reader
+// Represents a raw chunk, which contains compression data and payload.
+type rawChunk struct {
+	signature  [4]byte
+	compressed bool
+	payload    []byte
 }
 
-// Decompresses a lz4-compressed chunk and returns a reader that reads the
-// decompressed data.
-func decompressChunk(fr *formatReader) (data *compressedChunk, failed bool) {
-	sigb := data.signature[:]
-	if fr.read(sigb) {
-		return nil, true
+// Reads out a raw chunk from a stream, decompressing the chunk if necessary.
+func (c *rawChunk) ReadFrom(fr *formatReader) bool {
+	if fr.read(c.signature[:]) {
+		return true
 	}
 
-	if fr.readNumber(binary.LittleEndian, &data.compressedLength) {
-		return nil, true
+	var compressedLength uint32
+	if fr.readNumber(binary.LittleEndian, &compressedLength) {
+		return true
 	}
 
-	if fr.readNumber(binary.LittleEndian, &data.decompressedLength) {
-		return nil, true
+	var decompressedLength uint32
+	if fr.readNumber(binary.LittleEndian, &decompressedLength) {
+		return true
 	}
 
 	var reserved uint32
 	if fr.readNumber(binary.LittleEndian, &reserved) {
-		return nil, true
+		return true
 	}
 
-	decompressedData := make([]byte, data.decompressedLength)
+	c.payload = make([]byte, decompressedLength)
 	// If compressed length is 0, then the data is not compressed.
-	if data.compressedLength == 0 {
-		if fr.read(decompressedData) {
-			return nil, true
+	if compressedLength == 0 {
+		c.compressed = false
+		if fr.read(c.payload) {
+			return true
 		}
 	} else {
+		c.compressed = true
+
 		// Prepare compressed data for reading by lz4, which requires the
 		// uncompressed length before the compressed data.
-		compressedData := make([]byte, data.compressedLength+4)
-		binary.LittleEndian.PutUint32(compressedData, data.decompressedLength)
+		compressedData := make([]byte, compressedLength+4)
+		binary.LittleEndian.PutUint32(compressedData, decompressedLength)
 
 		if fr.read(compressedData[4:]) {
-			return nil, true
+			return true
 		}
 
-		// ROBLOX ERROR: "Malformed data ([true decompressed length] != [given decompressed length])"
-		// lz4 already does some kind of size validation, though the error message isn't the same.
+		// ROBLOX ERROR: "Malformed data ([true decompressed length] != [given
+		// decompressed length])". lz4 already does some kind of size
+		// validation, though the error message isn't the same.
 
-		if _, err := lz4.Decode(decompressedData, compressedData); err != nil {
+		if _, err := lz4.Decode(c.payload, compressedData); err != nil {
 			fr.err = err
-			return nil, true
+			return true
 		}
 	}
 
-	data.decompressedData = bytes.NewReader(decompressedData)
-	return data, false
+	return false
+}
+
+func (c *rawChunk) WriteTo(fw *formatWriter) bool {
+	if fw.write(c.signature[:]) {
+		return true
+	}
+
+	// If compressed length is 0, then the data is not compressed.
+	if c.compressed {
+		// Compressed length
+		if fw.writeNumber(binary.LittleEndian, 0) {
+			return true
+		}
+
+		// Decompressed length
+		if fw.writeNumber(binary.LittleEndian, len(c.payload)) {
+			return true
+		}
+
+		// Reserved
+		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
+			return true
+		}
+
+		if fw.write(c.payload) {
+			return true
+		}
+	} else {
+		compressedData := make([]byte, 4)
+		compressedData, fw.err = lz4.Encode(compressedData, c.payload)
+		if fw.err != nil {
+			return true
+		}
+
+		// Compressed length; lz4 prepends the length of the uncompressed
+		// payload, so it must be excluded.
+		if fw.writeNumber(binary.LittleEndian, len(compressedData[4:])) {
+			return true
+		}
+
+		// decompressed length
+		if fw.writeNumber(binary.LittleEndian, len(c.payload)) {
+			return true
+		}
+
+		// reserved
+		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
+			return true
+		}
+
+		if fw.write(compressedData) {
+			return true
+		}
+
+	}
+
+	return false
 }
 
 ////////////////////////////////////////////////////////////////
