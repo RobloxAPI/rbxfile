@@ -736,7 +736,11 @@ func (c *ChunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 func (c *ChunkEnd) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, errors.New("not implemented")
+	fw := &formatWriter{w: w}
+
+	fw.write(c.Content)
+
+	return fw.end()
 }
 
 ////////////////////////////////////////////////////////////////
