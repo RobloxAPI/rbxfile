@@ -833,7 +833,53 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, errors.New("not implemented")
+	fw := &formatWriter{w: w}
+
+	if fw.writeNumber(binary.LittleEndian, c.Version) {
+		return fw.end()
+	}
+
+	var instanceCount = len(c.Children)
+	if fw.writeNumber(binary.LittleEndian, instanceCount) {
+		return fw.end()
+	}
+
+	if instanceCount > 0 {
+		// Children
+		values := make([]Value, instanceCount)
+		for i, id := range c.Children {
+			values[i] = (*ValueReferent)(&id)
+		}
+
+		var raw []byte
+		if raw, fw.err = new(ValueReferent).ArrayBytes(values); fw.err != nil {
+			return fw.end()
+		}
+
+		if fw.write(raw) {
+			return fw.end()
+		}
+
+		// Parents
+		if len(c.Parents) != instanceCount {
+			fw.err = errors.New("length of parent array does not match children array")
+			return fw.end()
+		}
+
+		for i, id := range c.Parents {
+			values[i] = (*ValueReferent)(&id)
+		}
+
+		if raw, fw.err = new(ValueReferent).ArrayBytes(values); fw.err != nil {
+			return fw.end()
+		}
+
+		if fw.write(raw) {
+			return fw.end()
+		}
+	}
+
+	return fw.end()
 }
 
 ////////////////////////////////////////////////////////////////
