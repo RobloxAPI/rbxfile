@@ -128,8 +128,6 @@ invalid:
 	panic("invalid type")
 }
 
-// Returns a string read from a Reader while keeping track of the number of
-// bytes.
 func (f *formatReader) readString(data *string) (failed bool) {
 	if f.err != nil {
 		return true
@@ -162,9 +160,9 @@ func (f *formatWriter) write(p []byte) (failed bool) {
 		return true
 	}
 
-	n, err := f.w.Write(p)
+	var n int
+	n, f.err = f.w.Write(p)
 	f.n += int64(n)
-	f.err = err
 
 	if n < len(p) {
 		return true
@@ -175,6 +173,54 @@ func (f *formatWriter) write(p []byte) (failed bool) {
 
 func (f *formatWriter) end() (n int64, err error) {
 	return f.n, f.err
+}
+
+func (f *formatWriter) writeNumber(order binary.ByteOrder, data interface{}) (failed bool) {
+	if f.err != nil {
+		return true
+	}
+
+	if m := intDataSize(data); m != 0 {
+		b := make([]byte, 8)
+
+		switch data := data.(type) {
+		case int8:
+			b[0] = uint8(data)
+		case uint8:
+			b[0] = data
+		case int16:
+			order.PutUint16(b, uint16(data))
+		case uint16:
+			order.PutUint16(b, data)
+		case int32:
+			order.PutUint32(b, uint32(data))
+		case uint32:
+			order.PutUint32(b, data)
+		case int64:
+			order.PutUint64(b, uint64(data))
+		case uint64:
+			order.PutUint64(b, data)
+		default:
+			goto invalid
+		}
+
+		return f.write(b[:m])
+	}
+
+invalid:
+	panic("invalid type")
+}
+
+func (f *formatWriter) writeString(data string) (failed bool) {
+	if f.err != nil {
+		return true
+	}
+
+	if f.writeNumber(binary.LittleEndian, uint32(len(data))) {
+		return true
+	}
+
+	return f.write([]byte(data))
 }
 
 ////////////////////////////////////////////////////////////////
