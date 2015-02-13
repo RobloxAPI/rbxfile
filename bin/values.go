@@ -57,6 +57,151 @@ var valueGenerators = map[byte]valueGenerator{
 	newValueVector3int16().TypeID(): newValueVector3int16,
 }
 
+////////////////////////////////////////////////////////////////
+
+// Interleave transforms an array of bytes by interleaving them based on a
+// given size. The size must be a divisor of the array length.
+//
+// The array is divided into groups, each `length` in size. The nth elements
+// of each group are then moved so that they are group together. For example:
+//
+//     Original:    abcd1234
+//     Interleaved: a1b2c3d4
+//
+// Same as bigInterleave with a size of 1.
+func interleave(bytes []byte, length int) error {
+	if length <= 0 {
+		return errors.New("length must be greater than 0")
+	}
+	if len(bytes)%length != 0 {
+		return errors.New("length must be a divisor of array length")
+	}
+
+	// Matrix transpose algorithm
+	cols := length
+	rows := len(bytes) / length
+	if rows == cols {
+		for r := 0; r < rows; r++ {
+			for c := 0; c < r; c++ {
+				bytes[r*cols+c], bytes[c*cols+r] = bytes[c*cols+r], bytes[r*cols+c]
+			}
+		}
+	} else {
+		tmp := make([]byte, len(bytes))
+		for r := 0; r < rows; r++ {
+			for c := 0; c < cols; c++ {
+				tmp[c*rows+r] = bytes[r*cols+c]
+			}
+		}
+		for i, b := range tmp {
+			bytes[i] = b
+		}
+	}
+
+	return nil
+}
+
+func deinterleave(bytes []byte, size int) error {
+	if size <= 0 {
+		return errors.New("size must be greater than 0")
+	}
+	if len(bytes)%size != 0 {
+		return errors.New("size must be a divisor of array length")
+	}
+
+	return interleave(bytes, len(bytes)/size)
+}
+
+// bigInterleave transforms an array of bytes by interleaving them based on a
+// given size. The size must be a divisor of the array length. Bytes in the
+// array are grouped into single units, each `size` in length.
+//
+// These units are then grouped together into sections, each section being
+// `length` units in size (or length*size bytes). The nth units of each
+// section are then moved so that they are grouped together. e.g.
+//     Original:    abcd1234
+//     Interleaved: a1b2c3d4
+func bigInterleave(bytes []byte, size, length int) error {
+	if size <= 0 {
+		return errors.New("size must be greater than 0")
+	}
+	if len(bytes)%size != 0 {
+		return errors.New("size must be a divisor of array length")
+	}
+
+	arrayLen := len(bytes) / size
+
+	if length <= 0 {
+		return errors.New("length must be greater than 0")
+	}
+	if arrayLen%length != 0 {
+		return errors.New("length must be a divisor of grouped array length")
+	}
+
+	// Matrix transpose algorithm
+	tmp := make([]byte, len(bytes))
+
+	cols := length
+	rows := arrayLen / cols
+
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			si := (c*rows + r) * size
+			gi := (r*cols + c) * size
+			copy(tmp[si:si+size], bytes[gi:gi+size])
+		}
+	}
+
+	for i, b := range tmp {
+		bytes[i] = b
+	}
+
+	return nil
+}
+
+func bigDeinterleave(bytes []byte, size, length int) error {
+	if size <= 0 {
+		return errors.New("size must be greater than 0")
+	}
+	if len(bytes)%size != 0 {
+		return errors.New("size must be a divisor of array length")
+	}
+
+	arrayLen := len(bytes) / size
+
+	if length <= 0 {
+		return errors.New("length must be greater than 0")
+	}
+	if arrayLen%length != 0 {
+		return errors.New("length must be a divisor of grouped array length")
+	}
+
+	return bigInterleave(bytes, size, arrayLen/length)
+}
+
+// Encodes signed integers so that the bytes of negative numbers are more
+// similar to positive numbers, making them more compressible.
+//
+// https://developers.google.com/protocol-buffers/docs/encoding#types
+func encodeZigzag(n int32) uint32 {
+	return uint32((n << 1) ^ (n >> 31))
+}
+
+func decodeZigzag(n uint32) int32 {
+	return int32((n >> 1) ^ uint32((int32(n&1)<<31)>>31))
+}
+
+// Encodes a Binary32 float with sign at LSB instead of MSB.
+func encodeRobloxFloat(f float32) uint32 {
+	n := math.Float32bits(f)
+	return (n << 1) | (n >> 31)
+}
+
+func decodeRobloxFloat(n uint32) float32 {
+	f := (n >> 1) | (n << 31)
+	return math.Float32frombits(f)
+}
+
 // Appends the bytes of a list of Values into a byte array.
 func appendValueBytes(t Value, a []Value) (b []byte, err error) {
 	for i, v := range a {
