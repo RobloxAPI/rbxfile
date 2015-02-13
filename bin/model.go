@@ -174,6 +174,59 @@ func decodeRobloxFloat(n uint32) float32 {
 	return math.Float32frombits(f)
 }
 
+// Reader wrapper that keeps track of the number of bytes written.
+type formatReader struct {
+	r   io.Reader
+	n   int64
+	err error
+}
+
+func (f *formatReader) read(p []byte) (failed bool) {
+	if fw.err != nil {
+		return true
+	}
+
+	n, err := io.ReadFull(f.r, p)
+	f.n += int64(n)
+	f.err = err
+	if err != nil {
+		return true
+	}
+
+	return false
+}
+
+func (f *formatReader) end() (n int64, err error) {
+	return f.n, f.err
+}
+
+// Writer wrapper that keeps track of the number of bytes written.
+type formatWriter struct {
+	w   io.Writer
+	n   int64
+	err error
+}
+
+func (f *formatWriter) write(p []byte) (failed bool) {
+	if fw.err != nil {
+		return true
+	}
+
+	n, err := f.w.Write(p)
+	f.n += int64(n)
+	f.err = err
+
+	if n < len(p) {
+		return true
+	}
+
+	return false
+}
+
+func (f *formatWriter) end() (n int64, err error) {
+	return f.n, f.err
+}
+
 // Returns the size of an integer.
 func intDataSize(data interface{}) int {
 	switch data.(type) {
