@@ -489,6 +489,7 @@ func (c *rawChunk) ReadFrom(fr *formatReader) bool {
 	return false
 }
 
+// Writes a raw chunk payload to a stream, compressing if necessary.
 func (c *rawChunk) WriteTo(fw *formatWriter) bool {
 	if fw.write(c.signature[:]) {
 		return true
@@ -648,7 +649,51 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, errors.New("not implemented")
+	fw := &formatWriter{w: w}
+
+	if fw.writeNumber(binary.LittleEndian, c.GroupID) {
+		return fw.end()
+	}
+
+	if fw.writeString(c.ClassName) {
+		return fw.end()
+	}
+
+	var isService uint8 = 0
+	if c.IsService {
+		isService = 1
+	}
+	if fw.writeNumber(binary.LittleEndian, isService) {
+		return fw.end()
+	}
+
+	if fw.writeNumber(binary.LittleEndian, len(c.InstanceIDs)) {
+		return fw.end()
+	}
+
+	if len(c.InstanceIDs) > 0 {
+		values := make([]Value, len(c.InstanceIDs))
+		for i, id := range c.InstanceIDs {
+			values[i] = (*ValueReferent)(&id)
+		}
+
+		var raw []byte
+		if raw, fw.err = new(ValueReferent).ArrayBytes(values); fw.err != nil {
+			return fw.end()
+		}
+
+		if fw.write(raw) {
+			return fw.end()
+		}
+	}
+
+	if c.IsService {
+		if fw.write(c.GetService) {
+			return fw.end()
+		}
+	}
+
+	return fw.end()
 }
 
 ////////////////////////////////////////////////////////////////
