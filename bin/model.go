@@ -521,23 +521,20 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 
-	groupRaw := make([]byte, groupLength*4)
-	if fr.read(groupRaw) {
-		return fr.end()
-	}
-
-	deinterleave(groupRaw, 4)
-
 	c.InstanceIDs = make([]int32, groupLength)
 	if groupLength > 0 {
-		v := new(ValueInt)
+		raw := make([]byte, groupLength*4)
+		if fr.read(raw) {
+			return fr.end()
+		}
 
-		v.FromBytes(groupRaw[0:4])
-		c.InstanceIDs[0] = int32(*v)
-		for i := uint32(1); i < groupLength; i++ {
-			// Each entry is relative to the previous
-			v.FromBytes(groupRaw[i*4 : i*4+4])
-			c.InstanceIDs[i] = c.InstanceIDs[i-1] + int32(*v)
+		var values []Value
+		if values, fr.err = ValueReferent(0).FromArrayBytes(raw); fr.err != nil {
+			return fr.end()
+		}
+
+		for i, v := range values {
+			c.InstanceIDs[i] = int32(*v.(*ValueReferent))
 		}
 	}
 
@@ -652,43 +649,37 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 
-	childrenRaw := make([]byte, c.InstanceCount*4)
-	if fr.read(childrenRaw) {
-		return fr.end()
-	}
-
-	deinterleave(childrenRaw, 4)
-
 	c.Children = make([]int32, c.InstanceCount)
 	if c.InstanceCount > 0 {
-		v := new(ValueInt)
+		raw := make([]byte, c.InstanceCount*4)
+		if fr.read(raw) {
+			return fr.end()
+		}
 
-		v.FromBytes(childrenRaw[0:4])
-		c.Children[0] = int32(*v)
-		for i := uint32(1); i < c.InstanceCount; i++ {
-			// Each entry is relative to the previous
-			v.FromBytes(childrenRaw[i*4 : i*4+4])
-			c.Children[i] = c.Children[i-1] + int32(*v)
+		var values []Value
+		if values, fr.err = ValueReferent(0).FromArrayBytes(raw); fr.err != nil {
+			return fr.end()
+		}
+
+		for i, v := range values {
+			c.Children[i] = int32(*v.(*ValueReferent))
 		}
 	}
 
-	parentsRaw := make([]byte, c.InstanceCount*4)
-	if fr.read(parentsRaw) {
-		return fr.end()
-	}
-
-	deinterleave(parentsRaw, 4)
-
 	c.Parents = make([]int32, c.InstanceCount)
 	if c.InstanceCount > 0 {
-		v := new(ValueInt)
+		raw := make([]byte, c.InstanceCount*4)
+		if fr.read(raw) {
+			return fr.end()
+		}
 
-		v.FromBytes(parentsRaw[0:4])
-		c.Parents[0] = int32(*v)
-		for i := uint32(1); i < c.InstanceCount; i++ {
-			// Each entry is relative to the previous
-			v.FromBytes(parentsRaw[i*4 : i*4+4])
-			c.Parents[i] = c.Parents[i-1] + int32(*v)
+		var values []Value
+		if values, fr.err = ValueReferent(0).FromArrayBytes(raw); fr.err != nil {
+			return fr.end()
+		}
+
+		for i, v := range values {
+			c.Parents[i] = int32(*v.(*ValueReferent))
 		}
 	}
 
