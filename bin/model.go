@@ -8,7 +8,6 @@ import (
 	"github.com/bkaradzic/go-lz4"
 	"io"
 	"io/ioutil"
-	"math"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -31,59 +30,6 @@ var (
 
 ////////////////////////////////////////////////////////////////
 
-// Reader wrapper that keeps track of the number of bytes written.
-type formatReader struct {
-	r   io.Reader
-	n   int64
-	err error
-}
-
-func (f *formatReader) read(p []byte) (failed bool) {
-	if fw.err != nil {
-		return true
-	}
-
-	n, err := io.ReadFull(f.r, p)
-	f.n += int64(n)
-	f.err = err
-	if err != nil {
-		return true
-	}
-
-	return false
-}
-
-func (f *formatReader) end() (n int64, err error) {
-	return f.n, f.err
-}
-
-// Writer wrapper that keeps track of the number of bytes written.
-type formatWriter struct {
-	w   io.Writer
-	n   int64
-	err error
-}
-
-func (f *formatWriter) write(p []byte) (failed bool) {
-	if fw.err != nil {
-		return true
-	}
-
-	n, err := f.w.Write(p)
-	f.n += int64(n)
-	f.err = err
-
-	if n < len(p) {
-		return true
-	}
-
-	return false
-}
-
-func (f *formatWriter) end() (n int64, err error) {
-	return f.n, f.err
-}
-
 // Returns the size of an integer.
 func intDataSize(data interface{}) int {
 	switch data.(type) {
@@ -99,17 +45,59 @@ func intDataSize(data interface{}) int {
 	return 0
 }
 
-// Reads a number from a Reader while keeping track of the number of bytes
-// read.
-func readNumber(r io.Reader, order binary.ByteOrder, data interface{}, n *int64) (err error) {
+// Reader wrapper that keeps track of the number of bytes written.
+type formatReader struct {
+	r   io.Reader
+	n   int64
+	err error
+}
+
+func (f *formatReader) read(p []byte) (failed bool) {
+	if f.err != nil {
+		return true
+	}
+
+	var n int
+	n, f.err = io.ReadFull(f.r, p)
+	f.n += int64(n)
+
+	if f.err != nil {
+		return true
+	}
+
+	return false
+}
+
+func (f *formatReader) readall() (data []byte, failed bool) {
+	if f.err != nil {
+		return nil, true
+	}
+
+	data, f.err = ioutil.ReadAll(f.r)
+	f.n += int64(len(data))
+
+	if f.err != nil {
+		return nil, true
+	}
+
+	return data, false
+}
+
+func (f *formatReader) end() (n int64, err error) {
+	return f.n, f.err
+}
+
+func (f *formatReader) readNumber(order binary.ByteOrder, data interface{}) (failed bool) {
+	if f.err != nil {
+		return true
+	}
+
 	if m := intDataSize(data); m != 0 {
 		var b [8]byte
 		bs := b[:m]
 
-		nn, err := io.ReadFull(r, bs)
-		*n += int64(nn)
-		if err != nil {
-			return err
+		if f.read(bs) {
+			return true
 		}
 
 		switch data := data.(type) {
@@ -133,7 +121,7 @@ func readNumber(r io.Reader, order binary.ByteOrder, data interface{}, n *int64)
 			goto invalid
 		}
 
-		return nil
+		return true
 	}
 
 invalid:
@@ -142,20 +130,51 @@ invalid:
 
 // Returns a string read from a Reader while keeping track of the number of
 // bytes.
-func readString(r io.Reader, n *int64) (str string, err error) {
+func (f *formatReader) readString(data *string) (failed bool) {
+	if f.err != nil {
+		return true
+	}
+
 	var length uint32
-	if err = readNumber(r, binary.LittleEndian, &length, n); err != nil {
-		return "", err
+	if f.readNumber(binary.LittleEndian, &length) {
+		return true
 	}
 
 	s := make([]byte, length)
-	nn, err := io.ReadFull(r, s)
-	*n += int64(nn)
-	if err != nil {
-		return "", err
+	if f.read(s) {
+		return true
 	}
 
-	return string(s), nil
+	*data = string(s)
+
+	return false
+}
+
+// Writer wrapper that keeps track of the number of bytes written.
+type formatWriter struct {
+	w   io.Writer
+	n   int64
+	err error
+}
+
+func (f *formatWriter) write(p []byte) (failed bool) {
+	if f.err != nil {
+		return true
+	}
+
+	n, err := f.w.Write(p)
+	f.n += int64(n)
+	f.err = err
+
+	if n < len(p) {
+		return true
+	}
+
+	return false
+}
+
+func (f *formatWriter) end() (n int64, err error) {
+	return f.n, f.err
 }
 
 ////////////////////////////////////////////////////////////////
@@ -219,40 +238,40 @@ func NewFormatModel() *FormatModel {
 
 // ReadFrom decodes data from r into the FormatModel.
 func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
+	fr := &formatReader{r: r}
+
 	// reuse space from previous slices
 	f.Warnings = f.Warnings[:0]
 	f.Chunks = f.Chunks[:0]
 
 	header := make([]byte, len(BinaryHeader))
-	nn, err := io.ReadFull(r, header)
-	n += int64(nn)
-	if err != nil {
-		return n, err
+	if fr.read(header) {
+		return fr.end()
 	}
 
 	if !bytes.Equal(header, []byte(BinaryHeader)) {
-		return n, ErrCorruptHeader
+		return fr.n, ErrCorruptHeader
 	}
 
 	var version uint16
-	if err = readNumber(r, binary.LittleEndian, &version, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &version) {
+		return fr.end()
 	}
 	if version != 0 {
-		return n, ErrMismatchedVersion{ExpectedVersion: 0, DecodedVersion: version}
+		return fr.n, ErrMismatchedVersion{ExpectedVersion: 0, DecodedVersion: version}
 	}
 
-	if err = readNumber(r, binary.LittleEndian, &f.GroupCount, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &f.GroupCount) {
+		return fr.end()
 	}
 
-	if err = readNumber(r, binary.LittleEndian, &f.InstanceCount, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &f.InstanceCount) {
+		return fr.end()
 	}
 
 	var reserved uint64
-	if err = readNumber(r, binary.LittleEndian, &reserved, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &reserved) {
+		return fr.end()
 	}
 	if reserved != 0 {
 		f.Warnings = append(f.Warnings, warning("reserved space in file header is non-zero"))
@@ -260,10 +279,9 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 
 loop:
 	for {
-		data, n, err := decompressChunk(r)
-		n += int64(nn)
-		if err != nil {
-			return n, err
+		data, failed := decompressChunk(fr)
+		if failed {
+			return fr.end()
 		}
 
 		newChunk, ok := f.ChunkGenerators[data.signature]
@@ -274,8 +292,8 @@ loop:
 
 		chunk := newChunk()
 		chunk.SetCompressed(data.compressedLength != 0)
-		if _, err := chunk.ReadFrom(data.decompressedData); err != nil {
-			return n, err
+		if _, fr.err = chunk.ReadFrom(data.decompressedData); fr.err != nil {
+			return fr.end()
 		}
 
 		f.Chunks = append(f.Chunks, chunk)
@@ -293,7 +311,7 @@ loop:
 		}
 	}
 
-	return n, nil
+	return fr.end()
 }
 
 // WriteTo encodes the FormatModel as bytes to w.
@@ -335,34 +353,30 @@ type compressedChunk struct {
 
 // Decompresses a lz4-compressed chunk and returns a reader that reads the
 // decompressed data.
-func decompressChunk(r io.Reader) (data *compressedChunk, n int64, err error) {
+func decompressChunk(fr *formatReader) (data *compressedChunk, failed bool) {
 	sigb := data.signature[:]
-	nn, err := io.ReadFull(r, sigb)
-	n += int64(nn)
-	if err != nil {
-		return nil, n, err
+	if fr.read(sigb) {
+		return nil, true
 	}
 
-	if err = readNumber(r, binary.LittleEndian, &data.compressedLength, &n); err != nil {
-		return nil, n, err
+	if fr.readNumber(binary.LittleEndian, &data.compressedLength) {
+		return nil, true
 	}
 
-	if err = readNumber(r, binary.LittleEndian, &data.decompressedLength, &n); err != nil {
-		return nil, n, err
+	if fr.readNumber(binary.LittleEndian, &data.decompressedLength) {
+		return nil, true
 	}
 
 	var reserved uint32
-	if err = readNumber(r, binary.LittleEndian, &reserved, &n); err != nil {
-		return nil, n, err
+	if fr.readNumber(binary.LittleEndian, &reserved) {
+		return nil, true
 	}
 
 	decompressedData := make([]byte, data.decompressedLength)
 	// If compressed length is 0, then the data is not compressed.
 	if data.compressedLength == 0 {
-		nn, err := io.ReadFull(r, decompressedData)
-		n += int64(nn)
-		if err != nil {
-			return nil, n, err
+		if fr.read(decompressedData) {
+			return nil, true
 		}
 	} else {
 		// Prepare compressed data for reading by lz4, which requires the
@@ -370,22 +384,21 @@ func decompressChunk(r io.Reader) (data *compressedChunk, n int64, err error) {
 		compressedData := make([]byte, data.compressedLength+4)
 		binary.LittleEndian.PutUint32(compressedData, data.decompressedLength)
 
-		nn, err := io.ReadFull(r, compressedData[4:])
-		n += int64(nn)
-		if err != nil {
-			return nil, n, err
+		if fr.read(compressedData[4:]) {
+			return nil, true
 		}
 
 		// ROBLOX ERROR: "Malformed data ([true decompressed length] != [given decompressed length])"
 		// lz4 already does some kind of size validation, though the error message isn't the same.
 
 		if _, err := lz4.Decode(decompressedData, compressedData); err != nil {
-			return nil, n, err
+			fr.err = err
+			return nil, true
 		}
 	}
 
 	data.decompressedData = bytes.NewReader(decompressedData)
-	return data, n, nil
+	return data, false
 }
 
 ////////////////////////////////////////////////////////////////
@@ -441,30 +454,30 @@ func (c *ChunkInstance) SetCompressed(b bool) {
 }
 
 func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
-	if err = readNumber(r, binary.LittleEndian, &c.GroupID, &n); err != nil {
-		return n, err
+	fr := &formatReader{r: r}
+
+	if fr.readNumber(binary.LittleEndian, &c.GroupID) {
+		return fr.end()
 	}
 
-	if c.ClassName, err = readString(r, &n); err != nil {
-		return n, err
+	if fr.readString(&c.ClassName) {
+		return fr.end()
 	}
 
 	var isService uint8
-	if err = readNumber(r, binary.LittleEndian, &isService, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &isService) {
+		return fr.end()
 	}
 	c.IsService = isService != 0
 
 	var groupLength uint32
-	if err = readNumber(r, binary.LittleEndian, &groupLength, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &groupLength) {
+		return fr.end()
 	}
 
 	groupRaw := make([]byte, groupLength*4)
-	nn, err := io.ReadFull(r, groupRaw)
-	n += int64(nn)
-	if err != nil {
-		return n, err
+	if fr.read(groupRaw) {
+		return fr.end()
 	}
 
 	deinterleave(groupRaw, 4)
@@ -484,14 +497,12 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 
 	if c.IsService {
 		c.GetService = make([]byte, groupLength)
-		nn, err := io.ReadFull(r, c.GetService)
-		n += int64(nn)
-		if err != nil {
-			return n, err
+		if fr.read(c.GetService) {
+			return fr.end()
 		}
 	}
 
-	return n, nil
+	return fr.end()
 }
 
 func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
@@ -530,13 +541,11 @@ func (c *ChunkEnd) SetCompressed(b bool) {
 }
 
 func (c *ChunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
-	c.Content, err = ioutil.ReadAll(r)
-	n += int64(len(c.Content))
-	if err != nil {
-		return n, err
-	}
+	fr := &formatReader{r: r}
 
-	return n, nil
+	c.Content, _ = fr.readall()
+
+	return fr.end()
 }
 
 func (c *ChunkEnd) WriteTo(w io.Writer) (n int64, err error) {
@@ -587,19 +596,19 @@ func (c *ChunkParent) SetCompressed(b bool) {
 }
 
 func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
-	if err = readNumber(r, binary.LittleEndian, &c.Version, &n); err != nil {
-		return n, err
+	fr := &formatReader{r: r}
+
+	if fr.readNumber(binary.LittleEndian, &c.Version) {
+		return fr.end()
 	}
 
-	if err = readNumber(r, binary.LittleEndian, &c.InstanceCount, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &c.InstanceCount) {
+		return fr.end()
 	}
 
 	childrenRaw := make([]byte, c.InstanceCount*4)
-	nn, err := io.ReadFull(r, childrenRaw)
-	n += int64(nn)
-	if err != nil {
-		return n, err
+	if fr.read(childrenRaw) {
+		return fr.end()
 	}
 
 	deinterleave(childrenRaw, 4)
@@ -618,10 +627,8 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 
 	parentsRaw := make([]byte, c.InstanceCount*4)
-	nn, err = io.ReadFull(r, parentsRaw)
-	n += int64(nn)
-	if err != nil {
-		return n, err
+	if fr.read(parentsRaw) {
+		return fr.end()
 	}
 
 	deinterleave(parentsRaw, 4)
@@ -639,7 +646,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 	}
 
-	return n, nil
+	return fr.end()
 }
 
 func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
@@ -688,22 +695,23 @@ func (c *ChunkProperty) SetCompressed(b bool) {
 }
 
 func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
-	if err = readNumber(r, binary.LittleEndian, &c.GroupID, &n); err != nil {
-		return n, err
+	fr := &formatReader{r: r}
+
+	if fr.readNumber(binary.LittleEndian, &c.GroupID) {
+		return fr.end()
 	}
 
-	if c.PropertyName, err = readString(r, &n); err != nil {
-		return n, err
+	if fr.readString(&c.PropertyName) {
+		return fr.end()
 	}
 
-	if err = readNumber(r, binary.LittleEndian, &c.DataType, &n); err != nil {
-		return n, err
+	if fr.readNumber(binary.LittleEndian, &c.DataType) {
+		return fr.end()
 	}
 
-	rawBytes, err := ioutil.ReadAll(r)
-	n += int64(len(rawBytes))
-	if err != nil {
-		return n, nil
+	rawBytes, failed := fr.readall()
+	if failed {
+		return fr.end()
 	}
 
 	newValue, ok := valueGenerators[c.DataType]
@@ -711,9 +719,9 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 		return n, errors.New("unrecognized data type")
 	}
 
-	c.Properties, err = newValue().FromArrayBytes(rawBytes)
-	if err != nil {
-		return n, err
+	c.Properties, fr.err = newValue().FromArrayBytes(rawBytes)
+	if fr.err != nil {
+		return fr.end()
 	}
 
 	return n, nil
