@@ -960,7 +960,34 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, errors.New("not implemented")
+	fw := &formatWriter{w: w}
+
+	if fw.writeNumber(binary.LittleEndian, c.GroupID) {
+		return fw.end()
+	}
+
+	if fw.writeString(c.PropertyName) {
+		return fw.end()
+	}
+
+	if fw.writeNumber(binary.LittleEndian, c.DataType) {
+		return fw.end()
+	}
+
+	newValue, ok := valueGenerators[c.DataType]
+	if !ok {
+		fw.err = errors.New("unrecognized data type")
+		return fw.end()
+	}
+
+	var rawBytes []byte
+	if rawBytes, fw.err = newValue().ArrayBytes(c.Properties); fw.err != nil {
+		return fw.end()
+	}
+
+	fw.write(rawBytes)
+
+	return fw.end()
 }
 
 ////////////////////////////////////////////////////////////////
