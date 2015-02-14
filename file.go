@@ -48,6 +48,10 @@ type Instance struct {
 	// Reference is a unique string used to refer to the instance from
 	// elsewhere in the tree.
 	Reference rbxtype.Reference
+
+	// IsService indicates whether the instance should be treated as a
+	// service.
+	IsService bool
 }
 
 ////////////////////////////////////////////////////////////////
