@@ -53,7 +53,7 @@ var valueGenerators = map[byte]valueGenerator{
 	newValueCFrame().TypeID():       newValueCFrame,
 	//0x11: newValueCFrameQuat,
 	newValueToken().TypeID():        newValueToken,
-	newValueReferent().TypeID():     newValueReferent,
+	newValueReference().TypeID():    newValueReference,
 	newValueVector3int16().TypeID(): newValueVector3int16,
 }
 
@@ -1377,21 +1377,21 @@ func (t *ValueToken) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-type ValueReferent int32
+type ValueReference int32
 
-func newValueReferent() Value {
-	return new(ValueReferent)
+func newValueReference() Value {
+	return new(ValueReference)
 }
 
-func (ValueReferent) TypeID() byte {
+func (ValueReference) TypeID() byte {
 	return 0x13
 }
 
-func (ValueReferent) TypeString() string {
-	return "Referent"
+func (ValueReference) TypeString() string {
+	return "Reference"
 }
 
-func (t *ValueReferent) ArrayBytes(a []Value) (b []byte, err error) {
+func (t *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 	if len(a) == 0 {
 		return b, nil
 	}
@@ -1399,9 +1399,9 @@ func (t *ValueReferent) ArrayBytes(a []Value) (b []byte, err error) {
 	size := 4
 	b = make([]byte, len(a)*size)
 
-	var prev ValueReferent
+	var prev ValueReference
 	for i, v := range a {
-		ref, ok := v.(*ValueReferent)
+		ref, ok := v.(*ValueReference)
 		if !ok {
 			return nil, errors.New(
 				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, v.TypeString(), t.TypeString()),
@@ -1425,7 +1425,7 @@ func (t *ValueReferent) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t ValueReferent) FromArrayBytes(b []byte) (a []Value, err error) {
+func (t ValueReference) FromArrayBytes(b []byte) (a []Value, err error) {
 	if len(b) == 0 {
 		return a, nil
 	}
@@ -1443,12 +1443,12 @@ func (t ValueReferent) FromArrayBytes(b []byte) (a []Value, err error) {
 
 	a = make([]Value, len(bc)/size)
 	for i := 0; i < len(bc)/size; i++ {
-		ref := new(ValueReferent)
+		ref := new(ValueReference)
 		ref.FromBytes(bc[i*size : i*size+size])
 
 		if i > 0 {
 			// Convert relative ref to absolute ref.
-			*ref = *a[i-1].(*ValueReferent) + *ref
+			*ref = *a[i-1].(*ValueReference) + *ref
 		}
 
 		a[i] = ref
@@ -1457,19 +1457,19 @@ func (t ValueReferent) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueReferent) Bytes() []byte {
+func (t ValueReference) Bytes() []byte {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, encodeZigzag(int32(t)))
 	return b
 }
 
-func (t *ValueReferent) FromBytes(b []byte) error {
+func (t *ValueReference) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
 
 	v := binary.BigEndian.Uint32(b)
-	*t = ValueReferent(decodeZigzag(v))
+	*t = ValueReference(decodeZigzag(v))
 
 	return nil
 }

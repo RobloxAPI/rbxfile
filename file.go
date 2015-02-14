@@ -45,9 +45,9 @@ type Instance struct {
 	// instance.
 	Children []*Instance
 
-	// Referent is a unique string used to refer to the instance from
+	// Reference is a unique string used to refer to the instance from
 	// elsewhere in the tree.
-	Referent string
+	Reference rbxtype.Reference
 }
 
 ////////////////////////////////////////////////////////////////

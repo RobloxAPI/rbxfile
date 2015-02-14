@@ -631,12 +631,12 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 
 		var values []Value
-		if values, fr.err = ValueReferent(0).FromArrayBytes(raw); fr.err != nil {
+		if values, fr.err = ValueReference(0).FromArrayBytes(raw); fr.err != nil {
 			return fr.end()
 		}
 
 		for i, v := range values {
-			c.InstanceIDs[i] = int32(*v.(*ValueReferent))
+			c.InstanceIDs[i] = int32(*v.(*ValueReference))
 		}
 	}
 
@@ -676,11 +676,11 @@ func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 	if len(c.InstanceIDs) > 0 {
 		values := make([]Value, len(c.InstanceIDs))
 		for i, id := range c.InstanceIDs {
-			values[i] = (*ValueReferent)(&id)
+			values[i] = (*ValueReference)(&id)
 		}
 
 		var raw []byte
-		if raw, fw.err = new(ValueReferent).ArrayBytes(values); fw.err != nil {
+		if raw, fw.err = new(ValueReference).ArrayBytes(values); fw.err != nil {
 			return fw.end()
 		}
 
@@ -805,12 +805,12 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 
 		var values []Value
-		if values, fr.err = ValueReferent(0).FromArrayBytes(raw); fr.err != nil {
+		if values, fr.err = ValueReference(0).FromArrayBytes(raw); fr.err != nil {
 			return fr.end()
 		}
 
 		for i, v := range values {
-			c.Children[i] = int32(*v.(*ValueReferent))
+			c.Children[i] = int32(*v.(*ValueReference))
 		}
 	}
 
@@ -822,12 +822,12 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 
 		var values []Value
-		if values, fr.err = ValueReferent(0).FromArrayBytes(raw); fr.err != nil {
+		if values, fr.err = ValueReference(0).FromArrayBytes(raw); fr.err != nil {
 			return fr.end()
 		}
 
 		for i, v := range values {
-			c.Parents[i] = int32(*v.(*ValueReferent))
+			c.Parents[i] = int32(*v.(*ValueReference))
 		}
 	}
 
@@ -850,11 +850,11 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 		// Children
 		values := make([]Value, instanceCount)
 		for i, id := range c.Children {
-			values[i] = (*ValueReferent)(&id)
+			values[i] = (*ValueReference)(&id)
 		}
 
 		var raw []byte
-		if raw, fw.err = new(ValueReferent).ArrayBytes(values); fw.err != nil {
+		if raw, fw.err = new(ValueReference).ArrayBytes(values); fw.err != nil {
 			return fw.end()
 		}
 
@@ -869,10 +869,10 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 		}
 
 		for i, id := range c.Parents {
-			values[i] = (*ValueReferent)(&id)
+			values[i] = (*ValueReference)(&id)
 		}
 
-		if raw, fw.err = new(ValueReferent).ArrayBytes(values); fw.err != nil {
+		if raw, fw.err = new(ValueReference).ArrayBytes(values); fw.err != nil {
 			return fw.end()
 		}
 

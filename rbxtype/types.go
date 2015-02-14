@@ -373,12 +373,12 @@ func (t Token) String() string {
 
 ////////////////
 
-type Referent []byte
+type Reference []byte
 
-func (Referent) TypeString() string {
+func (Reference) TypeString() string {
 	return "Ref"
 }
-func (t Referent) String() string {
+func (t Reference) String() string {
 	return string(t)
 }
 
