@@ -4,6 +4,7 @@ package rbxtype
 
 import (
 	"errors"
+	"github.com/robloxapi/rbxfile"
 	"strconv"
 	"strings"
 )
@@ -441,18 +442,16 @@ func (t Token) Copy() Type {
 
 ////////////////
 
-type Reference []byte
+type Reference *rbxfile.Instance
 
 func (Reference) TypeString() string {
 	return "Ref"
 }
 func (t Reference) String() string {
-	return string(t)
+	return *rbxfile.Instance(t).Name()
 }
 func (t Reference) Copy() Type {
-	c := make(Reference, len(t))
-	copy(c, t)
-	return c
+	return t
 }
 
 ////////////////
