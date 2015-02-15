@@ -17,6 +17,9 @@ type Type interface {
 
 	// String returns a string representation of the type's current value.
 	String() string
+
+	// Copy returns a copy of the value.
+	Copy() Type
 }
 
 func joinstr(a ...string) string {
@@ -50,6 +53,11 @@ func (String) TypeString() string {
 func (t String) String() string {
 	return string(t)
 }
+func (t String) Copy() Type {
+	c := make(String, len(t))
+	copy(c, t)
+	return c
+}
 
 ////////////////
 
@@ -60,6 +68,11 @@ func (BinaryString) TypeString() string {
 }
 func (t BinaryString) String() string {
 	return string(t)
+}
+func (t BinaryString) Copy() Type {
+	c := make(BinaryString, len(t))
+	copy(c, t)
+	return c
 }
 
 ////////////////
@@ -72,6 +85,11 @@ func (ProtectedString) TypeString() string {
 func (t ProtectedString) String() string {
 	return string(t)
 }
+func (t ProtectedString) Copy() Type {
+	c := make(ProtectedString, len(t))
+	copy(c, t)
+	return c
+}
 
 ////////////////
 
@@ -82,6 +100,11 @@ func (Content) TypeString() string {
 }
 func (t Content) String() string {
 	return string(t)
+}
+func (t Content) Copy() Type {
+	c := make(Content, len(t))
+	copy(c, t)
+	return c
 }
 
 ////////////////
@@ -98,6 +121,9 @@ func (t Bool) String() string {
 		return "false"
 	}
 }
+func (t Bool) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -108,6 +134,9 @@ func (Int) TypeString() string {
 }
 func (t Int) String() string {
 	return strconv.FormatInt(int64(t), 10)
+}
+func (t Int) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -120,6 +149,9 @@ func (Float) TypeString() string {
 func (t Float) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 32)
 }
+func (t Float) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -130,6 +162,9 @@ func (Double) TypeString() string {
 }
 func (t Double) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 64)
+}
+func (t Double) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -148,6 +183,9 @@ func (t UDim) String() string {
 		", ",
 		strconv.FormatInt(int64(t.Offset), 10),
 	)
+}
+func (t UDim) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -168,6 +206,9 @@ func (t UDim2) String() string {
 		"}",
 	)
 }
+func (t UDim2) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -186,6 +227,9 @@ func (t Ray) String() string {
 		t.Direction.String(),
 		"}",
 	)
+}
+func (t Ray) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -220,6 +264,9 @@ func (t Faces) String() string {
 
 	return strings.Join(s, ", ")
 }
+func (t Faces) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -243,6 +290,9 @@ func (t Axes) String() string {
 	}
 
 	return strings.Join(s, ", ")
+}
+func (t Axes) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -283,6 +333,9 @@ func (bc BrickColor) Palette() int {
 	}
 	return -1
 }
+func (t BrickColor) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -302,6 +355,9 @@ func (t Color3) String() string {
 		strconv.FormatFloat(float64(t.B), 'f', -1, 32),
 	)
 }
+func (t Color3) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -318,6 +374,9 @@ func (t Vector2) String() string {
 		", ",
 		strconv.FormatFloat(float64(t.Y), 'f', -1, 32),
 	)
+}
+func (t Vector2) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -337,6 +396,9 @@ func (t Vector3) String() string {
 		", ",
 		strconv.FormatFloat(float64(t.Z), 'f', -1, 32),
 	)
+}
+func (t Vector3) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -359,6 +421,9 @@ func (t CFrame) String() string {
 	}
 	return strings.Join(s, ", ")
 }
+func (t CFrame) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -370,6 +435,9 @@ func (Token) TypeString() string {
 func (t Token) String() string {
 	return strconv.FormatInt(int64(t), 10)
 }
+func (t Token) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -380,6 +448,11 @@ func (Reference) TypeString() string {
 }
 func (t Reference) String() string {
 	return string(t)
+}
+func (t Reference) Copy() Type {
+	c := make(Reference, len(t))
+	copy(c, t)
+	return c
 }
 
 ////////////////
@@ -400,6 +473,9 @@ func (t Vector3int16) String() string {
 		strconv.FormatInt(int64(t.Z), 10),
 	)
 }
+func (t Vector3int16) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -416,6 +492,9 @@ func (t Vector2int16) String() string {
 		", ",
 		strconv.FormatInt(int64(t.Y), 10),
 	)
+}
+func (t Vector2int16) Copy() Type {
+	return t
 }
 
 ////////////////
@@ -435,6 +514,9 @@ func (t Region3) String() string {
 		t.Size.String(),
 	)
 }
+func (t Region3) Copy() Type {
+	return t
+}
 
 ////////////////
 
@@ -451,6 +533,9 @@ func (t Region3int16) String() string {
 		"; ",
 		t.Max.String(),
 	)
+}
+func (t Region3int16) Copy() Type {
+	return t
 }
 
 ////////////////
