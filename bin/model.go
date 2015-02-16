@@ -399,6 +399,8 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 			return fw.end()
 		}
 
+		rawChunk.payload = buf.Bytes()
+
 		if rawChunk.WriteTo(fw) {
 			return fw.end()
 		}
