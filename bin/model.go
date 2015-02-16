@@ -676,7 +676,7 @@ func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.end()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, len(c.InstanceIDs)) {
+	if fw.writeNumber(binary.LittleEndian, uint32(len(c.InstanceIDs))) {
 		return fw.end()
 	}
 
@@ -849,7 +849,7 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	var instanceCount = len(c.Children)
-	if fw.writeNumber(binary.LittleEndian, instanceCount) {
+	if fw.writeNumber(binary.LittleEndian, uint32(instanceCount)) {
 		return fw.end()
 	}
 
