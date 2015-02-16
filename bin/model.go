@@ -33,13 +33,13 @@ var (
 // Returns the size of an integer.
 func intDataSize(data interface{}) int {
 	switch data.(type) {
-	case int8, *int8, *uint8:
+	case int8, *int8, uint8, *uint8:
 		return 1
-	case int16, *int16, *uint16:
+	case int16, *int16, uint16, *uint16:
 		return 2
-	case int32, *int32, *uint32:
+	case int32, *int32, uint32, *uint32:
 		return 4
-	case int64, *int64, *uint64:
+	case int64, *int64, uint64, *uint64:
 		return 8
 	}
 	return 0
