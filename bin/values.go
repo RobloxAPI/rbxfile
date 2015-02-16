@@ -1,11 +1,9 @@
 package bin
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 )
 
@@ -252,25 +250,23 @@ func (t *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
-	r := bytes.NewReader(b)
-
-	for r.Len() > 0 {
-		var length uint32
-		if err = binary.Read(r, binary.LittleEndian, &length); err == io.EOF {
-			return nil, errors.New("unexpected EOF")
+	for i := 0; i < len(b); {
+		if i+4 > len(b) {
+			return nil, errors.New("array element must be at least 4 bytes")
 		}
-		r.Seek(1, -4)
+		length := binary.LittleEndian.Uint32(b[i:])
 
-		vb := make([]byte, length+4)
-		if _, err := r.Read(vb); err == io.EOF {
-			return nil, errors.New("unexpected EOF")
+		if i+4+int(length) > len(b) {
+			return nil, errors.New(fmt.Sprintf("array length (%d) must be at least 4+%d bytes", len(b), length))
 		}
 
-		var v *ValueString
-		if err = v.FromBytes(vb); err != nil {
+		v := new(ValueString)
+		if err = v.FromBytes(b[i : i+4+int(length)]); err != nil {
 			return nil, err
 		}
 		a = append(a, v)
+
+		i += 4 + int(length)
 	}
 
 	return a, nil
@@ -289,12 +285,13 @@ func (t *ValueString) FromBytes(b []byte) error {
 	}
 
 	length := binary.LittleEndian.Uint32(b[:4])
-	if len(b)-4 >= 0 && length != uint32(len(b)-4) {
-		return errors.New("string length does not match integer length")
+	str := b[4:]
+	if uint32(len(str)) != length {
+		return errors.New(fmt.Sprintf("string length (%d) does not match integer length (%d)", len(str), length))
 	}
 
-	*t = make(ValueString, len(b)-4)
-	copy(*t, b)
+	*t = make(ValueString, len(str))
+	copy(*t, str)
 
 	return nil
 }
