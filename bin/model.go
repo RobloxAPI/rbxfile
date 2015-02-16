@@ -499,15 +499,47 @@ func (c *rawChunk) WriteTo(fw *formatWriter) bool {
 		return true
 	}
 
-	// If compressed length is 0, then the data is not compressed.
 	if c.compressed {
-		// Compressed length
-		if fw.writeNumber(binary.LittleEndian, 0) {
+		var compressedData []byte
+		compressedData, fw.err = lz4.Encode(compressedData, c.payload)
+		if fw.err != nil {
+			return true
+		}
+
+		// lz4 sanity check
+		if binary.LittleEndian.Uint32(compressedData[:4]) != uint32(len(c.payload)) {
+			panic("lz4 uncompressed length does not match payload length")
+		}
+
+		// Compressed length; lz4 prepends the length of the uncompressed
+		// payload, so it must be excluded.
+		compressedPayload := compressedData[4:]
+
+		if fw.writeNumber(binary.LittleEndian, uint32(len(compressedPayload))) {
 			return true
 		}
 
 		// Decompressed length
-		if fw.writeNumber(binary.LittleEndian, len(c.payload)) {
+		if fw.writeNumber(binary.LittleEndian, uint32(len(c.payload))) {
+			return true
+		}
+
+		// Reserved
+		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
+			return true
+		}
+
+		if fw.write(compressedPayload) {
+			return true
+		}
+	} else {
+		// If the data is not compressed, then the compressed length is 0
+		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
+			return true
+		}
+
+		// Decompressed length
+		if fw.writeNumber(binary.LittleEndian, uint32(len(c.payload))) {
 			return true
 		}
 
@@ -519,33 +551,6 @@ func (c *rawChunk) WriteTo(fw *formatWriter) bool {
 		if fw.write(c.payload) {
 			return true
 		}
-	} else {
-		compressedData := make([]byte, 4)
-		compressedData, fw.err = lz4.Encode(compressedData, c.payload)
-		if fw.err != nil {
-			return true
-		}
-
-		// Compressed length; lz4 prepends the length of the uncompressed
-		// payload, so it must be excluded.
-		if fw.writeNumber(binary.LittleEndian, len(compressedData[4:])) {
-			return true
-		}
-
-		// decompressed length
-		if fw.writeNumber(binary.LittleEndian, len(c.payload)) {
-			return true
-		}
-
-		// reserved
-		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
-			return true
-		}
-
-		if fw.write(compressedData) {
-			return true
-		}
-
 	}
 
 	return false
