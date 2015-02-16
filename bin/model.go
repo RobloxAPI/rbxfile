@@ -121,7 +121,7 @@ func (f *formatReader) readNumber(order binary.ByteOrder, data interface{}) (fai
 			goto invalid
 		}
 
-		return true
+		return false
 	}
 
 invalid:
