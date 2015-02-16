@@ -485,7 +485,7 @@ func (c *rawChunk) ReadFrom(fr *formatReader) bool {
 		// validation, though the error message isn't the same.
 
 		if _, err := lz4.Decode(c.payload, compressedData); err != nil {
-			fr.err = err
+			fr.err = errors.New("lz4: " + err.Error())
 			return true
 		}
 	}
