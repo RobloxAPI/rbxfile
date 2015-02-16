@@ -683,7 +683,8 @@ func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 	if len(c.InstanceIDs) > 0 {
 		values := make([]Value, len(c.InstanceIDs))
 		for i, id := range c.InstanceIDs {
-			values[i] = (*ValueReference)(&id)
+			n := id
+			values[i] = (*ValueReference)(&n)
 		}
 
 		var raw []byte
@@ -857,7 +858,8 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 		// Children
 		values := make([]Value, instanceCount)
 		for i, id := range c.Children {
-			values[i] = (*ValueReference)(&id)
+			n := id
+			values[i] = (*ValueReference)(&n)
 		}
 
 		var raw []byte
@@ -876,7 +878,8 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 		}
 
 		for i, id := range c.Parents {
-			values[i] = (*ValueReference)(&id)
+			n := id
+			values[i] = (*ValueReference)(&n)
 		}
 
 		if raw, fw.err = new(ValueReference).ArrayBytes(values); fw.err != nil {
