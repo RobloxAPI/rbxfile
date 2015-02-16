@@ -348,7 +348,7 @@ loop:
 		f.Chunks = append(f.Chunks, chunk)
 
 		if endChunk, ok := chunk.(*ChunkEnd); ok {
-			if !endChunk.Compressed() {
+			if endChunk.Compressed() {
 				f.Warnings = append(f.Warnings, warning("END chunk is not uncompressed"))
 			}
 
