@@ -8,15 +8,14 @@
 // accessed and manipulated using an API similar to that of Roblox.
 //
 // Each Instance also has a set of "properties". Each property has a specific
-// value of a certain type. Every available type is represented in the rbxtype
-// subpackage.
+// value of a certain type. Every available type is prefixed with "Value", and
+// implements the Value interface.
 package rbxfile
 
 import (
 	"bufio"
 	"errors"
 	"github.com/robloxapi/rbxdump"
-	"github.com/robloxapi/rbxfile/rbxtype"
 	"io"
 )
 
@@ -39,7 +38,7 @@ type Instance struct {
 
 	// Properties is a map of properties of the instance. It maps the name of
 	// the property to its current value.
-	Properties map[string]rbxtype.Type
+	Properties map[string]Value
 
 	// Reference is a unique string used to refer to the instance from
 	// elsewhere in the tree.
@@ -256,23 +255,23 @@ func (inst *Instance) Name() string {
 		return ""
 	}
 
-	return string(iname.(rbxtype.String))
+	return string(iname.(ValueString))
 }
 
 // SetName sets the Name property of the instance.
 func (inst *Instance) SetName(name string) {
-	inst.Properties["Name"] = rbxtype.String(name)
+	inst.Properties["Name"] = ValueString(name)
 }
 
 // Get returns the value of a property in the instance. The value will be nil
 // if the property is not defined.
-func (inst *Instance) Get(property string) (value rbxtype.Type) {
+func (inst *Instance) Get(property string) (value Value) {
 	return inst.Properties[property]
 }
 
 // Set sets the value of a property in the instance. If value is nil, then the
 // value will be deleted from the Properties map.
-func (inst *Instance) Set(property string, value rbxtype.Type) {
+func (inst *Instance) Set(property string, value Value) {
 	if value == nil {
 		delete(inst.Properties, property)
 	} else {

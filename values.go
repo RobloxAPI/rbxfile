@@ -1,26 +1,20 @@
-// The rbxtype package implements in-memory representations of Roblox data
-// types.
-package rbxtype
+package rbxfile
 
 import (
-	"errors"
-	"github.com/robloxapi/rbxfile"
 	"strconv"
 	"strings"
 )
 
-var ErrUnknownType = errors.New("unknown type")
-
-// Type holds a value of a particular Roblox type.
-type Type interface {
+// Value holds a value of a particular Roblox type.
+type Value interface {
 	// TypeString returns the name of the type.
 	TypeString() string
 
-	// String returns a string representation of the type's current value.
+	// String returns a string representation of the current value.
 	String() string
 
 	// Copy returns a copy of the value.
-	Copy() Type
+	Copy() Value
 }
 
 func joinstr(a ...string) string {
@@ -44,161 +38,161 @@ func joinstr(a ...string) string {
 }
 
 ////////////////////////////////////////////////////////////////
-// Types
+// Values
 
-type String []byte
+type ValueString []byte
 
-func (String) TypeString() string {
+func (ValueString) TypeString() string {
 	return "string"
 }
-func (t String) String() string {
+func (t ValueString) String() string {
 	return string(t)
 }
-func (t String) Copy() Type {
-	c := make(String, len(t))
+func (t ValueString) Copy() Value {
+	c := make(ValueString, len(t))
 	copy(c, t)
 	return c
 }
 
 ////////////////
 
-type BinaryString []byte
+type ValueBinaryString []byte
 
-func (BinaryString) TypeString() string {
+func (ValueBinaryString) TypeString() string {
 	return "BinaryString"
 }
-func (t BinaryString) String() string {
+func (t ValueBinaryString) String() string {
 	return string(t)
 }
-func (t BinaryString) Copy() Type {
-	c := make(BinaryString, len(t))
+func (t ValueBinaryString) Copy() Value {
+	c := make(ValueBinaryString, len(t))
 	copy(c, t)
 	return c
 }
 
 ////////////////
 
-type ProtectedString []byte
+type ValueProtectedString []byte
 
-func (ProtectedString) TypeString() string {
+func (ValueProtectedString) TypeString() string {
 	return "ProtectedString"
 }
-func (t ProtectedString) String() string {
+func (t ValueProtectedString) String() string {
 	return string(t)
 }
-func (t ProtectedString) Copy() Type {
-	c := make(ProtectedString, len(t))
+func (t ValueProtectedString) Copy() Value {
+	c := make(ValueProtectedString, len(t))
 	copy(c, t)
 	return c
 }
 
 ////////////////
 
-type Content []byte
+type ValueContent []byte
 
-func (Content) TypeString() string {
+func (ValueContent) TypeString() string {
 	return "Content"
 }
-func (t Content) String() string {
+func (t ValueContent) String() string {
 	return string(t)
 }
-func (t Content) Copy() Type {
-	c := make(Content, len(t))
+func (t ValueContent) Copy() Value {
+	c := make(ValueContent, len(t))
 	copy(c, t)
 	return c
 }
 
 ////////////////
 
-type Bool bool
+type ValueBool bool
 
-func (Bool) TypeString() string {
+func (ValueBool) TypeString() string {
 	return "bool"
 }
-func (t Bool) String() string {
+func (t ValueBool) String() string {
 	if t {
 		return "true"
 	} else {
 		return "false"
 	}
 }
-func (t Bool) Copy() Type {
+func (t ValueBool) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Int int32
+type ValueInt int32
 
-func (Int) TypeString() string {
+func (ValueInt) TypeString() string {
 	return "int"
 }
-func (t Int) String() string {
+func (t ValueInt) String() string {
 	return strconv.FormatInt(int64(t), 10)
 }
-func (t Int) Copy() Type {
+func (t ValueInt) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Float float32
+type ValueFloat float32
 
-func (Float) TypeString() string {
+func (ValueFloat) TypeString() string {
 	return "float"
 }
-func (t Float) String() string {
+func (t ValueFloat) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 32)
 }
-func (t Float) Copy() Type {
+func (t ValueFloat) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Double float64
+type ValueDouble float64
 
-func (Double) TypeString() string {
+func (ValueDouble) TypeString() string {
 	return "double"
 }
-func (t Double) String() string {
+func (t ValueDouble) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 64)
 }
-func (t Double) Copy() Type {
+func (t ValueDouble) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type UDim struct {
+type ValueUDim struct {
 	Scale  float32
 	Offset int32
 }
 
-func (UDim) TypeString() string {
+func (ValueUDim) TypeString() string {
 	return "UDim"
 }
-func (t UDim) String() string {
+func (t ValueUDim) String() string {
 	return joinstr(
 		strconv.FormatFloat(float64(t.Scale), 'f', -1, 32),
 		", ",
 		strconv.FormatInt(int64(t.Offset), 10),
 	)
 }
-func (t UDim) Copy() Type {
+func (t ValueUDim) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type UDim2 struct {
-	X, Y UDim
+type ValueUDim2 struct {
+	X, Y ValueUDim
 }
 
-func (UDim2) TypeString() string {
+func (ValueUDim2) TypeString() string {
 	return "UDim2"
 }
-func (t UDim2) String() string {
+func (t ValueUDim2) String() string {
 	return joinstr(
 		"{",
 		t.X.String(),
@@ -207,20 +201,20 @@ func (t UDim2) String() string {
 		"}",
 	)
 }
-func (t UDim2) Copy() Type {
+func (t ValueUDim2) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Ray struct {
-	Origin, Direction Vector3
+type ValueRay struct {
+	Origin, Direction ValueVector3
 }
 
-func (Ray) TypeString() string {
+func (ValueRay) TypeString() string {
 	return "Ray"
 }
-func (t Ray) String() string {
+func (t ValueRay) String() string {
 	return joinstr(
 		"{",
 		t.Origin.String(),
@@ -229,20 +223,20 @@ func (t Ray) String() string {
 		"}",
 	)
 }
-func (t Ray) Copy() Type {
+func (t ValueRay) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Faces struct {
+type ValueFaces struct {
 	Right, Top, Back, Left, Bottom, Front bool
 }
 
-func (Faces) TypeString() string {
+func (ValueFaces) TypeString() string {
 	return "Faces"
 }
-func (t Faces) String() string {
+func (t ValueFaces) String() string {
 	s := make([]string, 6)
 	if t.Front {
 		s = append(s, "Front")
@@ -265,20 +259,20 @@ func (t Faces) String() string {
 
 	return strings.Join(s, ", ")
 }
-func (t Faces) Copy() Type {
+func (t ValueFaces) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Axes struct {
+type ValueAxes struct {
 	X, Y, Z bool
 }
 
-func (Axes) TypeString() string {
+func (ValueAxes) TypeString() string {
 	return "Axes"
 }
-func (t Axes) String() string {
+func (t ValueAxes) String() string {
 	s := make([]string, 3)
 	if t.X {
 		s = append(s, "X")
@@ -292,23 +286,25 @@ func (t Axes) String() string {
 
 	return strings.Join(s, ", ")
 }
-func (t Axes) Copy() Type {
+func (t ValueAxes) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type BrickColor uint32
+type ValueBrickColor uint32
 
-func (BrickColor) TypeString() string {
+func (ValueBrickColor) TypeString() string {
 	return "BrickColor"
 }
-func (t BrickColor) String() string {
+func (t ValueBrickColor) String() string {
 	return strconv.FormatUint(uint64(t), 10)
 }
+func (t ValueBrickColor) Copy() Value {
+	return t
+}
 
-//
-func (bc BrickColor) Name() string {
+func (bc ValueBrickColor) Name() string {
 	name, ok := brickColorNames[bc]
 	if !ok {
 		return brickColorNames[194]
@@ -317,7 +313,7 @@ func (bc BrickColor) Name() string {
 	return name
 }
 
-func (bc BrickColor) Color() Color3 {
+func (bc ValueBrickColor) Color() ValueColor3 {
 	color, ok := brickColorColors[bc]
 	if !ok {
 		return brickColorColors[194]
@@ -326,7 +322,7 @@ func (bc BrickColor) Color() Color3 {
 	return color
 }
 
-func (bc BrickColor) Palette() int {
+func (bc ValueBrickColor) Palette() int {
 	for i, n := range brickColorPalette {
 		if bc == n {
 			return i
@@ -334,20 +330,17 @@ func (bc BrickColor) Palette() int {
 	}
 	return -1
 }
-func (t BrickColor) Copy() Type {
-	return t
-}
 
 ////////////////
 
-type Color3 struct {
+type ValueColor3 struct {
 	R, G, B float32
 }
 
-func (Color3) TypeString() string {
+func (ValueColor3) TypeString() string {
 	return "Color3"
 }
-func (t Color3) String() string {
+func (t ValueColor3) String() string {
 	return joinstr(
 		strconv.FormatFloat(float64(t.R), 'f', -1, 32),
 		", ",
@@ -356,40 +349,40 @@ func (t Color3) String() string {
 		strconv.FormatFloat(float64(t.B), 'f', -1, 32),
 	)
 }
-func (t Color3) Copy() Type {
+func (t ValueColor3) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Vector2 struct {
+type ValueVector2 struct {
 	X, Y float32
 }
 
-func (Vector2) TypeString() string {
+func (ValueVector2) TypeString() string {
 	return "Vector2"
 }
-func (t Vector2) String() string {
+func (t ValueVector2) String() string {
 	return joinstr(
 		strconv.FormatFloat(float64(t.X), 'f', -1, 32),
 		", ",
 		strconv.FormatFloat(float64(t.Y), 'f', -1, 32),
 	)
 }
-func (t Vector2) Copy() Type {
+func (t ValueVector2) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Vector3 struct {
+type ValueVector3 struct {
 	X, Y, Z float32
 }
 
-func (Vector3) TypeString() string {
+func (ValueVector3) TypeString() string {
 	return "Vector3"
 }
-func (t Vector3) String() string {
+func (t ValueVector3) String() string {
 	return joinstr(
 		strconv.FormatFloat(float64(t.X), 'f', -1, 32),
 		", ",
@@ -398,21 +391,21 @@ func (t Vector3) String() string {
 		strconv.FormatFloat(float64(t.Z), 'f', -1, 32),
 	)
 }
-func (t Vector3) Copy() Type {
+func (t ValueVector3) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type CFrame struct {
+type ValueCFrame struct {
 	X, Y, Z float32
 	R       [9]float32
 }
 
-func (CFrame) TypeString() string {
+func (ValueCFrame) TypeString() string {
 	return "CoordinateFrame"
 }
-func (t CFrame) String() string {
+func (t ValueCFrame) String() string {
 	s := make([]string, 12)
 	s[0] = strconv.FormatFloat(float64(t.X), 'f', -1, 32)
 	s[1] = strconv.FormatFloat(float64(t.Y), 'f', -1, 32)
@@ -422,48 +415,53 @@ func (t CFrame) String() string {
 	}
 	return strings.Join(s, ", ")
 }
-func (t CFrame) Copy() Type {
+func (t ValueCFrame) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Token int32
+type ValueToken int32
 
-func (Token) TypeString() string {
+func (ValueToken) TypeString() string {
 	return "token"
 }
-func (t Token) String() string {
+func (t ValueToken) String() string {
 	return strconv.FormatInt(int64(t), 10)
 }
-func (t Token) Copy() Type {
+func (t ValueToken) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Reference *rbxfile.Instance
+type ValueReference struct {
+	*Instance
+}
 
-func (Reference) TypeString() string {
+func (ValueReference) TypeString() string {
 	return "Ref"
 }
-func (t Reference) String() string {
-	return *rbxfile.Instance(t).Name()
+func (t ValueReference) String() string {
+	if t.Instance == nil {
+		return "<nil>"
+	}
+	return t.Name()
 }
-func (t Reference) Copy() Type {
+func (t ValueReference) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Vector3int16 struct {
+type ValueVector3int16 struct {
 	X, Y, Z int16
 }
 
-func (Vector3int16) TypeString() string {
+func (ValueVector3int16) TypeString() string {
 	return "Vector3int16"
 }
-func (t Vector3int16) String() string {
+func (t ValueVector3int16) String() string {
 	return joinstr(
 		strconv.FormatInt(int64(t.X), 10),
 		", ",
@@ -472,68 +470,68 @@ func (t Vector3int16) String() string {
 		strconv.FormatInt(int64(t.Z), 10),
 	)
 }
-func (t Vector3int16) Copy() Type {
+func (t ValueVector3int16) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Vector2int16 struct {
+type ValueVector2int16 struct {
 	X, Y int16
 }
 
-func (Vector2int16) TypeString() string {
+func (ValueVector2int16) TypeString() string {
 	return "Vector2int16"
 }
-func (t Vector2int16) String() string {
+func (t ValueVector2int16) String() string {
 	return joinstr(
 		strconv.FormatInt(int64(t.X), 10),
 		", ",
 		strconv.FormatInt(int64(t.Y), 10),
 	)
 }
-func (t Vector2int16) Copy() Type {
+func (t ValueVector2int16) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Region3 struct {
-	CFrame CFrame
-	Size   Vector3
+type ValueRegion3 struct {
+	CFrame ValueCFrame
+	Size   ValueVector3
 }
 
-func (Region3) TypeString() string {
+func (ValueRegion3) TypeString() string {
 	return "Region3"
 }
-func (t Region3) String() string {
+func (t ValueRegion3) String() string {
 	return joinstr(
 		t.CFrame.String(),
 		"; ",
 		t.Size.String(),
 	)
 }
-func (t Region3) Copy() Type {
+func (t ValueRegion3) Copy() Value {
 	return t
 }
 
 ////////////////
 
-type Region3int16 struct {
-	Max, Min Vector3int16
+type ValueRegion3int16 struct {
+	Max, Min ValueVector3int16
 }
 
-func (Region3int16) TypeString() string {
+func (ValueRegion3int16) TypeString() string {
 	return "Region3int16"
 }
-func (t Region3int16) String() string {
+func (t ValueRegion3int16) String() string {
 	return joinstr(
 		t.Min.String(),
 		"; ",
 		t.Max.String(),
 	)
 }
-func (t Region3int16) Copy() Type {
+func (t ValueRegion3int16) Copy() Value {
 	return t
 }
 
