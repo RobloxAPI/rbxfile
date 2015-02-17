@@ -1192,34 +1192,6 @@ func (ValueVector3) TypeString() string {
 	return "Vector3"
 }
 
-func (ValueVector3) fieldLen() []int {
-	return []int{4, 4, 4}
-}
-
-func (t *ValueVector3) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		err = t.X.FromBytes(b)
-	case 1:
-		err = t.Y.FromBytes(b)
-	case 2:
-		err = t.Z.FromBytes(b)
-	}
-	return
-}
-
-func (t ValueVector3) fieldGet(i int) (b []byte) {
-	switch i {
-	case 0:
-		return t.X.Bytes()
-	case 1:
-		return t.Y.Bytes()
-	case 2:
-		return t.Z.Bytes()
-	}
-	return
-}
-
 func (t ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
 	return interleaveFields(t.TypeID(), a)
 }
@@ -1246,6 +1218,34 @@ func (t *ValueVector3) FromBytes(b []byte) error {
 	t.Z.FromBytes(b[8:12])
 
 	return nil
+}
+
+func (ValueVector3) fieldLen() []int {
+	return []int{4, 4, 4}
+}
+
+func (t *ValueVector3) fieldSet(i int, b []byte) (err error) {
+	switch i {
+	case 0:
+		err = t.X.FromBytes(b)
+	case 1:
+		err = t.Y.FromBytes(b)
+	case 2:
+		err = t.Z.FromBytes(b)
+	}
+	return
+}
+
+func (t ValueVector3) fieldGet(i int) (b []byte) {
+	switch i {
+	case 0:
+		return t.X.Bytes()
+	case 1:
+		return t.Y.Bytes()
+	case 2:
+		return t.Z.Bytes()
+	}
+	return
 }
 
 ////////////////////////////////////////////////////////////////
