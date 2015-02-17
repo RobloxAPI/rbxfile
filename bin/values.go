@@ -327,9 +327,9 @@ func (t ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
 
 func (t ValueBool) Bytes() []byte {
 	if t {
-		return []byte{0}
-	} else {
 		return []byte{1}
+	} else {
+		return []byte{0}
 	}
 }
 
