@@ -57,6 +57,139 @@ var valueGenerators = map[byte]valueGenerator{
 
 ////////////////////////////////////////////////////////////////
 
+// Encodes and decodes a Value based on its fields
+type fielder interface {
+	// Value.TypeID
+	TypeID() byte
+	// Length of each field
+	fieldLen() []int
+	// Set bytes of nth field
+	fieldSet(int, []byte) error
+	// Get bytes of nth field
+	fieldGet(int) []byte
+}
+
+// Encodes Values that implement the fielder interface.
+func interleaveFields(id byte, a []Value) (b []byte, err error) {
+	if len(a) == 0 {
+		return b, nil
+	}
+
+	af := make([]fielder, len(a))
+	for i, v := range a {
+		af[i] = v.(fielder)
+		if af[i].TypeID() != id {
+			return nil, errors.New(fmt.Sprintf("element %d is of type 0x%X where 0x%X is expected", i, af[i].TypeID(), id))
+		}
+	}
+
+	// list is assumed to contain the same kinds of values
+
+	// Number of bytes per field
+	nbytes := af[0].fieldLen()
+	// Number fields per value
+	nfields := len(nbytes)
+	// Number of values
+	nvalues := len(af)
+
+	// Total bytes per value
+	tbytes := 0
+	// Offset of each field slice
+	ofields := make([]int, len(nbytes)+1)
+	for i, n := range nbytes {
+		tbytes += n
+		ofields[i+1] = ofields[i] + n*nvalues
+	}
+
+	b = make([]byte, tbytes*nvalues)
+
+	// List of each field slice
+	fields := make([][]byte, nfields)
+	for i := range fields {
+		// Each field slice affects the final array
+		fields[i] = b[ofields[i]:ofields[i+1]]
+	}
+
+	for i, v := range af {
+		for f, field := range fields {
+			fb := v.fieldGet(f)
+			if len(fb) != nbytes[f] {
+				panic("length of field's bytes does not match given field length")
+			}
+			copy(field[i*nbytes[f]:], fb)
+		}
+	}
+
+	// Interleave each field slice independently
+	for i, field := range fields {
+		if err = interleave(field, nbytes[i]); err != nil {
+			return nil, err
+		}
+	}
+
+	return b, nil
+}
+
+// Decodes Values that implement the fielder interface.
+func deinterleaveFields(id byte, b []byte) (a []Value, err error) {
+	if len(b) == 0 {
+		return a, nil
+	}
+
+	newValue := valueGenerators[id]
+
+	// Number of bytes per field
+	nbytes := newValue().(fielder).fieldLen()
+	// Number fields per value
+	nfields := len(nbytes)
+
+	// Total bytes per value
+	tbytes := 0
+	for _, n := range nbytes {
+		tbytes += n
+	}
+
+	if len(b)%tbytes != 0 {
+		return nil, errors.New(fmt.Sprintf("length of array (%d) is not divisible by value byte size (%d)", len(b), tbytes))
+	}
+
+	// Number of values
+	nvalues := len(b) / tbytes
+	// Offset of each field slice
+	ofields := make([]int, len(nbytes)+1)
+	for i, n := range nbytes {
+		ofields[i+1] = ofields[i] + n*nvalues
+	}
+
+	a = make([]Value, nvalues)
+
+	// List of each field slice
+	fields := make([][]byte, nfields)
+	for i := range fields {
+		fields[i] = b[ofields[i]:ofields[i+1]]
+	}
+
+	// Deinterleave each field slice independently
+	for i, field := range fields {
+		if err = deinterleave(field, nbytes[i]); err != nil {
+			return nil, err
+		}
+	}
+
+	for i := range a {
+		v := newValue()
+		vf := v.(fielder)
+		for f, field := range fields {
+			n := nbytes[f]
+			fb := field[i*n : i*n+n]
+			vf.fieldSet(f, fb)
+		}
+		a[i] = v
+	}
+
+	return a, nil
+}
+
 // Interleave transforms an array of bytes by interleaving them based on a
 // given size. The size must be a divisor of the array length.
 //
