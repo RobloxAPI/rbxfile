@@ -712,59 +712,12 @@ func (ValueUDim2) TypeString() string {
 	return "UDim2"
 }
 
-func (t *ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
-	/*
-		l := len(a)
-		b = make([]byte, l*16)
-
-		var n int
-		for i, v := range a {
-			vb := v.Bytes()
-
-			for p := 0; p < 16; p += 4 {
-				n = i*4 + l*p
-				copy(b[n:n+4], vb[p:p+4])
-			}
-		}
-
-		interleave(b, 4)
-	*/
-
-	b, err = appendValueBytes(t, a)
-
-	// Interleave fields of each struct (field length, fields per struct).
-	if err := bigInterleave(b, 4, 4); err != nil {
-		return nil, err
-	}
-
-	// Interleave bytes of each field (byte length, bytes per field).
-	if err := bigInterleave(b, 1, 4); err != nil {
-		return nil, err
-	}
-
-	return b, nil
+func (t ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(t.TypeID(), a)
 }
 
 func (t ValueUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
-	bc := make([]byte, len(b))
-	copy(bc, b)
-
-	// Deinterleave bytes of each field (byte length, bytes per field).
-	if err = bigDeinterleave(bc, 1, 4); err != nil {
-		return nil, err
-	}
-
-	// Deinterleave fields of each struct (field length, fields per struct).
-	if err = bigDeinterleave(bc, 4, 4); err != nil {
-		return nil, err
-	}
-
-	a, err = appendByteValues(t.TypeID(), bc, 16)
-	if err != nil {
-		return nil, err
-	}
-
-	return a, nil
+	return deinterleaveFields(t.TypeID(), b)
 }
 
 func (t ValueUDim2) Bytes() []byte {
@@ -787,6 +740,38 @@ func (t *ValueUDim2) FromBytes(b []byte) error {
 	t.OffsetY.FromBytes(b[12:16])
 
 	return nil
+}
+
+func (ValueUDim2) fieldLen() []int {
+	return []int{4, 4, 4, 4}
+}
+
+func (t *ValueUDim2) fieldSet(i int, b []byte) (err error) {
+	switch i {
+	case 0:
+		err = t.ScaleX.FromBytes(b)
+	case 1:
+		err = t.ScaleY.FromBytes(b)
+	case 2:
+		err = t.OffsetX.FromBytes(b)
+	case 3:
+		err = t.OffsetY.FromBytes(b)
+	}
+	return
+}
+
+func (t ValueUDim2) fieldGet(i int) (b []byte) {
+	switch i {
+	case 0:
+		return t.ScaleX.Bytes()
+	case 1:
+		return t.ScaleY.Bytes()
+	case 2:
+		return t.OffsetX.Bytes()
+	case 3:
+		return t.OffsetY.Bytes()
+	}
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1042,42 +1027,12 @@ func (ValueColor3) TypeString() string {
 	return "Color3"
 }
 
-func (t *ValueColor3) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t, a)
-
-	// Interleave fields of each struct (field length, fields per struct).
-	if err := bigInterleave(b, 4, 3); err != nil {
-		return nil, err
-	}
-
-	// Interleave bytes of each field (byte length, bytes per field).
-	if err := bigInterleave(b, 1, 4); err != nil {
-		return nil, err
-	}
-
-	return b, nil
+func (t ValueColor3) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(t.TypeID(), a)
 }
 
 func (t ValueColor3) FromArrayBytes(b []byte) (a []Value, err error) {
-	bc := make([]byte, len(b))
-	copy(bc, b)
-
-	// Deinterleave bytes of each field (byte length, bytes per field).
-	if err = bigDeinterleave(bc, 1, 4); err != nil {
-		return nil, err
-	}
-
-	// Deinterleave fields of each struct (field length, fields per struct).
-	if err = bigDeinterleave(bc, 4, 3); err != nil {
-		return nil, err
-	}
-
-	a, err = appendByteValues(t.TypeID(), bc, 12)
-	if err != nil {
-		return nil, err
-	}
-
-	return a, nil
+	return deinterleaveFields(t.TypeID(), b)
 }
 
 func (t ValueColor3) Bytes() []byte {
@@ -1100,6 +1055,34 @@ func (t *ValueColor3) FromBytes(b []byte) error {
 	return nil
 }
 
+func (ValueColor3) fieldLen() []int {
+	return []int{4, 4, 4}
+}
+
+func (t *ValueColor3) fieldSet(i int, b []byte) (err error) {
+	switch i {
+	case 0:
+		err = t.R.FromBytes(b)
+	case 1:
+		err = t.G.FromBytes(b)
+	case 2:
+		err = t.B.FromBytes(b)
+	}
+	return
+}
+
+func (t ValueColor3) fieldGet(i int) (b []byte) {
+	switch i {
+	case 0:
+		return t.R.Bytes()
+	case 1:
+		return t.G.Bytes()
+	case 2:
+		return t.B.Bytes()
+	}
+	return
+}
+
 ////////////////////////////////////////////////////////////////
 
 type ValueVector2 struct {
@@ -1118,42 +1101,12 @@ func (ValueVector2) TypeString() string {
 	return "Vector2"
 }
 
-func (t *ValueVector2) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t, a)
-
-	// Interleave fields of each struct (field length, fields per struct).
-	if err := bigInterleave(b, 4, 2); err != nil {
-		return nil, err
-	}
-
-	// Interleave bytes of each field (byte length, bytes per field).
-	if err := bigInterleave(b, 1, 4); err != nil {
-		return nil, err
-	}
-
-	return b, nil
+func (t ValueVector2) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(t.TypeID(), a)
 }
 
 func (t ValueVector2) FromArrayBytes(b []byte) (a []Value, err error) {
-	bc := make([]byte, len(b))
-	copy(bc, b)
-
-	// Deinterleave bytes of each field (byte length, bytes per field).
-	if err = bigDeinterleave(bc, 1, 4); err != nil {
-		return nil, err
-	}
-
-	// Deinterleave fields of each struct (field length, fields per struct).
-	if err = bigDeinterleave(bc, 4, 2); err != nil {
-		return nil, err
-	}
-
-	a, err = appendByteValues(t.TypeID(), bc, 8)
-	if err != nil {
-		return nil, err
-	}
-
-	return a, nil
+	return deinterleaveFields(t.TypeID(), b)
 }
 
 func (t ValueVector2) Bytes() []byte {
@@ -1172,6 +1125,30 @@ func (t *ValueVector2) FromBytes(b []byte) error {
 	t.Y.FromBytes(b[4:8])
 
 	return nil
+}
+
+func (ValueVector2) fieldLen() []int {
+	return []int{4, 4}
+}
+
+func (t *ValueVector2) fieldSet(i int, b []byte) (err error) {
+	switch i {
+	case 0:
+		err = t.X.FromBytes(b)
+	case 1:
+		err = t.Y.FromBytes(b)
+	}
+	return
+}
+
+func (t ValueVector2) fieldGet(i int) (b []byte) {
+	switch i {
+	case 0:
+		return t.X.Bytes()
+	case 1:
+		return t.Y.Bytes()
+	}
+	return
 }
 
 ////////////////////////////////////////////////////////////////
