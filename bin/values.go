@@ -1236,8 +1236,8 @@ func (t *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 		// Build matrix part.
 		b = append(b, cf.Special)
 		if cf.Special == 0 {
-			r := make([]byte, len(t.Rotation)*4)
-			for i, f := range t.Rotation {
+			r := make([]byte, len(cf.Rotation)*4)
+			for i, f := range cf.Rotation {
 				binary.LittleEndian.PutUint32(r[i*4:i*4+4], math.Float32bits(f))
 			}
 			b = append(b, r...)
@@ -1271,13 +1271,13 @@ func (t ValueCFrame) FromArrayBytes(b []byte) (a []Value, err error) {
 		i++
 
 		if cf.Special == 0 {
-			q := len(t.Rotation) * 4
+			q := len(cf.Rotation) * 4
 			r := b[i:]
 			if len(r) < q {
 				return nil, errors.New(fmt.Sprintf("expected %d more bytes in array", q))
 			}
-			for i := range t.Rotation {
-				t.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
+			for i := range cf.Rotation {
+				cf.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
 			}
 			i += q
 		}
