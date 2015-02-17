@@ -741,7 +741,7 @@ func (t *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 0)
+	a, err = appendByteValues(t.TypeID(), b, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -799,7 +799,7 @@ func (t *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 0)
+	a, err = appendByteValues(t.TypeID(), b, 1)
 	if err != nil {
 		return nil, err
 	}
