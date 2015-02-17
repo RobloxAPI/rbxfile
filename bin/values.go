@@ -1192,42 +1192,40 @@ func (ValueVector3) TypeString() string {
 	return "Vector3"
 }
 
-func (t *ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t, a)
+func (ValueVector3) fieldLen() []int {
+	return []int{4, 4, 4}
+}
 
-	// Interleave fields of each struct (field length, fields per struct).
-	if err := bigInterleave(b, 4, 3); err != nil {
-		return nil, err
+func (t *ValueVector3) fieldSet(i int, b []byte) (err error) {
+	switch i {
+	case 0:
+		err = t.X.FromBytes(b)
+	case 1:
+		err = t.Y.FromBytes(b)
+	case 2:
+		err = t.Z.FromBytes(b)
 	}
+	return
+}
 
-	// Interleave bytes of each field (byte length, bytes per field).
-	if err := bigInterleave(b, 1, 4); err != nil {
-		return nil, err
+func (t ValueVector3) fieldGet(i int) (b []byte) {
+	switch i {
+	case 0:
+		return t.X.Bytes()
+	case 1:
+		return t.Y.Bytes()
+	case 2:
+		return t.Z.Bytes()
 	}
+	return
+}
 
-	return b, nil
+func (t ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(t.TypeID(), a)
 }
 
 func (t ValueVector3) FromArrayBytes(b []byte) (a []Value, err error) {
-	bc := make([]byte, len(b))
-	copy(bc, b)
-
-	// Deinterleave bytes of each field (byte length, bytes per field).
-	if err = bigDeinterleave(bc, 1, 4); err != nil {
-		return nil, err
-	}
-
-	// Deinterleave fields of each struct (field length, fields per struct).
-	if err = bigDeinterleave(bc, 4, 3); err != nil {
-		return nil, err
-	}
-
-	a, err = appendByteValues(t.TypeID(), bc, 12)
-	if err != nil {
-		return nil, err
-	}
-
-	return a, nil
+	return deinterleaveFields(t.TypeID(), b)
 }
 
 func (t ValueVector3) Bytes() []byte {
@@ -1342,7 +1340,7 @@ func (t *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 	}
 
 	// Build position part.
-	pb, _ := appendValueBytes(&t.Position, p)
+	pb, _ := t.Position.ArrayBytes(p)
 	b = append(b, pb...)
 
 	return b, nil
