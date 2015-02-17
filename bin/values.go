@@ -486,7 +486,7 @@ func (t *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 4)
+	a, err = appendByteValues(t.TypeID(), b, 8)
 	if err != nil {
 		return nil, err
 	}
@@ -495,14 +495,14 @@ func (t ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
 }
 
 func (t ValueDouble) Bytes() []byte {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, uint32(math.Float64bits(float64(t))))
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, math.Float64bits(float64(t)))
 	return b
 }
 
 func (t *ValueDouble) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if len(b) != 8 {
+		return errors.New("array length must be 8")
 	}
 
 	v := binary.LittleEndian.Uint64(b)
