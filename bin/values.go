@@ -799,7 +799,7 @@ func (t ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
 }
 
 func (t ValueFaces) Bytes() []byte {
-	flags := [6]bool{t.Front, t.Bottom, t.Left, t.Back, t.Top, t.Right}
+	flags := [6]bool{t.Right, t.Top, t.Back, t.Left, t.Bottom, t.Front}
 	var b byte
 	for i, flag := range flags {
 		if flag {
@@ -815,12 +815,12 @@ func (t *ValueFaces) FromBytes(b []byte) error {
 		return errors.New("array length must be 1")
 	}
 
-	t.Front = b[0]&(1<<0) != 0
-	t.Bottom = b[0]&(1<<1) != 0
-	t.Left = b[0]&(1<<2) != 0
-	t.Back = b[0]&(1<<3) != 0
-	t.Top = b[0]&(1<<4) != 0
-	t.Right = b[0]&(1<<5) != 0
+	t.Right = b[0]&(1<<0) != 0
+	t.Top = b[0]&(1<<1) != 0
+	t.Back = b[0]&(1<<2) != 0
+	t.Left = b[0]&(1<<3) != 0
+	t.Bottom = b[0]&(1<<4) != 0
+	t.Front = b[0]&(1<<5) != 0
 
 	return nil
 }
