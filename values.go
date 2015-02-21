@@ -97,7 +97,7 @@ func NewValue(typ Type) Value {
 
 type valueGenerator func() Value
 
-var valueGenerators = map[string]valueGenerator{
+var valueGenerators = map[Type]valueGenerator{
 	TypeString:          newValueString,
 	TypeBinaryString:    newValueBinaryString,
 	TypeProtectedString: newValueProtectedString,
