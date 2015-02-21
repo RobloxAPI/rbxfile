@@ -338,11 +338,11 @@ func decodeRobloxFloat(n uint32) float32 {
 }
 
 // Appends the bytes of a list of Values into a byte array.
-func appendValueBytes(t Value, a []Value) (b []byte, err error) {
+func appendValueBytes(id Type, a []Value) (b []byte, err error) {
 	for i, v := range a {
-		if v.Type() != t.Type() {
+		if v.Type() != id {
 			return nil, errors.New(
-				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.TypeString(), t.TypeString()),
+				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.TypeString(), id.String()),
 			)
 		}
 
@@ -383,7 +383,7 @@ func (t ValueString) TypeString() string {
 }
 
 func (t *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
+	return appendValueBytes(t.Type(), a)
 }
 
 func (t ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
@@ -450,7 +450,7 @@ func (t ValueBool) TypeString() string {
 }
 
 func (t *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
+	return appendValueBytes(t.Type(), a)
 }
 
 func (t ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
@@ -497,7 +497,7 @@ func (t ValueInt) TypeString() string {
 }
 
 func (t *ValueInt) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t, a)
+	b, err = appendValueBytes(t.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +558,7 @@ func (t ValueFloat) TypeString() string {
 }
 
 func (t *ValueFloat) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t, a)
+	b, err = appendValueBytes(t.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +619,7 @@ func (t ValueDouble) TypeString() string {
 }
 
 func (t *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
+	return appendValueBytes(t.Type(), a)
 }
 
 func (t ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
@@ -802,7 +802,7 @@ func (t ValueRay) TypeString() string {
 }
 
 func (t *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
+	return appendValueBytes(t.Type(), a)
 }
 
 func (t ValueRay) FromArrayBytes(b []byte) (a []Value, err error) {
@@ -859,7 +859,7 @@ func (t ValueFaces) TypeString() string {
 }
 
 func (t *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
+	return appendValueBytes(t.Type(), a)
 }
 
 func (t ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
@@ -917,7 +917,7 @@ func (t ValueAxes) TypeString() string {
 }
 
 func (t *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
+	return appendValueBytes(t.Type(), a)
 }
 
 func (t ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
@@ -970,7 +970,7 @@ func (t ValueBrickColor) TypeString() string {
 }
 
 func (t *ValueBrickColor) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t, a)
+	b, err = appendValueBytes(t.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -1441,7 +1441,7 @@ func (t ValueToken) TypeString() string {
 }
 
 func (t *ValueToken) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t, a)
+	b, err = appendValueBytes(t.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -1602,7 +1602,7 @@ func (t ValueVector3int16) TypeString() string {
 }
 
 func (t *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t, a)
+	return appendValueBytes(t.Type(), a)
 }
 
 func (t ValueVector3int16) FromArrayBytes(b []byte) (a []Value, err error) {
