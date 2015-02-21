@@ -86,7 +86,8 @@ type Value interface {
 }
 
 // NewValue returns new Value of the given Type. The initial value will not
-// necessarily be the zero for the type.
+// necessarily be the zero for the type. If the given type is invalid, then a
+// nil value is returned.
 func NewValue(typ Type) Value {
 	newValue, ok := valueGenerators[typ]
 	if !ok {
