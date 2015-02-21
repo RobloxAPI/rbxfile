@@ -5,16 +5,123 @@ import (
 	"strings"
 )
 
-// Value holds a value of a particular Roblox type.
+// Type represents a Roblox type.
+type Type byte
+
+// String returns a string representation of the type. If the type is not
+// valid, then the returned value will be "Invalid".
+func (t Type) String() string {
+	s, ok := typeStrings[t]
+	if !ok {
+		return "Invalid"
+	}
+	return s
+}
+
+const (
+	TypeInvalid Type = iota
+	TypeString
+	TypeBinaryString
+	TypeProtectedString
+	TypeContent
+	TypeBool
+	TypeInt
+	TypeFloat
+	TypeDouble
+	TypeUDim
+	TypeUDim2
+	TypeRay
+	TypeFaces
+	TypeAxes
+	TypeBrickColor
+	TypeColor3
+	TypeVector2
+	TypeVector3
+	TypeCFrame
+	TypeToken
+	TypeReference
+	TypeVector3int16
+	TypeVector2int16
+	TypeRegion3
+	TypeRegion3int16
+)
+
+var typeStrings = map[Type]string{
+	TypeString:          "string",
+	TypeBinaryString:    "BinaryString",
+	TypeProtectedString: "ProtectedString",
+	TypeContent:         "Content",
+	TypeBool:            "bool",
+	TypeInt:             "int",
+	TypeFloat:           "float",
+	TypeDouble:          "double",
+	TypeUDim:            "UDim",
+	TypeUDim2:           "UDim2",
+	TypeRay:             "Ray",
+	TypeFaces:           "Faces",
+	TypeAxes:            "Axes",
+	TypeBrickColor:      "BrickColor",
+	TypeColor3:          "Color3",
+	TypeVector2:         "Vector2",
+	TypeVector3:         "Vector3",
+	TypeCFrame:          "CoordinateFrame",
+	TypeToken:           "token",
+	TypeReference:       "Ref",
+	TypeVector3int16:    "Vector3int16",
+	TypeVector2int16:    "Vector2int16",
+	TypeRegion3:         "Region3",
+	TypeRegion3int16:    "Region3int16",
+}
+
+// Value holds a value of a particular Type.
 type Value interface {
 	// TypeString returns the name of the type.
-	TypeString() string
+	Type() Type
 
 	// String returns a string representation of the current value.
 	String() string
 
-	// Copy returns a copy of the value.
+	// Copy returns a copy of the value, which can be safely modified.
 	Copy() Value
+}
+
+// NewValue returns new Value of the given Type. The initial value will not
+// necessarily be the zero for the type.
+func NewValue(typ Type) Value {
+	newValue, ok := valueGenerators[typ]
+	if !ok {
+		return nil
+	}
+	return newValue()
+}
+
+type valueGenerator func() Value
+
+var valueGenerators = map[string]valueGenerator{
+	TypeString:          newValueString,
+	TypeBinaryString:    newValueBinaryString,
+	TypeProtectedString: newValueProtectedString,
+	TypeContent:         newValueContent,
+	TypeBool:            newValueBool,
+	TypeInt:             newValueInt,
+	TypeFloat:           newValueFloat,
+	TypeDouble:          newValueDouble,
+	TypeUDim:            newValueUDim,
+	TypeUDim2:           newValueUDim2,
+	TypeRay:             newValueRay,
+	TypeFaces:           newValueFaces,
+	TypeAxes:            newValueAxes,
+	TypeBrickColor:      newValueBrickColor,
+	TypeColor3:          newValueColor3,
+	TypeVector2:         newValueVector2,
+	TypeVector3:         newValueVector3,
+	TypeCFrame:          newValueCFrame,
+	TypeToken:           newValueToken,
+	TypeReference:       newValueReference,
+	TypeVector3int16:    newValueVector3int16,
+	TypeVector2int16:    newValueVector2int16,
+	TypeRegion3:         newValueRegion3,
+	TypeRegion3int16:    newValueRegion3int16,
 }
 
 func joinstr(a ...string) string {
@@ -42,8 +149,12 @@ func joinstr(a ...string) string {
 
 type ValueString []byte
 
-func (ValueString) TypeString() string {
-	return "string"
+func newValueString() Value {
+	return *new(ValueString)
+}
+
+func (ValueString) Type() Type {
+	return Typestring
 }
 func (t ValueString) String() string {
 	return string(t)
@@ -58,8 +169,12 @@ func (t ValueString) Copy() Value {
 
 type ValueBinaryString []byte
 
-func (ValueBinaryString) TypeString() string {
-	return "BinaryString"
+func newValueBinaryString() Value {
+	return *new(ValueBinaryString)
+}
+
+func (ValueBinaryString) Type() Type {
+	return TypeBinaryString
 }
 func (t ValueBinaryString) String() string {
 	return string(t)
@@ -74,8 +189,12 @@ func (t ValueBinaryString) Copy() Value {
 
 type ValueProtectedString []byte
 
-func (ValueProtectedString) TypeString() string {
-	return "ProtectedString"
+func newValueProtectedString() Value {
+	return *new(ValueProtectedString)
+}
+
+func (ValueProtectedString) Type() Type {
+	return TypeProtectedString
 }
 func (t ValueProtectedString) String() string {
 	return string(t)
@@ -90,8 +209,12 @@ func (t ValueProtectedString) Copy() Value {
 
 type ValueContent []byte
 
-func (ValueContent) TypeString() string {
-	return "Content"
+func newValueContent() Value {
+	return *new(ValueContent)
+}
+
+func (ValueContent) Type() Type {
+	return TypeContent
 }
 func (t ValueContent) String() string {
 	return string(t)
@@ -106,8 +229,12 @@ func (t ValueContent) Copy() Value {
 
 type ValueBool bool
 
-func (ValueBool) TypeString() string {
-	return "bool"
+func newValueBool() Value {
+	return *new(ValueBool)
+}
+
+func (ValueBool) Type() Type {
+	return Typebool
 }
 func (t ValueBool) String() string {
 	if t {
@@ -124,8 +251,12 @@ func (t ValueBool) Copy() Value {
 
 type ValueInt int32
 
-func (ValueInt) TypeString() string {
-	return "int"
+func newValueInt() Value {
+	return *new(ValueInt)
+}
+
+func (ValueInt) Type() Type {
+	return Typeint
 }
 func (t ValueInt) String() string {
 	return strconv.FormatInt(int64(t), 10)
@@ -138,8 +269,12 @@ func (t ValueInt) Copy() Value {
 
 type ValueFloat float32
 
-func (ValueFloat) TypeString() string {
-	return "float"
+func newValueFloat() Value {
+	return *new(ValueFloat)
+}
+
+func (ValueFloat) Type() Type {
+	return Typefloat
 }
 func (t ValueFloat) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 32)
@@ -152,8 +287,12 @@ func (t ValueFloat) Copy() Value {
 
 type ValueDouble float64
 
-func (ValueDouble) TypeString() string {
-	return "double"
+func newValueDouble() Value {
+	return *new(ValueDouble)
+}
+
+func (ValueDouble) Type() Type {
+	return Typedouble
 }
 func (t ValueDouble) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 64)
@@ -169,8 +308,12 @@ type ValueUDim struct {
 	Offset int32
 }
 
-func (ValueUDim) TypeString() string {
-	return "UDim"
+func newValueUDim() Value {
+	return *new(ValueUDim)
+}
+
+func (ValueUDim) Type() Type {
+	return TypeUDim
 }
 func (t ValueUDim) String() string {
 	return joinstr(
@@ -189,8 +332,12 @@ type ValueUDim2 struct {
 	X, Y ValueUDim
 }
 
-func (ValueUDim2) TypeString() string {
-	return "UDim2"
+func newValueUDim2() Value {
+	return *new(ValueUDim2)
+}
+
+func (ValueUDim2) Type() Type {
+	return TypeUDim2
 }
 func (t ValueUDim2) String() string {
 	return joinstr(
@@ -211,8 +358,12 @@ type ValueRay struct {
 	Origin, Direction ValueVector3
 }
 
-func (ValueRay) TypeString() string {
-	return "Ray"
+func newValueRay() Value {
+	return *new(ValueRay)
+}
+
+func (ValueRay) Type() Type {
+	return TypeRay
 }
 func (t ValueRay) String() string {
 	return joinstr(
@@ -233,8 +384,12 @@ type ValueFaces struct {
 	Right, Top, Back, Left, Bottom, Front bool
 }
 
-func (ValueFaces) TypeString() string {
-	return "Faces"
+func newValueFaces() Value {
+	return *new(ValueFaces)
+}
+
+func (ValueFaces) Type() Type {
+	return TypeFaces
 }
 func (t ValueFaces) String() string {
 	s := make([]string, 6)
@@ -269,8 +424,12 @@ type ValueAxes struct {
 	X, Y, Z bool
 }
 
-func (ValueAxes) TypeString() string {
-	return "Axes"
+func newValueAxes() Value {
+	return *new(ValueAxes)
+}
+
+func (ValueAxes) Type() Type {
+	return TypeAxes
 }
 func (t ValueAxes) String() string {
 	s := make([]string, 3)
@@ -294,8 +453,12 @@ func (t ValueAxes) Copy() Value {
 
 type ValueBrickColor uint32
 
-func (ValueBrickColor) TypeString() string {
-	return "BrickColor"
+func newValueBrickColor() Value {
+	return *new(ValueBrickColor)
+}
+
+func (ValueBrickColor) Type() Type {
+	return TypeBrickColor
 }
 func (t ValueBrickColor) String() string {
 	return strconv.FormatUint(uint64(t), 10)
@@ -337,8 +500,12 @@ type ValueColor3 struct {
 	R, G, B float32
 }
 
-func (ValueColor3) TypeString() string {
-	return "Color3"
+func newValueColor3() Value {
+	return *new(ValueColor3)
+}
+
+func (ValueColor3) Type() Type {
+	return TypeColor3
 }
 func (t ValueColor3) String() string {
 	return joinstr(
@@ -359,8 +526,12 @@ type ValueVector2 struct {
 	X, Y float32
 }
 
-func (ValueVector2) TypeString() string {
-	return "Vector2"
+func newValueVector2() Value {
+	return *new(ValueVector2)
+}
+
+func (ValueVector2) Type() Type {
+	return TypeVector2
 }
 func (t ValueVector2) String() string {
 	return joinstr(
@@ -379,8 +550,12 @@ type ValueVector3 struct {
 	X, Y, Z float32
 }
 
-func (ValueVector3) TypeString() string {
-	return "Vector3"
+func newValueVector3() Value {
+	return *new(ValueVector3)
+}
+
+func (ValueVector3) Type() Type {
+	return TypeVector3
 }
 func (t ValueVector3) String() string {
 	return joinstr(
@@ -402,8 +577,12 @@ type ValueCFrame struct {
 	R       [9]float32
 }
 
-func (ValueCFrame) TypeString() string {
-	return "CoordinateFrame"
+func newValueCFrame() Value {
+	return *new(ValueCFrame)
+}
+
+func (ValueCFrame) Type() Type {
+	return TypeCoordinateFrame
 }
 func (t ValueCFrame) String() string {
 	s := make([]string, 12)
@@ -421,10 +600,14 @@ func (t ValueCFrame) Copy() Value {
 
 ////////////////
 
-type ValueToken int32
+type ValueToken uint32
 
-func (ValueToken) TypeString() string {
-	return "token"
+func newValueToken() Value {
+	return *new(ValueToken)
+}
+
+func (ValueToken) Type() Type {
+	return Typetoken
 }
 func (t ValueToken) String() string {
 	return strconv.FormatInt(int64(t), 10)
@@ -439,8 +622,12 @@ type ValueReference struct {
 	*Instance
 }
 
-func (ValueReference) TypeString() string {
-	return "Ref"
+func newValueReference() Value {
+	return *new(ValueReference)
+}
+
+func (ValueReference) Type() Type {
+	return TypeRef
 }
 func (t ValueReference) String() string {
 	if t.Instance == nil {
@@ -458,8 +645,12 @@ type ValueVector3int16 struct {
 	X, Y, Z int16
 }
 
-func (ValueVector3int16) TypeString() string {
-	return "Vector3int16"
+func newValueVector3int16() Value {
+	return *new(ValueVector3int16)
+}
+
+func (ValueVector3int16) Type() Type {
+	return TypeVector3int16
 }
 func (t ValueVector3int16) String() string {
 	return joinstr(
@@ -480,8 +671,12 @@ type ValueVector2int16 struct {
 	X, Y int16
 }
 
-func (ValueVector2int16) TypeString() string {
-	return "Vector2int16"
+func newValueVector2int16() Value {
+	return *new(ValueVector2int16)
+}
+
+func (ValueVector2int16) Type() Type {
+	return TypeVector2int16
 }
 func (t ValueVector2int16) String() string {
 	return joinstr(
@@ -501,8 +696,12 @@ type ValueRegion3 struct {
 	Size   ValueVector3
 }
 
-func (ValueRegion3) TypeString() string {
-	return "Region3"
+func newValueRegion3() Value {
+	return *new(ValueRegion3)
+}
+
+func (ValueRegion3) Type() Type {
+	return TypeRegion3
 }
 func (t ValueRegion3) String() string {
 	return joinstr(
@@ -521,8 +720,12 @@ type ValueRegion3int16 struct {
 	Max, Min ValueVector3int16
 }
 
-func (ValueRegion3int16) TypeString() string {
-	return "Region3int16"
+func newValueRegion3int16() Value {
+	return *new(ValueRegion3int16)
+}
+
+func (ValueRegion3int16) Type() Type {
+	return TypeRegion3int16
 }
 func (t ValueRegion3int16) String() string {
 	return joinstr(
