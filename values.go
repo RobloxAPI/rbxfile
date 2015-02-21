@@ -573,8 +573,8 @@ func (t ValueVector3) Copy() Value {
 ////////////////
 
 type ValueCFrame struct {
-	X, Y, Z float32
-	R       [9]float32
+	Position ValueVector3
+	Rotation [9]float32
 }
 
 func newValueCFrame() Value {
@@ -586,10 +586,10 @@ func (ValueCFrame) Type() Type {
 }
 func (t ValueCFrame) String() string {
 	s := make([]string, 12)
-	s[0] = strconv.FormatFloat(float64(t.X), 'f', -1, 32)
-	s[1] = strconv.FormatFloat(float64(t.Y), 'f', -1, 32)
-	s[2] = strconv.FormatFloat(float64(t.Z), 'f', -1, 32)
-	for i, f := range t.R {
+	s[0] = strconv.FormatFloat(float64(t.Position.X), 'f', -1, 32)
+	s[1] = strconv.FormatFloat(float64(t.Position.Y), 'f', -1, 32)
+	s[2] = strconv.FormatFloat(float64(t.Position.Z), 'f', -1, 32)
+	for i, f := range t.Rotation {
 		s[i+3] = strconv.FormatFloat(float64(f), 'f', -1, 32)
 	}
 	return strings.Join(s, ", ")
