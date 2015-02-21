@@ -75,7 +75,7 @@ var typeStrings = map[Type]string{
 
 // Value holds a value of a particular Type.
 type Value interface {
-	// TypeString returns the name of the type.
+	// Type returns an identifier indicating the type.
 	Type() Type
 
 	// String returns a string representation of the current value.
