@@ -207,6 +207,9 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 	}
 
 	newValue := valueGenerators[id]
+	if newValue == nil {
+		return nil, errors.New(fmt.Sprintf("type identifier 0x%X is not a valid Type.", id))
+	}
 
 	// Number of bytes per field
 	nbytes := newValue().(fielder).fieldLen()
