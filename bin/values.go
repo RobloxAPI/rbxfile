@@ -1295,11 +1295,11 @@ func (t ValueCFrame) TypeString() string {
 func (t *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 	p := make([]Value, len(a))
 
-	for i, v := range a {
-		cf, ok := v.(*ValueCFrame)
+	for i, cf := range a {
+		cf, ok := cf.(*ValueCFrame)
 		if !ok {
 			return nil, errors.New(
-				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.TypeString(), t.TypeString()),
+				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, cf.TypeString(), t.TypeString()),
 			)
 		}
 
@@ -1506,11 +1506,11 @@ func (t *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 	b = make([]byte, len(a)*size)
 
 	var prev ValueReference
-	for i, v := range a {
-		ref, ok := v.(*ValueReference)
+	for i, ref := range a {
+		ref, ok := ref.(*ValueReference)
 		if !ok {
 			return nil, errors.New(
-				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, v.TypeString(), t.TypeString()),
+				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, ref.TypeString(), t.TypeString()),
 			)
 		}
 
