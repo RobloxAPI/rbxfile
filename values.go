@@ -42,8 +42,6 @@ const (
 	TypeReference
 	TypeVector3int16
 	TypeVector2int16
-	TypeRegion3
-	TypeRegion3int16
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -80,8 +78,6 @@ var typeStrings = map[Type]string{
 	TypeReference:       "Object",
 	TypeVector3int16:    "Vector3int16",
 	TypeVector2int16:    "Vector2int16",
-	TypeRegion3:         "Region3",
-	TypeRegion3int16:    "Region3int16",
 }
 
 // Value holds a value of a particular Type.
@@ -132,8 +128,6 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeReference:       newValueReference,
 	TypeVector3int16:    newValueVector3int16,
 	TypeVector2int16:    newValueVector2int16,
-	TypeRegion3:         newValueRegion3,
-	TypeRegion3int16:    newValueRegion3int16,
 }
 
 func joinstr(a ...string) string {
@@ -698,55 +692,6 @@ func (t ValueVector2int16) String() string {
 	)
 }
 func (t ValueVector2int16) Copy() Value {
-	return t
-}
-
-////////////////
-
-type ValueRegion3 struct {
-	CFrame ValueCFrame
-	Size   ValueVector3
-}
-
-func newValueRegion3() Value {
-	return *new(ValueRegion3)
-}
-
-func (ValueRegion3) Type() Type {
-	return TypeRegion3
-}
-func (t ValueRegion3) String() string {
-	return joinstr(
-		t.CFrame.String(),
-		"; ",
-		t.Size.String(),
-	)
-}
-func (t ValueRegion3) Copy() Value {
-	return t
-}
-
-////////////////
-
-type ValueRegion3int16 struct {
-	Max, Min ValueVector3int16
-}
-
-func newValueRegion3int16() Value {
-	return *new(ValueRegion3int16)
-}
-
-func (ValueRegion3int16) Type() Type {
-	return TypeRegion3int16
-}
-func (t ValueRegion3int16) String() string {
-	return joinstr(
-		t.Min.String(),
-		"; ",
-		t.Max.String(),
-	)
-}
-func (t ValueRegion3int16) Copy() Value {
 	return t
 }
 
