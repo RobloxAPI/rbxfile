@@ -46,6 +46,17 @@ const (
 	TypeRegion3int16
 )
 
+// TypeFromString returns a Type from its string representation. TypeInvalid
+// is returned if the string does not represent an existing Type.
+func TypeFromString(s string) Type {
+	for typ, str := range typeStrings {
+		if s == str {
+			return typ
+		}
+	}
+	return TypeInvalid
+}
+
 var typeStrings = map[Type]string{
 	TypeString:          "string",
 	TypeBinaryString:    "BinaryString",
