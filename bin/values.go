@@ -354,7 +354,7 @@ func appendValueBytes(t Value, a []Value) (b []byte, err error) {
 
 // Reads a byte array as an array of Values of a certain type. Size is the
 // byte size of each Value.
-func appendByteValues(id byte, b []byte, size int) (a []Value, err error) {
+func appendByteValues(id Type, b []byte, size int) (a []Value, err error) {
 	gen := valueGenerators[id]
 	for i := 0; i+size <= len(b); i += size {
 		v := gen()
