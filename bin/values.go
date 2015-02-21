@@ -72,9 +72,6 @@ type Value interface {
 	// Type returns an identifier indicating the type.
 	Type() Type
 
-	// TypeString returns the name of the type.
-	TypeString() string
-
 	// FromBytes receives the value of the type from a byte array.
 	FromBytes([]byte) error
 
@@ -342,7 +339,7 @@ func appendValueBytes(id Type, a []Value) (b []byte, err error) {
 	for i, v := range a {
 		if v.Type() != id {
 			return nil, errors.New(
-				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.TypeString(), id.String()),
+				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.Type().String(), id.String()),
 			)
 		}
 
@@ -376,10 +373,6 @@ func newValueString() Value {
 
 func (ValueString) Type() Type {
 	return TypeString
-}
-
-func (v ValueString) TypeString() string {
-	return v.Type().String()
 }
 
 func (v *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
@@ -445,10 +438,6 @@ func (ValueBool) Type() Type {
 	return TypeBool
 }
 
-func (v ValueBool) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(v.Type(), a)
 }
@@ -490,10 +479,6 @@ func newValueInt() Value {
 
 func (ValueInt) Type() Type {
 	return TypeInt
-}
-
-func (v ValueInt) TypeString() string {
-	return v.Type().String()
 }
 
 func (v *ValueInt) ArrayBytes(a []Value) (b []byte, err error) {
@@ -552,10 +537,6 @@ func (ValueFloat) Type() Type {
 	return TypeFloat
 }
 
-func (v ValueFloat) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueFloat) ArrayBytes(a []Value) (b []byte, err error) {
 	b, err = appendValueBytes(v.Type(), a)
 	if err != nil {
@@ -612,10 +593,6 @@ func (ValueDouble) Type() Type {
 	return TypeDouble
 }
 
-func (v ValueDouble) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(v.Type(), a)
 }
@@ -658,10 +635,6 @@ func newValueUDim() Value {
 
 func (ValueUDim) Type() Type {
 	return TypeUDim
-}
-
-func (v ValueUDim) TypeString() string {
-	return v.Type().String()
 }
 
 func (v *ValueUDim) ArrayBytes(a []Value) (b []byte, err error) {
@@ -707,10 +680,6 @@ func newValueUDim2() Value {
 
 func (ValueUDim2) Type() Type {
 	return TypeUDim2
-}
-
-func (v ValueUDim2) TypeString() string {
-	return v.Type().String()
 }
 
 func (v ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
@@ -794,10 +763,6 @@ func (ValueRay) Type() Type {
 	return TypeRay
 }
 
-func (v ValueRay) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(v.Type(), a)
 }
@@ -849,10 +814,6 @@ func newValueFaces() Value {
 
 func (ValueFaces) Type() Type {
 	return TypeFaces
-}
-
-func (v ValueFaces) TypeString() string {
-	return v.Type().String()
 }
 
 func (v *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
@@ -909,10 +870,6 @@ func (ValueAxes) Type() Type {
 	return TypeAxes
 }
 
-func (v ValueAxes) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
 	return appendValueBytes(v.Type(), a)
 }
@@ -960,10 +917,6 @@ func newValueBrickColor() Value {
 
 func (ValueBrickColor) Type() Type {
 	return TypeBrickColor
-}
-
-func (v ValueBrickColor) TypeString() string {
-	return v.Type().String()
 }
 
 func (v *ValueBrickColor) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1022,10 +975,6 @@ func newValueColor3() Value {
 
 func (ValueColor3) Type() Type {
 	return TypeColor3
-}
-
-func (v ValueColor3) TypeString() string {
-	return v.Type().String()
 }
 
 func (v ValueColor3) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1098,10 +1047,6 @@ func (ValueVector2) Type() Type {
 	return TypeVector2
 }
 
-func (v ValueVector2) TypeString() string {
-	return v.Type().String()
-}
-
 func (v ValueVector2) ArrayBytes(a []Value) (b []byte, err error) {
 	return interleaveFields(v.Type(), a)
 }
@@ -1164,10 +1109,6 @@ func newValueVector3() Value {
 
 func (ValueVector3) Type() Type {
 	return TypeVector3
-}
-
-func (v ValueVector3) TypeString() string {
-	return v.Type().String()
 }
 
 func (v ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1240,10 +1181,6 @@ func (ValueVector2int16) Type() Type {
 	return TypeVector2int16
 }
 
-func (v ValueVector2int16) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueVector2int16) ArrayBytes(a []Value) (b []byte, err error) {
 	return nil, errors.New("not implemented")
 }
@@ -1288,10 +1225,6 @@ func (ValueCFrame) Type() Type {
 	return TypeCFrame
 }
 
-func (v ValueCFrame) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 	p := make([]Value, len(a))
 
@@ -1299,7 +1232,7 @@ func (v *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 		cf, ok := cf.(*ValueCFrame)
 		if !ok {
 			return nil, errors.New(
-				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, cf.TypeString(), v.TypeString()),
+				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, cf.Type().String(), v.Type().String()),
 			)
 		}
 
@@ -1433,10 +1366,6 @@ func (ValueToken) Type() Type {
 	return TypeToken
 }
 
-func (v ValueToken) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueToken) ArrayBytes(a []Value) (b []byte, err error) {
 	b, err = appendValueBytes(v.Type(), a)
 	if err != nil {
@@ -1493,10 +1422,6 @@ func (ValueReference) Type() Type {
 	return TypeReference
 }
 
-func (v ValueReference) TypeString() string {
-	return v.Type().String()
-}
-
 func (v *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 	if len(a) == 0 {
 		return b, nil
@@ -1510,7 +1435,7 @@ func (v *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 		ref, ok := ref.(*ValueReference)
 		if !ok {
 			return nil, errors.New(
-				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, ref.TypeString(), v.TypeString()),
+				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, ref.Type().String(), v.Type().String()),
 			)
 		}
 
@@ -1591,10 +1516,6 @@ func newValueVector3int16() Value {
 
 func (ValueVector3int16) Type() Type {
 	return TypeVector3int16
-}
-
-func (v ValueVector3int16) TypeString() string {
-	return v.Type().String()
 }
 
 func (v *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
