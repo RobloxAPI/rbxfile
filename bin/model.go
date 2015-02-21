@@ -910,9 +910,8 @@ type ChunkProperty struct {
 	// corresponding instance group.
 	PropertyName string
 
-	// DataType is a number indicating the type of the property. It
-	// corresponds to the result of the Value.Type method.
-	DataType uint8
+	// DataType is a number indicating the type of the property.
+	DataType Type
 
 	// Properties is a list of Values of the given DataType. Each value in the
 	// array corresponds to the property of an instance in the specified
@@ -947,7 +946,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 
-	if fr.readNumber(binary.LittleEndian, &c.DataType) {
+	if fr.readNumber(binary.LittleEndian, (*uint8)(&c.DataType)) {
 		return fr.end()
 	}
 
@@ -982,7 +981,7 @@ func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.end()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, c.DataType) {
+	if fw.writeNumber(binary.LittleEndian, uint8(c.DataType)) {
 		return fw.end()
 	}
 
