@@ -66,7 +66,7 @@ var typeStrings = map[Type]string{
 	TypeVector3:         "Vector3",
 	TypeCFrame:          "CoordinateFrame",
 	TypeToken:           "token",
-	TypeReference:       "Ref",
+	TypeReference:       "Object",
 	TypeVector3int16:    "Vector3int16",
 	TypeVector2int16:    "Vector2int16",
 	TypeRegion3:         "Region3",
