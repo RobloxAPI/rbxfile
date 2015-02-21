@@ -378,15 +378,15 @@ func (ValueString) Type() Type {
 	return TypeString
 }
 
-func (t ValueString) TypeString() string {
-	return t.Type().String()
+func (v ValueString) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t.Type(), a)
+func (v *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
 }
 
-func (t ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
 	for i := 0; i < len(b); {
 		if i+4 > len(b) {
 			return nil, errors.New("array element must be at least 4 bytes")
@@ -409,14 +409,14 @@ func (t ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueString) Bytes() []byte {
-	b := make([]byte, len(t)+4)
-	binary.LittleEndian.PutUint32(b, uint32(len(t)))
-	copy(b[4:], t)
+func (v ValueString) Bytes() []byte {
+	b := make([]byte, len(v)+4)
+	binary.LittleEndian.PutUint32(b, uint32(len(v)))
+	copy(b[4:], v)
 	return b
 }
 
-func (t *ValueString) FromBytes(b []byte) error {
+func (v *ValueString) FromBytes(b []byte) error {
 	if len(b) < 4 {
 		return errors.New("array length must be greater than or equal to 4")
 	}
@@ -427,8 +427,8 @@ func (t *ValueString) FromBytes(b []byte) error {
 		return errors.New(fmt.Sprintf("string length (%d) does not match integer length (%d)", len(str), length))
 	}
 
-	*t = make(ValueString, len(str))
-	copy(*t, str)
+	*v = make(ValueString, len(str))
+	copy(*v, str)
 
 	return nil
 }
@@ -445,16 +445,16 @@ func (ValueBool) Type() Type {
 	return TypeBool
 }
 
-func (t ValueBool) TypeString() string {
-	return t.Type().String()
+func (v ValueBool) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t.Type(), a)
+func (v *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
 }
 
-func (t ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.Type(), b, 1)
+func (v ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
+	a, err = appendByteValues(v.Type(), b, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -462,20 +462,20 @@ func (t ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueBool) Bytes() []byte {
-	if t {
+func (v ValueBool) Bytes() []byte {
+	if v {
 		return []byte{1}
 	} else {
 		return []byte{0}
 	}
 }
 
-func (t *ValueBool) FromBytes(b []byte) error {
+func (v *ValueBool) FromBytes(b []byte) error {
 	if len(b) != 1 {
 		return errors.New("array length must be 1")
 	}
 
-	*t = b[0] != 0
+	*v = b[0] != 0
 
 	return nil
 }
@@ -492,12 +492,12 @@ func (ValueInt) Type() Type {
 	return TypeInt
 }
 
-func (t ValueInt) TypeString() string {
-	return t.Type().String()
+func (v ValueInt) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueInt) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t.Type(), a)
+func (v *ValueInt) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(v.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -509,14 +509,14 @@ func (t *ValueInt) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t ValueInt) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueInt) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	if err = deinterleave(bc, 4); err != nil {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -524,13 +524,13 @@ func (t ValueInt) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueInt) Bytes() []byte {
+func (v ValueInt) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, encodeZigzag(int32(t)))
+	binary.BigEndian.PutUint32(b, encodeZigzag(int32(v)))
 	return b
 }
 
-func (t *ValueInt) FromBytes(b []byte) error {
+func (v *ValueInt) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
@@ -552,12 +552,12 @@ func (ValueFloat) Type() Type {
 	return TypeFloat
 }
 
-func (t ValueFloat) TypeString() string {
-	return t.Type().String()
+func (v ValueFloat) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueFloat) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t.Type(), a)
+func (v *ValueFloat) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(v.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -569,14 +569,14 @@ func (t *ValueFloat) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t ValueFloat) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueFloat) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	if err = deinterleave(bc, 4); err != nil {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -584,13 +584,13 @@ func (t ValueFloat) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueFloat) Bytes() []byte {
+func (v ValueFloat) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, encodeRobloxFloat(float32(t)))
+	binary.BigEndian.PutUint32(b, encodeRobloxFloat(float32(v)))
 	return b
 }
 
-func (t *ValueFloat) FromBytes(b []byte) error {
+func (v *ValueFloat) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
@@ -612,16 +612,16 @@ func (ValueDouble) Type() Type {
 	return TypeDouble
 }
 
-func (t ValueDouble) TypeString() string {
-	return t.Type().String()
+func (v ValueDouble) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t.Type(), a)
+func (v *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
 }
 
-func (t ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.Type(), b, 8)
+func (v ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
+	a, err = appendByteValues(v.Type(), b, 8)
 	if err != nil {
 		return nil, err
 	}
@@ -629,13 +629,13 @@ func (t ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueDouble) Bytes() []byte {
+func (v ValueDouble) Bytes() []byte {
 	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, math.Float64bits(float64(t)))
+	binary.LittleEndian.PutUint64(b, math.Float64bits(float64(v)))
 	return b
 }
 
-func (t *ValueDouble) FromBytes(b []byte) error {
+func (v *ValueDouble) FromBytes(b []byte) error {
 	if len(b) != 8 {
 		return errors.New("array length must be 8")
 	}
@@ -660,34 +660,34 @@ func (ValueUDim) Type() Type {
 	return TypeUDim
 }
 
-func (t ValueUDim) TypeString() string {
-	return t.Type().String()
+func (v ValueUDim) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueUDim) ArrayBytes(a []Value) (b []byte, err error) {
+func (v *ValueUDim) ArrayBytes(a []Value) (b []byte, err error) {
 	return nil, errors.New("not implemented")
 }
 
-func (t ValueUDim) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueUDim) FromArrayBytes(b []byte) (a []Value, err error) {
 	return nil, errors.New("not implemented")
 }
 
-func (t ValueUDim) Bytes() []byte {
+func (v ValueUDim) Bytes() []byte {
 	b := make([]byte, 8)
 
-	copy(b[0:4], t.Scale.Bytes())
-	copy(b[4:8], t.Offset.Bytes())
+	copy(b[0:4], v.Scale.Bytes())
+	copy(b[4:8], v.Offset.Bytes())
 
 	return b
 }
 
-func (t *ValueUDim) FromBytes(b []byte) error {
+func (v *ValueUDim) FromBytes(b []byte) error {
 	if len(b) != 8 {
 		return errors.New("array length must be 8")
 	}
 
-	t.Scale.FromBytes(b[0:4])
-	t.Offset.FromBytes(b[4:8])
+	v.Scale.FromBytes(b[0:4])
+	v.Offset.FromBytes(b[4:8])
 
 	return nil
 }
@@ -709,36 +709,36 @@ func (ValueUDim2) Type() Type {
 	return TypeUDim2
 }
 
-func (t ValueUDim2) TypeString() string {
-	return t.Type().String()
+func (v ValueUDim2) TypeString() string {
+	return v.Type().String()
 }
 
-func (t ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.Type(), a)
+func (v ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(v.Type(), a)
 }
 
-func (t ValueUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.Type(), b)
+func (v ValueUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
+	return deinterleaveFields(v.Type(), b)
 }
 
-func (t ValueUDim2) Bytes() []byte {
+func (v ValueUDim2) Bytes() []byte {
 	b := make([]byte, 16)
-	copy(b[0:4], t.ScaleX.Bytes())
-	copy(b[4:8], t.ScaleY.Bytes())
-	copy(b[8:12], t.OffsetX.Bytes())
-	copy(b[12:16], t.OffsetY.Bytes())
+	copy(b[0:4], v.ScaleX.Bytes())
+	copy(b[4:8], v.ScaleY.Bytes())
+	copy(b[8:12], v.OffsetX.Bytes())
+	copy(b[12:16], v.OffsetY.Bytes())
 	return b
 }
 
-func (t *ValueUDim2) FromBytes(b []byte) error {
+func (v *ValueUDim2) FromBytes(b []byte) error {
 	if len(b) != 16 {
 		return errors.New("array length must be 16")
 	}
 
-	t.ScaleX.FromBytes(b[0:4])
-	t.ScaleY.FromBytes(b[4:8])
-	t.OffsetX.FromBytes(b[8:12])
-	t.OffsetY.FromBytes(b[12:16])
+	v.ScaleX.FromBytes(b[0:4])
+	v.ScaleY.FromBytes(b[4:8])
+	v.OffsetX.FromBytes(b[8:12])
+	v.OffsetY.FromBytes(b[12:16])
 
 	return nil
 }
@@ -747,30 +747,30 @@ func (ValueUDim2) fieldLen() []int {
 	return []int{4, 4, 4, 4}
 }
 
-func (t *ValueUDim2) fieldSet(i int, b []byte) (err error) {
+func (v *ValueUDim2) fieldSet(i int, b []byte) (err error) {
 	switch i {
 	case 0:
-		err = t.ScaleX.FromBytes(b)
+		err = v.ScaleX.FromBytes(b)
 	case 1:
-		err = t.ScaleY.FromBytes(b)
+		err = v.ScaleY.FromBytes(b)
 	case 2:
-		err = t.OffsetX.FromBytes(b)
+		err = v.OffsetX.FromBytes(b)
 	case 3:
-		err = t.OffsetY.FromBytes(b)
+		err = v.OffsetY.FromBytes(b)
 	}
 	return
 }
 
-func (t ValueUDim2) fieldGet(i int) (b []byte) {
+func (v ValueUDim2) fieldGet(i int) (b []byte) {
 	switch i {
 	case 0:
-		return t.ScaleX.Bytes()
+		return v.ScaleX.Bytes()
 	case 1:
-		return t.ScaleY.Bytes()
+		return v.ScaleY.Bytes()
 	case 2:
-		return t.OffsetX.Bytes()
+		return v.OffsetX.Bytes()
 	case 3:
-		return t.OffsetY.Bytes()
+		return v.OffsetY.Bytes()
 	}
 	return
 }
@@ -794,16 +794,16 @@ func (ValueRay) Type() Type {
 	return TypeRay
 }
 
-func (t ValueRay) TypeString() string {
-	return t.Type().String()
+func (v ValueRay) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t.Type(), a)
+func (v *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
 }
 
-func (t ValueRay) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.Type(), b, 24)
+func (v ValueRay) FromArrayBytes(b []byte) (a []Value, err error) {
+	a, err = appendByteValues(v.Type(), b, 24)
 	if err != nil {
 		return nil, err
 	}
@@ -811,28 +811,28 @@ func (t ValueRay) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueRay) Bytes() []byte {
+func (v ValueRay) Bytes() []byte {
 	b := make([]byte, 24)
-	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(t.OriginX))
-	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(t.OriginY))
-	binary.LittleEndian.PutUint32(b[8:12], math.Float32bits(t.OriginZ))
-	binary.LittleEndian.PutUint32(b[12:16], math.Float32bits(t.DirectionX))
-	binary.LittleEndian.PutUint32(b[16:20], math.Float32bits(t.DirectionY))
-	binary.LittleEndian.PutUint32(b[20:24], math.Float32bits(t.DirectionZ))
+	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.OriginX))
+	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.OriginY))
+	binary.LittleEndian.PutUint32(b[8:12], math.Float32bits(v.OriginZ))
+	binary.LittleEndian.PutUint32(b[12:16], math.Float32bits(v.DirectionX))
+	binary.LittleEndian.PutUint32(b[16:20], math.Float32bits(v.DirectionY))
+	binary.LittleEndian.PutUint32(b[20:24], math.Float32bits(v.DirectionZ))
 	return b
 }
 
-func (t *ValueRay) FromBytes(b []byte) error {
+func (v *ValueRay) FromBytes(b []byte) error {
 	if len(b) != 24 {
 		return errors.New("array length must be 24")
 	}
 
-	t.OriginX = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
-	t.OriginY = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
-	t.OriginZ = math.Float32frombits(binary.LittleEndian.Uint32(b[8:12]))
-	t.DirectionX = math.Float32frombits(binary.LittleEndian.Uint32(b[12:16]))
-	t.DirectionY = math.Float32frombits(binary.LittleEndian.Uint32(b[16:20]))
-	t.DirectionZ = math.Float32frombits(binary.LittleEndian.Uint32(b[20:24]))
+	v.OriginX = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
+	v.OriginY = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
+	v.OriginZ = math.Float32frombits(binary.LittleEndian.Uint32(b[8:12]))
+	v.DirectionX = math.Float32frombits(binary.LittleEndian.Uint32(b[12:16]))
+	v.DirectionY = math.Float32frombits(binary.LittleEndian.Uint32(b[16:20]))
+	v.DirectionZ = math.Float32frombits(binary.LittleEndian.Uint32(b[20:24]))
 
 	return nil
 }
@@ -851,16 +851,16 @@ func (ValueFaces) Type() Type {
 	return TypeFaces
 }
 
-func (t ValueFaces) TypeString() string {
-	return t.Type().String()
+func (v ValueFaces) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t.Type(), a)
+func (v *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
 }
 
-func (t ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.Type(), b, 1)
+func (v ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
+	a, err = appendByteValues(v.Type(), b, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -868,8 +868,8 @@ func (t ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueFaces) Bytes() []byte {
-	flags := [6]bool{t.Right, t.Top, t.Back, t.Left, t.Bottom, t.Front}
+func (v ValueFaces) Bytes() []byte {
+	flags := [6]bool{v.Right, v.Top, v.Back, v.Left, v.Bottom, v.Front}
 	var b byte
 	for i, flag := range flags {
 		if flag {
@@ -880,17 +880,17 @@ func (t ValueFaces) Bytes() []byte {
 	return []byte{b}
 }
 
-func (t *ValueFaces) FromBytes(b []byte) error {
+func (v *ValueFaces) FromBytes(b []byte) error {
 	if len(b) != 1 {
 		return errors.New("array length must be 1")
 	}
 
-	t.Right = b[0]&(1<<0) != 0
-	t.Top = b[0]&(1<<1) != 0
-	t.Back = b[0]&(1<<2) != 0
-	t.Left = b[0]&(1<<3) != 0
-	t.Bottom = b[0]&(1<<4) != 0
-	t.Front = b[0]&(1<<5) != 0
+	v.Right = b[0]&(1<<0) != 0
+	v.Top = b[0]&(1<<1) != 0
+	v.Back = b[0]&(1<<2) != 0
+	v.Left = b[0]&(1<<3) != 0
+	v.Bottom = b[0]&(1<<4) != 0
+	v.Front = b[0]&(1<<5) != 0
 
 	return nil
 }
@@ -909,16 +909,16 @@ func (ValueAxes) Type() Type {
 	return TypeAxes
 }
 
-func (t ValueAxes) TypeString() string {
-	return t.Type().String()
+func (v ValueAxes) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t.Type(), a)
+func (v *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
 }
 
-func (t ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.Type(), b, 1)
+func (v ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
+	a, err = appendByteValues(v.Type(), b, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -926,8 +926,8 @@ func (t ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueAxes) Bytes() []byte {
-	flags := [3]bool{t.X, t.Y, t.Z}
+func (v ValueAxes) Bytes() []byte {
+	flags := [3]bool{v.X, v.Y, v.Z}
 	var b byte
 	for i, flag := range flags {
 		if flag {
@@ -938,14 +938,14 @@ func (t ValueAxes) Bytes() []byte {
 	return []byte{b}
 }
 
-func (t *ValueAxes) FromBytes(b []byte) error {
+func (v *ValueAxes) FromBytes(b []byte) error {
 	if len(b) != 1 {
 		return errors.New("array length must be 1")
 	}
 
-	t.X = b[0]&(1<<0) != 0
-	t.Y = b[0]&(1<<1) != 0
-	t.Z = b[0]&(1<<2) != 0
+	v.X = b[0]&(1<<0) != 0
+	v.Y = b[0]&(1<<1) != 0
+	v.Z = b[0]&(1<<2) != 0
 
 	return nil
 }
@@ -962,12 +962,12 @@ func (ValueBrickColor) Type() Type {
 	return TypeBrickColor
 }
 
-func (t ValueBrickColor) TypeString() string {
-	return t.Type().String()
+func (v ValueBrickColor) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueBrickColor) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t.Type(), a)
+func (v *ValueBrickColor) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(v.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -979,14 +979,14 @@ func (t *ValueBrickColor) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t ValueBrickColor) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueBrickColor) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	if err = deinterleave(bc, 4); err != nil {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -994,18 +994,18 @@ func (t ValueBrickColor) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueBrickColor) Bytes() []byte {
+func (v ValueBrickColor) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(t))
+	binary.BigEndian.PutUint32(b, uint32(v))
 	return b
 }
 
-func (t *ValueBrickColor) FromBytes(b []byte) error {
+func (v *ValueBrickColor) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
 
-	*t = ValueBrickColor(binary.BigEndian.Uint32(b))
+	*v = ValueBrickColor(binary.BigEndian.Uint32(b))
 
 	return nil
 }
@@ -1024,34 +1024,34 @@ func (ValueColor3) Type() Type {
 	return TypeColor3
 }
 
-func (t ValueColor3) TypeString() string {
-	return t.Type().String()
+func (v ValueColor3) TypeString() string {
+	return v.Type().String()
 }
 
-func (t ValueColor3) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.Type(), a)
+func (v ValueColor3) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(v.Type(), a)
 }
 
-func (t ValueColor3) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.Type(), b)
+func (v ValueColor3) FromArrayBytes(b []byte) (a []Value, err error) {
+	return deinterleaveFields(v.Type(), b)
 }
 
-func (t ValueColor3) Bytes() []byte {
+func (v ValueColor3) Bytes() []byte {
 	b := make([]byte, 12)
-	copy(b[0:4], t.R.Bytes())
-	copy(b[4:8], t.G.Bytes())
-	copy(b[8:12], t.B.Bytes())
+	copy(b[0:4], v.R.Bytes())
+	copy(b[4:8], v.G.Bytes())
+	copy(b[8:12], v.B.Bytes())
 	return b
 }
 
-func (t *ValueColor3) FromBytes(b []byte) error {
+func (v *ValueColor3) FromBytes(b []byte) error {
 	if len(b) != 12 {
 		return errors.New("array length must be 12")
 	}
 
-	t.R.FromBytes(b[0:4])
-	t.G.FromBytes(b[4:8])
-	t.B.FromBytes(b[8:12])
+	v.R.FromBytes(b[0:4])
+	v.G.FromBytes(b[4:8])
+	v.B.FromBytes(b[8:12])
 
 	return nil
 }
@@ -1060,26 +1060,26 @@ func (ValueColor3) fieldLen() []int {
 	return []int{4, 4, 4}
 }
 
-func (t *ValueColor3) fieldSet(i int, b []byte) (err error) {
+func (v *ValueColor3) fieldSet(i int, b []byte) (err error) {
 	switch i {
 	case 0:
-		err = t.R.FromBytes(b)
+		err = v.R.FromBytes(b)
 	case 1:
-		err = t.G.FromBytes(b)
+		err = v.G.FromBytes(b)
 	case 2:
-		err = t.B.FromBytes(b)
+		err = v.B.FromBytes(b)
 	}
 	return
 }
 
-func (t ValueColor3) fieldGet(i int) (b []byte) {
+func (v ValueColor3) fieldGet(i int) (b []byte) {
 	switch i {
 	case 0:
-		return t.R.Bytes()
+		return v.R.Bytes()
 	case 1:
-		return t.G.Bytes()
+		return v.G.Bytes()
 	case 2:
-		return t.B.Bytes()
+		return v.B.Bytes()
 	}
 	return
 }
@@ -1098,32 +1098,32 @@ func (ValueVector2) Type() Type {
 	return TypeVector2
 }
 
-func (t ValueVector2) TypeString() string {
-	return t.Type().String()
+func (v ValueVector2) TypeString() string {
+	return v.Type().String()
 }
 
-func (t ValueVector2) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.Type(), a)
+func (v ValueVector2) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(v.Type(), a)
 }
 
-func (t ValueVector2) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.Type(), b)
+func (v ValueVector2) FromArrayBytes(b []byte) (a []Value, err error) {
+	return deinterleaveFields(v.Type(), b)
 }
 
-func (t ValueVector2) Bytes() []byte {
+func (v ValueVector2) Bytes() []byte {
 	b := make([]byte, 8)
-	copy(b[0:4], t.X.Bytes())
-	copy(b[4:8], t.Y.Bytes())
+	copy(b[0:4], v.X.Bytes())
+	copy(b[4:8], v.Y.Bytes())
 	return b
 }
 
-func (t *ValueVector2) FromBytes(b []byte) error {
+func (v *ValueVector2) FromBytes(b []byte) error {
 	if len(b) != 8 {
 		return errors.New("array length must be 8")
 	}
 
-	t.X.FromBytes(b[0:4])
-	t.Y.FromBytes(b[4:8])
+	v.X.FromBytes(b[0:4])
+	v.Y.FromBytes(b[4:8])
 
 	return nil
 }
@@ -1132,22 +1132,22 @@ func (ValueVector2) fieldLen() []int {
 	return []int{4, 4}
 }
 
-func (t *ValueVector2) fieldSet(i int, b []byte) (err error) {
+func (v *ValueVector2) fieldSet(i int, b []byte) (err error) {
 	switch i {
 	case 0:
-		err = t.X.FromBytes(b)
+		err = v.X.FromBytes(b)
 	case 1:
-		err = t.Y.FromBytes(b)
+		err = v.Y.FromBytes(b)
 	}
 	return
 }
 
-func (t ValueVector2) fieldGet(i int) (b []byte) {
+func (v ValueVector2) fieldGet(i int) (b []byte) {
 	switch i {
 	case 0:
-		return t.X.Bytes()
+		return v.X.Bytes()
 	case 1:
-		return t.Y.Bytes()
+		return v.Y.Bytes()
 	}
 	return
 }
@@ -1166,34 +1166,34 @@ func (ValueVector3) Type() Type {
 	return TypeVector3
 }
 
-func (t ValueVector3) TypeString() string {
-	return t.Type().String()
+func (v ValueVector3) TypeString() string {
+	return v.Type().String()
 }
 
-func (t ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.Type(), a)
+func (v ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(v.Type(), a)
 }
 
-func (t ValueVector3) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.Type(), b)
+func (v ValueVector3) FromArrayBytes(b []byte) (a []Value, err error) {
+	return deinterleaveFields(v.Type(), b)
 }
 
-func (t ValueVector3) Bytes() []byte {
+func (v ValueVector3) Bytes() []byte {
 	b := make([]byte, 12)
-	copy(b[0:4], t.X.Bytes())
-	copy(b[4:8], t.Y.Bytes())
-	copy(b[8:12], t.Z.Bytes())
+	copy(b[0:4], v.X.Bytes())
+	copy(b[4:8], v.Y.Bytes())
+	copy(b[8:12], v.Z.Bytes())
 	return b
 }
 
-func (t *ValueVector3) FromBytes(b []byte) error {
+func (v *ValueVector3) FromBytes(b []byte) error {
 	if len(b) != 12 {
 		return errors.New("array length must be 12")
 	}
 
-	t.X.FromBytes(b[0:4])
-	t.Y.FromBytes(b[4:8])
-	t.Z.FromBytes(b[8:12])
+	v.X.FromBytes(b[0:4])
+	v.Y.FromBytes(b[4:8])
+	v.Z.FromBytes(b[8:12])
 
 	return nil
 }
@@ -1202,26 +1202,26 @@ func (ValueVector3) fieldLen() []int {
 	return []int{4, 4, 4}
 }
 
-func (t *ValueVector3) fieldSet(i int, b []byte) (err error) {
+func (v *ValueVector3) fieldSet(i int, b []byte) (err error) {
 	switch i {
 	case 0:
-		err = t.X.FromBytes(b)
+		err = v.X.FromBytes(b)
 	case 1:
-		err = t.Y.FromBytes(b)
+		err = v.Y.FromBytes(b)
 	case 2:
-		err = t.Z.FromBytes(b)
+		err = v.Z.FromBytes(b)
 	}
 	return
 }
 
-func (t ValueVector3) fieldGet(i int) (b []byte) {
+func (v ValueVector3) fieldGet(i int) (b []byte) {
 	switch i {
 	case 0:
-		return t.X.Bytes()
+		return v.X.Bytes()
 	case 1:
-		return t.Y.Bytes()
+		return v.Y.Bytes()
 	case 2:
-		return t.Z.Bytes()
+		return v.Z.Bytes()
 	}
 	return
 }
@@ -1240,34 +1240,34 @@ func (ValueVector2int16) Type() Type {
 	return TypeVector2int16
 }
 
-func (t ValueVector2int16) TypeString() string {
-	return t.Type().String()
+func (v ValueVector2int16) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueVector2int16) ArrayBytes(a []Value) (b []byte, err error) {
+func (v *ValueVector2int16) ArrayBytes(a []Value) (b []byte, err error) {
 	return nil, errors.New("not implemented")
 }
 
-func (t ValueVector2int16) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueVector2int16) FromArrayBytes(b []byte) (a []Value, err error) {
 	return nil, errors.New("not implemented")
 }
 
-func (t ValueVector2int16) Bytes() []byte {
+func (v ValueVector2int16) Bytes() []byte {
 	b := make([]byte, 4)
 
-	binary.LittleEndian.PutUint16(b[0:2], uint16(t.X))
-	binary.LittleEndian.PutUint16(b[2:4], uint16(t.Y))
+	binary.LittleEndian.PutUint16(b[0:2], uint16(v.X))
+	binary.LittleEndian.PutUint16(b[2:4], uint16(v.Y))
 
 	return b
 }
 
-func (t *ValueVector2int16) FromBytes(b []byte) error {
+func (v *ValueVector2int16) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
 
-	t.X = int16(binary.LittleEndian.Uint16(b[0:2]))
-	t.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
+	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
+	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
 
 	return nil
 }
@@ -1288,18 +1288,18 @@ func (ValueCFrame) Type() Type {
 	return TypeCFrame
 }
 
-func (t ValueCFrame) TypeString() string {
-	return t.Type().String()
+func (v ValueCFrame) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
+func (v *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 	p := make([]Value, len(a))
 
 	for i, cf := range a {
 		cf, ok := cf.(*ValueCFrame)
 		if !ok {
 			return nil, errors.New(
-				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, cf.TypeString(), t.TypeString()),
+				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, cf.TypeString(), v.TypeString()),
 			)
 		}
 
@@ -1318,13 +1318,13 @@ func (t *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 	}
 
 	// Build position part.
-	pb, _ := t.Position.ArrayBytes(p)
+	pb, _ := v.Position.ArrayBytes(p)
 	b = append(b, pb...)
 
 	return b, nil
 }
 
-func (t ValueCFrame) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueCFrame) FromArrayBytes(b []byte) (a []Value, err error) {
 	cfs := make([]*ValueCFrame, 0)
 
 	// This loop reads the matrix data. i is the current position in the byte
@@ -1358,7 +1358,7 @@ func (t ValueCFrame) FromArrayBytes(b []byte) (a []Value, err error) {
 	// Read remaining position data using the Position field, which is a
 	// ValueVector3. FromArrayBytes doesn't modify the value, so it's safe to
 	// use from a non-pointer ValueVector3.
-	a, err = t.Position.FromArrayBytes(b[i:])
+	a, err = v.Position.FromArrayBytes(b[i:])
 	if err != nil {
 		return nil, err
 	}
@@ -1378,45 +1378,45 @@ func (t ValueCFrame) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, err
 }
 
-func (t ValueCFrame) Bytes() []byte {
+func (v ValueCFrame) Bytes() []byte {
 	var b []byte
-	if t.Special == 0 {
+	if v.Special == 0 {
 		b = make([]byte, 49)
 		r := b[1:]
-		for i, f := range t.Rotation {
+		for i, f := range v.Rotation {
 			binary.LittleEndian.PutUint32(r[i*4:i*4+4], math.Float32bits(f))
 		}
 	} else {
 		b = make([]byte, 13)
-		b[0] = t.Special
+		b[0] = v.Special
 	}
 
-	copy(b[len(b)-12:], t.Position.Bytes())
+	copy(b[len(b)-12:], v.Position.Bytes())
 
 	return b
 }
 
-func (t *ValueCFrame) FromBytes(b []byte) error {
+func (v *ValueCFrame) FromBytes(b []byte) error {
 	if b[0] == 0 && len(b) != 49 {
 		return errors.New("array length must be 49")
 	} else if b[0] != 0 && len(b) != 13 {
 		return errors.New("array length must be 13")
 	}
 
-	t.Special = b[0]
+	v.Special = b[0]
 
 	if b[0] == 0 {
 		r := b[1:]
-		for i := range t.Rotation {
-			t.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
+		for i := range v.Rotation {
+			v.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
 		}
 	} else {
-		for i := range t.Rotation {
-			t.Rotation[i] = 0
+		for i := range v.Rotation {
+			v.Rotation[i] = 0
 		}
 	}
 
-	t.Position.FromBytes(b[len(b)-12:])
+	v.Position.FromBytes(b[len(b)-12:])
 
 	return nil
 }
@@ -1433,12 +1433,12 @@ func (ValueToken) Type() Type {
 	return TypeToken
 }
 
-func (t ValueToken) TypeString() string {
-	return t.Type().String()
+func (v ValueToken) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueToken) ArrayBytes(a []Value) (b []byte, err error) {
-	b, err = appendValueBytes(t.Type(), a)
+func (v *ValueToken) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(v.Type(), a)
 	if err != nil {
 		return nil, err
 	}
@@ -1450,14 +1450,14 @@ func (t *ValueToken) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t ValueToken) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueToken) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	if err = deinterleave(bc, 4); err != nil {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -1465,18 +1465,18 @@ func (t ValueToken) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueToken) Bytes() []byte {
+func (v ValueToken) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(t))
+	binary.BigEndian.PutUint32(b, uint32(v))
 	return b
 }
 
-func (t *ValueToken) FromBytes(b []byte) error {
+func (v *ValueToken) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
 
-	*t = ValueToken(binary.BigEndian.Uint32(b))
+	*v = ValueToken(binary.BigEndian.Uint32(b))
 
 	return nil
 }
@@ -1493,11 +1493,11 @@ func (ValueReference) Type() Type {
 	return TypeReference
 }
 
-func (t ValueReference) TypeString() string {
-	return t.Type().String()
+func (v ValueReference) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
+func (v *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 	if len(a) == 0 {
 		return b, nil
 	}
@@ -1510,7 +1510,7 @@ func (t *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 		ref, ok := ref.(*ValueReference)
 		if !ok {
 			return nil, errors.New(
-				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, ref.TypeString(), t.TypeString()),
+				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, ref.TypeString(), v.TypeString()),
 			)
 		}
 
@@ -1531,7 +1531,7 @@ func (t *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-func (t ValueReference) FromArrayBytes(b []byte) (a []Value, err error) {
+func (v ValueReference) FromArrayBytes(b []byte) (a []Value, err error) {
 	if len(b) == 0 {
 		return a, nil
 	}
@@ -1563,13 +1563,13 @@ func (t ValueReference) FromArrayBytes(b []byte) (a []Value, err error) {
 	return a, nil
 }
 
-func (t ValueReference) Bytes() []byte {
+func (v ValueReference) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, encodeZigzag(int32(t)))
+	binary.BigEndian.PutUint32(b, encodeZigzag(int32(v)))
 	return b
 }
 
-func (t *ValueReference) FromBytes(b []byte) error {
+func (v *ValueReference) FromBytes(b []byte) error {
 	if len(b) != 4 {
 		return errors.New("array length must be 4")
 	}
@@ -1593,36 +1593,36 @@ func (ValueVector3int16) Type() Type {
 	return TypeVector3int16
 }
 
-func (t ValueVector3int16) TypeString() string {
-	return t.Type().String()
+func (v ValueVector3int16) TypeString() string {
+	return v.Type().String()
 }
 
-func (t *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
-	return appendValueBytes(t.Type(), a)
+func (v *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
 }
 
-func (t ValueVector3int16) FromArrayBytes(b []byte) (a []Value, err error) {
-	return appendByteValues(t.Type(), b, 6)
+func (v ValueVector3int16) FromArrayBytes(b []byte) (a []Value, err error) {
+	return appendByteValues(v.Type(), b, 6)
 }
 
-func (t ValueVector3int16) Bytes() []byte {
+func (v ValueVector3int16) Bytes() []byte {
 	b := make([]byte, 6)
 
-	binary.LittleEndian.PutUint16(b[0:2], uint16(t.X))
-	binary.LittleEndian.PutUint16(b[2:4], uint16(t.Y))
-	binary.LittleEndian.PutUint16(b[4:6], uint16(t.Z))
+	binary.LittleEndian.PutUint16(b[0:2], uint16(v.X))
+	binary.LittleEndian.PutUint16(b[2:4], uint16(v.Y))
+	binary.LittleEndian.PutUint16(b[4:6], uint16(v.Z))
 
 	return b
 }
 
-func (t *ValueVector3int16) FromBytes(b []byte) error {
+func (v *ValueVector3int16) FromBytes(b []byte) error {
 	if len(b) != 6 {
 		return errors.New("array length must be 6")
 	}
 
-	t.X = int16(binary.LittleEndian.Uint16(b[0:2]))
-	t.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
-	t.Z = int16(binary.LittleEndian.Uint16(b[4:6]))
+	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
+	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
+	v.Z = int16(binary.LittleEndian.Uint16(b[4:6]))
 
 	return nil
 }
