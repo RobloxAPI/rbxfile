@@ -7,10 +7,70 @@ import (
 	"math"
 )
 
-// Value is a property value of a certain type.
+// Type indicates the type of a Value.
+type Type byte
+
+// String returns a string representation of the type. If the type is not
+// valid, then the returned value will be "Invalid".
+func (t Type) String() string {
+	s, ok := typeStrings[t]
+	if !ok {
+		return "Invalid"
+	}
+	return s
+}
+
+const (
+	TypeInvalid      Type = 0x0
+	TypeString       Type = 0x1
+	TypeBool         Type = 0x2
+	TypeInt          Type = 0x3
+	TypeFloat        Type = 0x4
+	TypeDouble       Type = 0x5
+	TypeUDim         Type = 0x6
+	TypeUDim2        Type = 0x7
+	TypeRay          Type = 0x8
+	TypeFaces        Type = 0x9
+	TypeAxes         Type = 0xA
+	TypeBrickColor   Type = 0xB
+	TypeColor3       Type = 0xC
+	TypeVector2      Type = 0xD
+	TypeVector3      Type = 0xE
+	TypeVector2int16 Type = 0xF
+	TypeCFrame       Type = 0x10
+	//TypeCFrameQuat Type = 0x11
+	TypeToken        Type = 0x12
+	TypeReference    Type = 0x13
+	TypeVector3int16 Type = 0x14
+)
+
+var typeStrings = map[Type]string{
+	TypeString:       "String",
+	TypeBool:         "Bool",
+	TypeInt:          "Int",
+	TypeFloat:        "Float",
+	TypeDouble:       "Double",
+	TypeUDim:         "UDim",
+	TypeUDim2:        "UDim2",
+	TypeRay:          "Ray",
+	TypeFaces:        "Faces",
+	TypeAxes:         "Axes",
+	TypeBrickColor:   "BrickColor",
+	TypeColor3:       "Color3",
+	TypeVector2:      "Vector2",
+	TypeVector3:      "Vector3",
+	TypeVector2int16: "Vector2int16",
+	TypeCFrame:       "CFrame",
+	//TypeCFrameQuat: "CFrameQuat",
+	TypeToken:        "Token",
+	TypeReference:    "Reference",
+	TypeVector3int16: "Vector3int16",
+}
+
+// Value is a property value of a certain Type.
 type Value interface {
-	// TypeID returns an identifier indicating the type.
-	TypeID() byte
+	// Type returns an identifier indicating the type.
+	Type() Type
 
 	// TypeString returns the name of the type.
 	TypeString() string
@@ -30,37 +90,47 @@ type Value interface {
 	ArrayBytes([]Value) ([]byte, error)
 }
 
+// NewValue returns new Value of the given Type. The initial value will not
+// necessarily be the zero for the type.
+func NewValue(typ Type) Value {
+	newValue, ok := valueGenerators[Type]
+	if !ok {
+		return nil
+	}
+	return newValue()
+}
+
 type valueGenerator func() Value
 
-var valueGenerators = map[byte]valueGenerator{
-	newValueString().TypeID():       newValueString,
-	newValueBool().TypeID():         newValueBool,
-	newValueInt().TypeID():          newValueInt,
-	newValueFloat().TypeID():        newValueFloat,
-	newValueDouble().TypeID():       newValueDouble,
-	newValueUDim().TypeID():         newValueUDim,
-	newValueUDim2().TypeID():        newValueUDim2,
-	newValueRay().TypeID():          newValueRay,
-	newValueFaces().TypeID():        newValueFaces,
-	newValueAxes().TypeID():         newValueAxes,
-	newValueBrickColor().TypeID():   newValueBrickColor,
-	newValueColor3().TypeID():       newValueColor3,
-	newValueVector2().TypeID():      newValueVector2,
-	newValueVector3().TypeID():      newValueVector3,
-	newValueVector2int16().TypeID(): newValueVector2int16,
-	newValueCFrame().TypeID():       newValueCFrame,
-	//0x11: newValueCFrameQuat,
-	newValueToken().TypeID():        newValueToken,
-	newValueReference().TypeID():    newValueReference,
-	newValueVector3int16().TypeID(): newValueVector3int16,
+var valueGenerators = map[Type]valueGenerator{
+	TypeString:       newValueString,
+	TypeBool:         newValueBool,
+	TypeInt:          newValueInt,
+	TypeFloat:        newValueFloat,
+	TypeDouble:       newValueDouble,
+	TypeUDim:         newValueUDim,
+	TypeUDim2:        newValueUDim2,
+	TypeRay:          newValueRay,
+	TypeFaces:        newValueFaces,
+	TypeAxes:         newValueAxes,
+	TypeBrickColor:   newValueBrickColor,
+	TypeColor3:       newValueColor3,
+	TypeVector2:      newValueVector2,
+	TypeVector3:      newValueVector3,
+	TypeVector2int16: newValueVector2int16,
+	TypeCFrame:       newValueCFrame,
+	//TypeCFrameQuat: newValueCFrameQuat,
+	TypeToken:        newValueToken,
+	TypeReference:    newValueReference,
+	TypeVector3int16: newValueVector3int16,
 }
 
 ////////////////////////////////////////////////////////////////
 
 // Encodes and decodes a Value based on its fields
 type fielder interface {
-	// Value.TypeID
-	TypeID() byte
+	// Value.Type
+	Type() Type
 	// Length of each field
 	fieldLen() []int
 	// Set bytes of nth field
@@ -70,7 +140,7 @@ type fielder interface {
 }
 
 // Encodes Values that implement the fielder interface.
-func interleaveFields(id byte, a []Value) (b []byte, err error) {
+func interleaveFields(id Type, a []Value) (b []byte, err error) {
 	if len(a) == 0 {
 		return b, nil
 	}
@@ -78,8 +148,8 @@ func interleaveFields(id byte, a []Value) (b []byte, err error) {
 	af := make([]fielder, len(a))
 	for i, v := range a {
 		af[i] = v.(fielder)
-		if af[i].TypeID() != id {
-			return nil, errors.New(fmt.Sprintf("element %d is of type 0x%X where 0x%X is expected", i, af[i].TypeID(), id))
+		if af[i].Type() != id {
+			return nil, errors.New(fmt.Sprintf("element %d is of type %s where %s is expected", i, af[i].Type().String(), id.String()))
 		}
 	}
 
@@ -131,7 +201,7 @@ func interleaveFields(id byte, a []Value) (b []byte, err error) {
 }
 
 // Decodes Values that implement the fielder interface.
-func deinterleaveFields(id byte, b []byte) (a []Value, err error) {
+func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 	if len(b) == 0 {
 		return a, nil
 	}
@@ -267,7 +337,7 @@ func decodeRobloxFloat(n uint32) float32 {
 // Appends the bytes of a list of Values into a byte array.
 func appendValueBytes(t Value, a []Value) (b []byte, err error) {
 	for i, v := range a {
-		if v.TypeID() != t.TypeID() {
+		if v.Type() != t.Type() {
 			return nil, errors.New(
 				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.TypeString(), t.TypeString()),
 			)
@@ -301,12 +371,12 @@ func newValueString() Value {
 	return new(ValueString)
 }
 
-func (ValueString) TypeID() byte {
-	return 0x1
+func (ValueString) Type() Type {
+	return TypeString
 }
 
-func (ValueString) TypeString() string {
-	return "String"
+func (t ValueString) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
@@ -368,12 +438,12 @@ func newValueBool() Value {
 	return new(ValueBool)
 }
 
-func (ValueBool) TypeID() byte {
-	return 0x2
+func (ValueBool) Type() Type {
+	return TypeBool
 }
 
-func (ValueBool) TypeString() string {
-	return "Bool"
+func (t ValueBool) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
@@ -381,7 +451,7 @@ func (t *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 1)
+	a, err = appendByteValues(t.Type(), b, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -415,12 +485,12 @@ func newValueInt() Value {
 	return new(ValueInt)
 }
 
-func (ValueInt) TypeID() byte {
-	return 0x3
+func (ValueInt) Type() Type {
+	return TypeInt
 }
 
-func (ValueInt) TypeString() string {
-	return "Int"
+func (t ValueInt) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueInt) ArrayBytes(a []Value) (b []byte, err error) {
@@ -443,7 +513,7 @@ func (t ValueInt) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.TypeID(), bc, 4)
+	a, err = appendByteValues(t.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -476,12 +546,12 @@ func newValueFloat() Value {
 	return new(ValueFloat)
 }
 
-func (ValueFloat) TypeID() byte {
-	return 0x4
+func (ValueFloat) Type() Type {
+	return TypeFloat
 }
 
-func (ValueFloat) TypeString() string {
-	return "Float"
+func (t ValueFloat) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueFloat) ArrayBytes(a []Value) (b []byte, err error) {
@@ -504,7 +574,7 @@ func (t ValueFloat) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.TypeID(), bc, 4)
+	a, err = appendByteValues(t.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -537,12 +607,12 @@ func newValueDouble() Value {
 	return new(ValueDouble)
 }
 
-func (ValueDouble) TypeID() byte {
-	return 0x5
+func (ValueDouble) Type() Type {
+	return TypeDouble
 }
 
-func (ValueDouble) TypeString() string {
-	return "Double"
+func (t ValueDouble) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
@@ -550,7 +620,7 @@ func (t *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 8)
+	a, err = appendByteValues(t.Type(), b, 8)
 	if err != nil {
 		return nil, err
 	}
@@ -586,12 +656,12 @@ func newValueUDim() Value {
 	return new(ValueUDim)
 }
 
-func (ValueUDim) TypeID() byte {
-	return 0x6
+func (ValueUDim) Type() Type {
+	return TypeUDim
 }
 
-func (ValueUDim) TypeString() string {
-	return "UDim"
+func (t ValueUDim) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueUDim) ArrayBytes(a []Value) (b []byte, err error) {
@@ -635,20 +705,20 @@ func newValueUDim2() Value {
 	return new(ValueUDim2)
 }
 
-func (ValueUDim2) TypeID() byte {
-	return 0x7
+func (ValueUDim2) Type() Type {
+	return TypeUDim2
 }
 
-func (ValueUDim2) TypeString() string {
-	return "UDim2"
+func (t ValueUDim2) TypeString() string {
+	return t.Type().String()
 }
 
 func (t ValueUDim2) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.TypeID(), a)
+	return interleaveFields(t.Type(), a)
 }
 
 func (t ValueUDim2) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.TypeID(), b)
+	return deinterleaveFields(t.Type(), b)
 }
 
 func (t ValueUDim2) Bytes() []byte {
@@ -720,12 +790,12 @@ func newValueRay() Value {
 	return new(ValueRay)
 }
 
-func (ValueRay) TypeID() byte {
-	return 0x8
+func (ValueRay) Type() Type {
+	return TypeRay
 }
 
-func (ValueRay) TypeString() string {
-	return "Ray"
+func (t ValueRay) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
@@ -733,7 +803,7 @@ func (t *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueRay) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 24)
+	a, err = appendByteValues(t.Type(), b, 24)
 	if err != nil {
 		return nil, err
 	}
@@ -777,12 +847,12 @@ func newValueFaces() Value {
 	return new(ValueFaces)
 }
 
-func (ValueFaces) TypeID() byte {
-	return 0x9
+func (ValueFaces) Type() Type {
+	return TypeFaces
 }
 
-func (ValueFaces) TypeString() string {
-	return "Faces"
+func (t ValueFaces) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
@@ -790,7 +860,7 @@ func (t *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 1)
+	a, err = appendByteValues(t.Type(), b, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -835,12 +905,12 @@ func newValueAxes() Value {
 	return new(ValueAxes)
 }
 
-func (ValueAxes) TypeID() byte {
-	return 0xA
+func (ValueAxes) Type() Type {
+	return TypeAxes
 }
 
-func (ValueAxes) TypeString() string {
-	return "Axes"
+func (t ValueAxes) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
@@ -848,7 +918,7 @@ func (t *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(t.TypeID(), b, 1)
+	a, err = appendByteValues(t.Type(), b, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -888,12 +958,12 @@ func newValueBrickColor() Value {
 	return new(ValueBrickColor)
 }
 
-func (ValueBrickColor) TypeID() byte {
-	return 0xB
+func (ValueBrickColor) Type() Type {
+	return TypeBrickColor
 }
 
-func (ValueBrickColor) TypeString() string {
-	return "BrickColor"
+func (t ValueBrickColor) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueBrickColor) ArrayBytes(a []Value) (b []byte, err error) {
@@ -916,7 +986,7 @@ func (t ValueBrickColor) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.TypeID(), bc, 4)
+	a, err = appendByteValues(t.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -950,20 +1020,20 @@ func newValueColor3() Value {
 	return new(ValueColor3)
 }
 
-func (ValueColor3) TypeID() byte {
-	return 0xC
+func (ValueColor3) Type() Type {
+	return TypeColor3
 }
 
-func (ValueColor3) TypeString() string {
-	return "Color3"
+func (t ValueColor3) TypeString() string {
+	return t.Type().String()
 }
 
 func (t ValueColor3) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.TypeID(), a)
+	return interleaveFields(t.Type(), a)
 }
 
 func (t ValueColor3) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.TypeID(), b)
+	return deinterleaveFields(t.Type(), b)
 }
 
 func (t ValueColor3) Bytes() []byte {
@@ -1024,20 +1094,20 @@ func newValueVector2() Value {
 	return new(ValueVector2)
 }
 
-func (ValueVector2) TypeID() byte {
-	return 0xD
+func (ValueVector2) Type() Type {
+	return TypeVector2
 }
 
-func (ValueVector2) TypeString() string {
-	return "Vector2"
+func (t ValueVector2) TypeString() string {
+	return t.Type().String()
 }
 
 func (t ValueVector2) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.TypeID(), a)
+	return interleaveFields(t.Type(), a)
 }
 
 func (t ValueVector2) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.TypeID(), b)
+	return deinterleaveFields(t.Type(), b)
 }
 
 func (t ValueVector2) Bytes() []byte {
@@ -1092,20 +1162,20 @@ func newValueVector3() Value {
 	return new(ValueVector3)
 }
 
-func (ValueVector3) TypeID() byte {
-	return 0xE
+func (ValueVector3) Type() Type {
+	return TypeVector3
 }
 
-func (ValueVector3) TypeString() string {
-	return "Vector3"
+func (t ValueVector3) TypeString() string {
+	return t.Type().String()
 }
 
 func (t ValueVector3) ArrayBytes(a []Value) (b []byte, err error) {
-	return interleaveFields(t.TypeID(), a)
+	return interleaveFields(t.Type(), a)
 }
 
 func (t ValueVector3) FromArrayBytes(b []byte) (a []Value, err error) {
-	return deinterleaveFields(t.TypeID(), b)
+	return deinterleaveFields(t.Type(), b)
 }
 
 func (t ValueVector3) Bytes() []byte {
@@ -1166,12 +1236,12 @@ func newValueVector2int16() Value {
 	return new(ValueVector2int16)
 }
 
-func (ValueVector2int16) TypeID() byte {
-	return 0xF
+func (ValueVector2int16) Type() Type {
+	return TypeVector2int16
 }
 
-func (ValueVector2int16) TypeString() string {
-	return "Vector2int16"
+func (t ValueVector2int16) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueVector2int16) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1214,12 +1284,12 @@ func newValueCFrame() Value {
 	return new(ValueCFrame)
 }
 
-func (ValueCFrame) TypeID() byte {
-	return 0x10
+func (ValueCFrame) Type() Type {
+	return TypeCFrame
 }
 
-func (ValueCFrame) TypeString() string {
-	return "CFrame"
+func (t ValueCFrame) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1359,12 +1429,12 @@ func newValueToken() Value {
 	return new(ValueToken)
 }
 
-func (ValueToken) TypeID() byte {
-	return 0x12
+func (ValueToken) Type() Type {
+	return TypeToken
 }
 
-func (ValueToken) TypeString() string {
-	return "Token"
+func (t ValueToken) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueToken) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1387,7 +1457,7 @@ func (t ValueToken) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(t.TypeID(), bc, 4)
+	a, err = appendByteValues(t.Type(), bc, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -1419,12 +1489,12 @@ func newValueReference() Value {
 	return new(ValueReference)
 }
 
-func (ValueReference) TypeID() byte {
-	return 0x13
+func (ValueReference) Type() Type {
+	return TypeReference
 }
 
-func (ValueReference) TypeString() string {
-	return "Reference"
+func (t ValueReference) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1520,12 +1590,12 @@ func newValueVector3int16() Value {
 	return new(ValueVector3int16)
 }
 
-func (ValueVector3int16) TypeID() byte {
-	return 0x14
+func (ValueVector3int16) Type() Type {
+	return TypeVector3int16
 }
 
-func (ValueVector3int16) TypeString() string {
-	return "Vector3int16"
+func (t ValueVector3int16) TypeString() string {
+	return t.Type().String()
 }
 
 func (t *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
@@ -1533,7 +1603,7 @@ func (t *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (t ValueVector3int16) FromArrayBytes(b []byte) (a []Value, err error) {
-	return appendByteValues(t.TypeID(), b, 6)
+	return appendByteValues(t.Type(), b, 6)
 }
 
 func (t ValueVector3int16) Bytes() []byte {

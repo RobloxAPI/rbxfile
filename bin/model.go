@@ -911,7 +911,7 @@ type ChunkProperty struct {
 	PropertyName string
 
 	// DataType is a number indicating the type of the property. It
-	// corresponds to the result of the Value.TypeID method.
+	// corresponds to the result of the Value.Type method.
 	DataType uint8
 
 	// Properties is a list of Values of the given DataType. Each value in the
