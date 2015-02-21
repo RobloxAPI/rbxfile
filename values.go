@@ -154,7 +154,7 @@ func newValueString() Value {
 }
 
 func (ValueString) Type() Type {
-	return Typestring
+	return TypeString
 }
 func (t ValueString) String() string {
 	return string(t)
@@ -234,7 +234,7 @@ func newValueBool() Value {
 }
 
 func (ValueBool) Type() Type {
-	return Typebool
+	return TypeBool
 }
 func (t ValueBool) String() string {
 	if t {
@@ -256,7 +256,7 @@ func newValueInt() Value {
 }
 
 func (ValueInt) Type() Type {
-	return Typeint
+	return TypeInt
 }
 func (t ValueInt) String() string {
 	return strconv.FormatInt(int64(t), 10)
@@ -274,7 +274,7 @@ func newValueFloat() Value {
 }
 
 func (ValueFloat) Type() Type {
-	return Typefloat
+	return TypeFloat
 }
 func (t ValueFloat) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 32)
@@ -292,7 +292,7 @@ func newValueDouble() Value {
 }
 
 func (ValueDouble) Type() Type {
-	return Typedouble
+	return TypeDouble
 }
 func (t ValueDouble) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 64)
@@ -582,7 +582,7 @@ func newValueCFrame() Value {
 }
 
 func (ValueCFrame) Type() Type {
-	return TypeCoordinateFrame
+	return TypeCFrame
 }
 func (t ValueCFrame) String() string {
 	s := make([]string, 12)
@@ -607,7 +607,7 @@ func newValueToken() Value {
 }
 
 func (ValueToken) Type() Type {
-	return Typetoken
+	return TypeToken
 }
 func (t ValueToken) String() string {
 	return strconv.FormatInt(int64(t), 10)
@@ -627,7 +627,7 @@ func newValueReference() Value {
 }
 
 func (ValueReference) Type() Type {
-	return TypeRef
+	return TypeReference
 }
 func (t ValueReference) String() string {
 	if t.Instance == nil {
