@@ -535,8 +535,7 @@ func (t *ValueInt) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	v := binary.BigEndian.Uint32(b)
-	*t = ValueInt(decodeZigzag(v))
+	*v = ValueInt(decodeZigzag(binary.BigEndian.Uint32(b)))
 
 	return nil
 }
@@ -596,8 +595,7 @@ func (t *ValueFloat) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	v := binary.BigEndian.Uint32(b)
-	*t = ValueFloat(decodeRobloxFloat(v))
+	*v = ValueFloat(decodeRobloxFloat(binary.BigEndian.Uint32(b)))
 
 	return nil
 }
@@ -642,8 +640,7 @@ func (t *ValueDouble) FromBytes(b []byte) error {
 		return errors.New("array length must be 8")
 	}
 
-	v := binary.LittleEndian.Uint64(b)
-	*t = ValueDouble(math.Float64frombits(v))
+	*v = ValueDouble(math.Float64frombits(binary.LittleEndian.Uint64(b)))
 
 	return nil
 }
@@ -1577,8 +1574,7 @@ func (t *ValueReference) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	v := binary.BigEndian.Uint32(b)
-	*t = ValueReference(decodeZigzag(v))
+	*v = ValueReference(decodeZigzag(binary.BigEndian.Uint32(b)))
 
 	return nil
 }
