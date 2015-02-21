@@ -91,7 +91,7 @@ type Value interface {
 // necessarily be the zero for the type. If the given type is invalid, then a
 // nil value is returned.
 func NewValue(typ Type) Value {
-	newValue, ok := valueGenerators[Type]
+	newValue, ok := valueGenerators[typ]
 	if !ok {
 		return nil
 	}
