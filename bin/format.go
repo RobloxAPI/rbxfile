@@ -1,11 +1,15 @@
 // Package bin implements a decoder and encoder for Roblox's binary file
 // format.
 //
-// The easiest way to decode and encode files is through the Deserialize and
-// Serialize functions. These decode and encode directly between byte streams
-// and Root structures specified by the rbxfile package. For most purposes,
-// this is all that is required to read and write Roblox binary files. Further
-// documentation gives an overview of how the package works internally.
+// This package registers the formats "rbxl" and "rbxm" to the rbxfile
+// package.
+//
+// The easiest way to decode and encode files is through the functions
+// DeserializePlace, SerializePlace, DeserializeModel, and SerializeModel.
+// These decode and encode directly between byte streams and Root structures
+// specified by the rbxfile package. For most purposes, this is all that is
+// required to read and write Roblox binary files. Further documentation gives
+// an overview of how the package works internally.
 //
 // Overview
 //
@@ -126,41 +130,76 @@ func (s Serializer) Serialize(w io.Writer, api *rbxdump.API, root *rbxfile.Root)
 	return nil
 }
 
-// DefaultSerializer is the serializer used by Deserialize and Serialize.
-var DefaultSerializer = NewSerializer(nil, nil)
-
-// Deserialize decodes data from r into a Root structure using the specified
-// decoder. An optional API can be given to ensure more correct data.
-func Deserialize(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
-	return DefaultSerializer.Deserialize(r, api)
+// Deserialize decodes data from r into a Root structure using the default
+// decoder. Data is interpreted as a Roblox place file. An optional API can be
+// given to ensure more correct data.
+func DeserializePlace(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
+	codec := RobloxCodec{Mode: ModePlace}
+	return NewSerializer(codec, codec).Deserialize(r, api)
 }
 
-// Serialize encodes data from a Root structure to w using the specified
-// encoder. An optional API can be given to ensure more correct data.
-func Serialize(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
-	return DefaultSerializer.Serialize(w, api, root)
+// Serialize encodes data from a Root structure to w using the default
+// encoder. Data is interpreted as a Roblox place file. An optional API can be
+// given to ensure more correct data.
+func SerializePlace(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
+	codec := RobloxCodec{Mode: ModePlace}
+	return NewSerializer(codec, codec).Serialize(w, api, root)
+}
+
+// Deserialize decodes data from r into a Root structure using the default
+// decoder. Data is interpreted as a Roblox model file. An optional API can be
+// given to ensure more correct data.
+func DeserializeModel(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
+	codec := RobloxCodec{Mode: ModeModel}
+	return NewSerializer(codec, codec).Deserialize(r, api)
+}
+
+// Serialize encodes data from a Root structure to w using the default
+// encoder. Data is interpreted as a Roblox model file. An optional API can be
+// given to ensure more correct data.
+func SerializeModel(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
+	codec := RobloxCodec{Mode: ModeModel}
+	return NewSerializer(codec, codec).Serialize(w, api, root)
 }
 
 // Format implements rbxfile.Format so that this package can be registered
-// when it is imported. It uses the default serializer to decode and encode.
-type Format struct{}
-
-func (Format) Name() string {
-	return "bin"
+// when it is imported.
+type format struct {
+	name       string
+	magic      string
+	serializer Serializer
 }
 
-func (Format) Magic() string {
-	return BinaryHeader
+func (f format) Name() string {
+	return f.name
 }
 
-func (Format) Decode(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
-	return Deserialize(r, api)
+func (f format) Magic() string {
+	return f.magic
 }
 
-func (Format) Encode(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
-	return Serialize(w, api, root)
+func (f format) Decode(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
+	return f.serializer.Deserialize(r, api)
+}
+
+func (f format) Encode(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
+	return f.serializer.Serialize(w, api, root)
 }
 
 func init() {
-	rbxfile.RegisterFormat(Format{})
+	// rbxl will always be chosen over rbxm when decoding, but rbxm can still
+	// be encoded.
+	rbxlCodec := RobloxCodec{Mode: ModePlace}
+	rbxfile.RegisterFormat(format{
+		name:       "rbxl",
+		magic:      BinaryHeader,
+		serializer: NewSerializer(rbxlCodec, rbxlCodec),
+	})
+
+	rbxmCodec := RobloxCodec{Mode: ModeModel}
+	rbxfile.RegisterFormat(format{
+		name:       "rbxm",
+		magic:      BinaryHeader,
+		serializer: NewSerializer(rbxmCodec, rbxmCodec),
+	})
 }
