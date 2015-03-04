@@ -26,9 +26,6 @@ import (
 type Root struct {
 	// Instances contains root instances contained in the tree.
 	Instances []*Instance
-
-	// Meta contains metadata provided by the format that decoded the tree.
-	Meta []string
 }
 
 // Instance represents a single Roblox instance.
