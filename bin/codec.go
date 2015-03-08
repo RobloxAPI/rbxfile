@@ -22,6 +22,8 @@ type RobloxCodec struct {
 	Mode Mode
 }
 
+//go:generate rbxpipe -i=cframegen.lua -o=cframe.go -place=cframe.rbxl -filter=o
+
 func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile.Root, err error) {
 	root = new(rbxfile.Root)
 
@@ -293,8 +295,7 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 		value = rbxfile.ValueVector2int16(*bvalue)
 
 	case *ValueCFrame:
-		// TODO: Implement Special
-		value = rbxfile.ValueCFrame{
+		cf := rbxfile.ValueCFrame{
 			Position: rbxfile.ValueVector3{
 				X: float32(bvalue.Position.X),
 				Y: float32(bvalue.Position.Y),
@@ -302,6 +303,12 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 			},
 			Rotation: bvalue.Rotation,
 		}
+
+		if bvalue.Special != 0 {
+			cf.Rotation = cframeSpecialMatrix[bvalue.Special]
+		}
+
+		value = cf
 
 	case *ValueToken:
 		value = rbxfile.ValueToken(*bvalue)
@@ -715,16 +722,21 @@ func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Va
 		}
 
 	case rbxfile.ValueCFrame:
-		// TODO: Implement special
-		bvalue = &ValueCFrame{
-			Special:  0,
-			Rotation: value.Rotation,
+		cf := &ValueCFrame{
 			Position: ValueVector3{
 				X: ValueFloat(value.Position.X),
 				Y: ValueFloat(value.Position.Y),
 				Z: ValueFloat(value.Position.Z),
 			},
 		}
+
+		if s, ok := cframeSpecialNumber[value.Rotation]; ok {
+			cf.Special = s
+		} else {
+			cf.Rotation = value.Rotation
+		}
+
+		bvalue = cf
 
 	case rbxfile.ValueToken:
 		return (*ValueToken)(&value)
