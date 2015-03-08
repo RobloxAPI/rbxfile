@@ -14,9 +14,12 @@ package rbxfile
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/robloxapi/rbxdump"
+	"github.com/satori/go.uuid"
 	"io"
 )
 
@@ -60,6 +63,12 @@ func NewInstance(className string, parent *Instance) *Instance {
 		ClassName:  className,
 		Properties: make(map[string]Value, 0),
 	}
+
+	ref := uuid.NewV4()
+	inst.Reference = make([]byte, 3+hex.EncodedLen(len(ref)))
+	copy(inst.Reference[:3], []byte("RBX"))
+	hex.Encode(inst.Reference[3:], ref.Bytes())
+	inst.Reference = bytes.ToUpper(inst.Reference)
 
 	if parent != nil {
 		inst.SetParent(parent)
