@@ -15,6 +15,7 @@ package rbxfile
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"github.com/robloxapi/rbxdump"
 	"io"
 )
@@ -109,6 +110,10 @@ func (inst *Instance) Parent() *Instance {
 func (inst *Instance) SetParent(parent *Instance) error {
 	if inst.parent == parent {
 		return nil
+	}
+
+	if parent == inst {
+		return fmt.Errorf("attempt to set %s as its own parent", inst.Name())
 	}
 
 	if parent != nil && parent.IsDescendantOf(inst) {
