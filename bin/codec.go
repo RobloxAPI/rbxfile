@@ -374,7 +374,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 		chunk, ok := instChunkMap[inst.ClassName]
 		if !ok {
 			chunk = &ChunkInstance{
-				isCompressed: true,
+				IsCompressed: true,
 				ClassName:    inst.ClassName,
 				InstanceIDs:  []int32{},
 			}
@@ -468,7 +468,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 				}
 
 				propChunkMap[member.Name] = &ChunkProperty{
-					isCompressed: true,
+					IsCompressed: true,
 					TypeID:       instChunk.TypeID,
 					PropertyName: member.Name,
 					DataType:     bval.Type(),
@@ -499,7 +499,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 					}
 
 					propChunkMap[name] = &ChunkProperty{
-						isCompressed: true,
+						IsCompressed: true,
 						TypeID:       instChunk.TypeID,
 						PropertyName: name,
 						DataType:     bval.Type(),
@@ -559,7 +559,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 
 	// Make parent chunk.
 	parentChunk := &ChunkParent{
-		isCompressed: true,
+		IsCompressed: true,
 		Version:      0,
 		Children:     make([]int32, len(instList)),
 		Parents:      make([]int32, len(instList)),
@@ -583,7 +583,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 
 	// Make end chunk.
 	endChunk := &ChunkEnd{
-		isCompressed: false,
+		IsCompressed: false,
 		Content:      []byte("</roblox>"),
 	}
 

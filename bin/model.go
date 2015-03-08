@@ -581,7 +581,7 @@ func (c *rawChunk) WriteTo(fw *formatWriter) bool {
 // kind of chunk, which are called "instance groups".
 type ChunkInstance struct {
 	// Whether the chunk is compressed.
-	isCompressed bool
+	IsCompressed bool
 
 	// TypeID is a number identifying the instance group.
 	TypeID int32
@@ -619,11 +619,11 @@ func (ChunkInstance) Signature() [4]byte {
 }
 
 func (c *ChunkInstance) Compressed() bool {
-	return c.isCompressed
+	return c.IsCompressed
 }
 
 func (c *ChunkInstance) SetCompressed(b bool) {
-	c.isCompressed = b
+	c.IsCompressed = b
 }
 
 func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
@@ -730,7 +730,7 @@ func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 // to stop reading chunks, so it should be the last chunk.
 type ChunkEnd struct {
 	// Whether the chunk is compressed.
-	isCompressed bool
+	IsCompressed bool
 
 	// The raw decompressed content of the chunk. For maximum compatibility,
 	// the content should be "</roblox>", and the chunk should be
@@ -748,11 +748,11 @@ func (ChunkEnd) Signature() [4]byte {
 }
 
 func (c *ChunkEnd) Compressed() bool {
-	return c.isCompressed
+	return c.IsCompressed
 }
 
 func (c *ChunkEnd) SetCompressed(b bool) {
-	c.isCompressed = b
+	c.IsCompressed = b
 }
 
 func (c *ChunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
@@ -777,7 +777,7 @@ func (c *ChunkEnd) WriteTo(w io.Writer) (n int64, err error) {
 // relationships between instances in the model.
 type ChunkParent struct {
 	// Whether the chunk is compressed.
-	isCompressed bool
+	IsCompressed bool
 
 	// Version is the version of the chunk. Reserved so that the format of the
 	// parent chunk can be changed without changing the version of the entire
@@ -804,11 +804,11 @@ func (ChunkParent) Signature() [4]byte {
 }
 
 func (c *ChunkParent) Compressed() bool {
-	return c.isCompressed
+	return c.IsCompressed
 }
 
 func (c *ChunkParent) SetCompressed(b bool) {
-	c.isCompressed = b
+	c.IsCompressed = b
 }
 
 func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
@@ -918,7 +918,7 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 // a group of instances.
 type ChunkProperty struct {
 	// Whether the chunk is compressed.
-	isCompressed bool
+	IsCompressed bool
 
 	// TypeID is the ID of an instance group contained in a ChunkInstance.
 	TypeID int32
@@ -945,11 +945,11 @@ func (ChunkProperty) Signature() [4]byte {
 }
 
 func (c *ChunkProperty) Compressed() bool {
-	return c.isCompressed
+	return c.IsCompressed
 }
 
 func (c *ChunkProperty) SetCompressed(b bool) {
-	c.isCompressed = b
+	c.IsCompressed = b
 }
 
 func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
