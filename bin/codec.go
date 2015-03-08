@@ -1,7 +1,6 @@
 package bin
 
 import (
-	"errors"
 	"fmt"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
@@ -162,7 +161,6 @@ loop:
 
 			if len(chunk.Parents) != len(chunk.Children) {
 				return nil, fmt.Errorf("malformed parent chunk (#%d): length of Parents array does not equal length of Children array", ic)
-				// ERROR
 			}
 
 			for i, ref := range chunk.Children {
@@ -193,7 +191,7 @@ loop:
 		}
 	}
 
-	return nil, errors.New("not implemented")
+	return
 }
 
 // Decode a bin.value to a rbxfile.Value based on a given value type.
