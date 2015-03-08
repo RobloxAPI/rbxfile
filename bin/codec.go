@@ -2,6 +2,7 @@ package bin
 
 import (
 	"errors"
+	"fmt"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
 	"sort"
@@ -37,10 +38,17 @@ loop:
 	for _, chunk := range model.Chunks {
 		switch chunk := chunk.(type) {
 		case *ChunkInstance:
+			if chunk.TypeID >= model.TypeCount {
+				return nil, fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+			}
+			// No error if TypeCount > actual count.
+
 			if api != nil {
 				class, ok := api.Classes[chunk.ClassName]
 				if !ok {
-					// ERROR: ClassName is not valid.
+					// Invalid ClassNames cause the chunk to be ignored.
+					// WARNING: invalid ClassName
+					continue
 				}
 
 				// Cache property names and types for the class.
@@ -79,9 +87,14 @@ loop:
 			}
 
 			for i, ref := range chunk.InstanceIDs {
+				if ref < 0 || uint32(ref) >= model.InstanceCount {
+					return nil, fmt.Errorf("invalid id %d", ref)
+				}
+				// No error if InstanceCount > actual count.
+
 				inst := rbxfile.NewInstance(chunk.ClassName, nil)
 				if _, ok := instLookup[ref]; ok {
-					// ERROR: instance already exists
+					return nil, fmt.Errorf("duplicate id: %d", ref)
 				}
 
 				if chunk.IsService && chunk.GetService[i] == 1 {
@@ -92,26 +105,32 @@ loop:
 			}
 
 			if _, ok := groupLookup[chunk.TypeID]; ok {
-				// ERROR: group already exists
+				return nil, fmt.Errorf("duplicate type index: %d", chunk.TypeID)
 			}
 			groupLookup[chunk.TypeID] = chunk
 
 		case *ChunkProperty:
+			if chunk.TypeID >= model.TypeCount {
+				return nil, fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+			}
+			// No error if TypeCount > actual count.
+
 			instChunk, ok := groupLookup[chunk.TypeID]
 			if !ok {
-				// ERROR: group does not exist
+				// WARNING: type of property group is invalid or unknown
+				continue
 			}
 
 			if len(chunk.Properties) != len(instChunk.InstanceIDs) {
-				// ERROR: length of properties array does not equal length of
-				// group array
+				return nil, fmt.Errorf("length of properties array (%d) does not equal length of type array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
 			}
 
 			var propType string
 			if api != nil {
 				var ok bool
 				if propType, ok = propTypes[instChunk.ClassName][chunk.PropertyName]; !ok {
-					// ERROR: chunk name is not a valid property of the group class
+					// WARNING: chunk name is not a valid property of the group class
+					continue
 				}
 			}
 
@@ -135,14 +154,22 @@ loop:
 			}
 
 		case *ChunkParent:
+			if chunk.Version != 0 {
+				return nil, fmt.Errorf("unrecognized parent link format %d", chunk.Version)
+			}
+
 			if len(chunk.Parents) != len(chunk.Children) {
 				// ERROR
 			}
 
 			for i, ref := range chunk.Children {
+				if ref < 0 || uint32(ref) >= model.InstanceCount {
+					return nil, fmt.Errorf("invalid id %d", ref)
+				}
+
 				child := instLookup[ref]
 				if child == nil {
-					// ERROR: referent does not exist
+					// WARNING: referent does not exist
 					continue
 				}
 
