@@ -4,12 +4,14 @@
 
 Package bin implements a decoder and encoder for Roblox's binary file format.
 
-The easiest way to decode and encode files is through the [Deserialize][dser]
-and [Serialize][ser] functions. These decode and encode directly between byte
-streams and [Root][root] structures specified by the [rbxfile][rbxfile]
-package. For most purposes, this is all that is required to read and write
-Roblox binary files. Further documentation gives an overview of how the
-package works internally.
+This package registers the formats "rbxl" and "rbxm" to the rbxfile package.
+
+The easiest way to decode and encode files is through the functions
+[DeserializePlace][dserp], [SerializePlace][serp], [DeserializeModel][dserm],
+and [SerializeModel][serm]. These decode and encode directly between byte
+streams and Root structures specified by the rbxfile package. For most
+purposes, this is all that is required to read and write Roblox binary files.
+Further documentation gives an overview of how the package works internally.
 
 ## Overview
 
@@ -40,8 +42,11 @@ decoded) to and from Root structures in multiple ways, which is specified by
 codecs. However, there is only one way to encode and decode to and from a byte
 stream, which is handled by the FormatModel.
 
-[dser]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#Deserialize
-[ser]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#Serialize
+[dserp]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#DeserializePlace
+[serp]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#SerializePlace
+[dserm]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#DeserializeModel
+[serm]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#SerializeModel
+
 [rbxfile]: https://godoc.org/github.com/RobloxAPI/rbxfile
 [root]: https://godoc.org/github.com/RobloxAPI/rbxfile#Root
 [serzr]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#Serializer
