@@ -584,7 +584,7 @@ type ChunkInstance struct {
 	isCompressed bool
 
 	// TypeID is a number identifying the instance group.
-	TypeID uint32
+	TypeID int32
 
 	// ClassName indicates the ClassName property of each instance in the
 	// group.
@@ -921,7 +921,7 @@ type ChunkProperty struct {
 	isCompressed bool
 
 	// TypeID is the ID of an instance group contained in a ChunkInstance.
-	TypeID uint32
+	TypeID int32
 
 	// PropertyName is the name of a valid property in each instance of the
 	// corresponding instance group.

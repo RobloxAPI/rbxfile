@@ -25,7 +25,7 @@ type RobloxCodec struct {
 func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile.Root, err error) {
 	root = new(rbxfile.Root)
 
-	groupLookup := make(map[uint32]*ChunkInstance, model.TypeCount)
+	groupLookup := make(map[int32]*ChunkInstance, model.TypeCount)
 	instLookup := make(map[int32]*rbxfile.Instance, model.InstanceCount+1)
 	instLookup[-1] = nil
 
@@ -38,7 +38,7 @@ loop:
 	for _, chunk := range model.Chunks {
 		switch chunk := chunk.(type) {
 		case *ChunkInstance:
-			if chunk.TypeID >= model.TypeCount {
+			if chunk.TypeID < 0 || uint32(chunk.TypeID) >= model.TypeCount {
 				return nil, fmt.Errorf("type index out of bounds: %d", model.TypeCount)
 			}
 			// No error if TypeCount > actual count.
@@ -110,7 +110,7 @@ loop:
 			groupLookup[chunk.TypeID] = chunk
 
 		case *ChunkProperty:
-			if chunk.TypeID >= model.TypeCount {
+			if chunk.TypeID < 0 || uint32(chunk.TypeID) >= model.TypeCount {
 				return nil, fmt.Errorf("type index out of bounds: %d", model.TypeCount)
 			}
 			// No error if TypeCount > actual count.
@@ -402,7 +402,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 	// Make property chunks.
 	propChunkList := []*ChunkProperty{}
 	for i, instChunk := range instChunkList {
-		instChunk.TypeID = uint32(i)
+		instChunk.TypeID = int32(i)
 
 		// Maps property names to enum items.
 		propEnums := map[string]enumItems{}
