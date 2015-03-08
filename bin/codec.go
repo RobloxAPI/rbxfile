@@ -37,7 +37,7 @@ func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile
 	enumCache := map[string]enumItems{}
 
 loop:
-	for _, chunk := range model.Chunks {
+	for ic, chunk := range model.Chunks {
 		switch chunk := chunk.(type) {
 		case *ChunkInstance:
 			if chunk.TypeID < 0 || uint32(chunk.TypeID) >= model.TypeCount {
@@ -85,7 +85,7 @@ loop:
 			}
 
 			if chunk.IsService && len(chunk.InstanceIDs) != len(chunk.GetService) {
-				// ERROR: GetService array length does not equal InstanceIDs array length
+				return nil, fmt.Errorf("malformed instance chunk (type ID %d): GetService array length does not equal InstanceIDs array length", chunk.TypeID)
 			}
 
 			for i, ref := range chunk.InstanceIDs {
@@ -161,6 +161,7 @@ loop:
 			}
 
 			if len(chunk.Parents) != len(chunk.Children) {
+				return nil, fmt.Errorf("malformed parent chunk (#%d): length of Parents array does not equal length of Children array", ic)
 				// ERROR
 			}
 
@@ -182,7 +183,7 @@ loop:
 				}
 
 				if err := child.SetParent(parent); err != nil {
-					// ERROR?
+					return nil, err
 				}
 
 			}
