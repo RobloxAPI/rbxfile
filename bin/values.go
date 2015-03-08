@@ -147,7 +147,7 @@ func interleaveFields(id Type, a []Value) (b []byte, err error) {
 	for i, v := range a {
 		af[i] = v.(fielder)
 		if af[i].Type() != id {
-			return nil, errors.New(fmt.Sprintf("element %d is of type %s where %s is expected", i, af[i].Type().String(), id.String()))
+			return nil, fmt.Errorf("element %d is of type %s where %s is expected", i, af[i].Type().String(), id.String())
 		}
 	}
 
@@ -206,7 +206,7 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 
 	newValue := valueGenerators[id]
 	if newValue == nil {
-		return nil, errors.New(fmt.Sprintf("type identifier 0x%X is not a valid Type.", id))
+		return nil, fmt.Errorf("type identifier 0x%X is not a valid Type.", id)
 	}
 
 	// Number of bytes per field
@@ -221,7 +221,7 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 	}
 
 	if len(b)%tbytes != 0 {
-		return nil, errors.New(fmt.Sprintf("length of array (%d) is not divisible by value byte size (%d)", len(b), tbytes))
+		return nil, fmt.Errorf("length of array (%d) is not divisible by value byte size (%d)", len(b), tbytes)
 	}
 
 	// Number of values
@@ -339,9 +339,7 @@ func decodeRobloxFloat(n uint32) float32 {
 func appendValueBytes(id Type, a []Value) (b []byte, err error) {
 	for i, v := range a {
 		if v.Type() != id {
-			return nil, errors.New(
-				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, v.Type().String(), id.String()),
-			)
+			return nil, fmt.Errorf("element %d is of type `%s` where `%s` is expected", i, v.Type().String(), id.String())
 		}
 
 		b = append(b, v.Bytes()...)
@@ -388,7 +386,7 @@ func (v ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
 		length := binary.LittleEndian.Uint32(b[i:])
 
 		if i+4+int(length) > len(b) {
-			return nil, errors.New(fmt.Sprintf("array length (%d) must be at least 4+%d bytes", len(b), length))
+			return nil, fmt.Errorf("array length (%d) must be at least 4+%d bytes", len(b), length)
 		}
 
 		v := new(ValueString)
@@ -418,7 +416,7 @@ func (v *ValueString) FromBytes(b []byte) error {
 	length := binary.LittleEndian.Uint32(b[:4])
 	str := b[4:]
 	if uint32(len(str)) != length {
-		return errors.New(fmt.Sprintf("string length (%d) does not match integer length (%d)", len(str), length))
+		return fmt.Errorf("string length (%d) does not match integer length (%d)", len(str), length)
 	}
 
 	*v = make(ValueString, len(str))
@@ -1232,9 +1230,7 @@ func (v *ValueCFrame) ArrayBytes(a []Value) (b []byte, err error) {
 	for i, cf := range a {
 		cf, ok := cf.(*ValueCFrame)
 		if !ok {
-			return nil, errors.New(
-				fmt.Sprintf("element %d is of type `%s` where `%s` is expected", i, cf.Type().String(), v.Type().String()),
-			)
+			return nil, fmt.Errorf("element %d is of type `%s` where `%s` is expected", i, cf.Type().String(), v.Type().String())
 		}
 
 		// Build matrix part.
@@ -1278,7 +1274,7 @@ func (v ValueCFrame) FromArrayBytes(b []byte) (a []Value, err error) {
 			q := len(cf.Rotation) * 4
 			r := b[i:]
 			if len(r) < q {
-				return nil, errors.New(fmt.Sprintf("expected %d more bytes in array", q))
+				return nil, fmt.Errorf("expected %d more bytes in array", q)
 			}
 			for i := range cf.Rotation {
 				cf.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
@@ -1435,9 +1431,7 @@ func (v *ValueReference) ArrayBytes(a []Value) (b []byte, err error) {
 	for i, ref := range a {
 		ref, ok := ref.(*ValueReference)
 		if !ok {
-			return nil, errors.New(
-				fmt.Sprintf("value %d is of type `%s` where `%s` is expected", i, ref.Type().String(), v.Type().String()),
-			)
+			return nil, fmt.Errorf("value %d is of type `%s` where `%s` is expected", i, ref.Type().String(), v.Type().String())
 		}
 
 		if i == 0 {
@@ -1464,7 +1458,7 @@ func (v ValueReference) FromArrayBytes(b []byte) (a []Value, err error) {
 
 	size := 4
 	if len(b)%size != 0 {
-		return nil, errors.New(fmt.Sprintf("array must be divisible by %d", size))
+		return nil, fmt.Errorf("array must be divisible by %d", size)
 	}
 
 	bc := make([]byte, len(b))

@@ -980,7 +980,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 
 	c.Properties, fr.err = newValue().FromArrayBytes(rawBytes)
 	if fr.err != nil {
-		fr.err = errors.New(fmt.Sprintf("type %s (0x%X): %s", newValue().Type().String(), c.DataType, fr.err.Error()))
+		fr.err = fmt.Errorf("type %s (0x%X): %s", newValue().Type().String(), c.DataType, fr.err.Error())
 		return fr.end()
 	}
 
