@@ -174,6 +174,11 @@ loop:
 					continue
 				}
 
+				if chunk.Parents[i] == -1 {
+					root.Instances = append(root.Instances, child)
+					continue
+				}
+
 				parent, ok := instLookup[chunk.Parents[i]]
 				// RESEARCH: overriding with a nil referent vs non-existent referent.
 				if !ok {
