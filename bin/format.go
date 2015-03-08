@@ -192,14 +192,14 @@ func init() {
 	rbxlCodec := RobloxCodec{Mode: ModePlace}
 	rbxfile.RegisterFormat(format{
 		name:       "rbxl",
-		magic:      BinaryHeader,
+		magic:      RobloxSig + BinaryMarker + BinaryHeader,
 		serializer: NewSerializer(rbxlCodec, rbxlCodec),
 	})
 
 	rbxmCodec := RobloxCodec{Mode: ModeModel}
 	rbxfile.RegisterFormat(format{
 		name:       "rbxm",
-		magic:      BinaryHeader,
+		magic:      RobloxSig + BinaryMarker + BinaryHeader,
 		serializer: NewSerializer(rbxmCodec, rbxmCodec),
 	})
 }

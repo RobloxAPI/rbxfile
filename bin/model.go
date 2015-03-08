@@ -12,19 +12,26 @@ import (
 
 ////////////////////////////////////////////////////////////////
 
-// BinaryHeader is the string indicating the start of a binary Roblox file.
-const BinaryHeader = "<roblox!\x89\xff\r\n\x1a\n"
+// RobloxSig is the signature a Roblox file (binary or XML).
+const RobloxSig = "<roblox"
 
-type ErrMismatchedVersion struct {
+// BinaryMarker indicates the start of a binary file, rather than an XML file.
+const BinaryMarker = "!"
+
+// BinaryHeader is the header magic of a binary file.
+const BinaryHeader = "\x89\xff\r\n\x1a\n"
+
+type ErrUnrecognizedVersion struct {
 	ExpectedVersion uint16
 	DecodedVersion  uint16
 }
 
-func (err ErrMismatchedVersion) Error() string {
-	return fmt.Sprintf("expected version %d, decoded version is %d", err.ExpectedVersion, err.DecodedVersion)
+func (err ErrUnrecognizedVersion) Error() string {
+	return fmt.Sprintf("unrecognized version %d", err.DecodedVersion)
 }
 
 var (
+	ErrInvalidSig    = errors.New("invalid signature")
 	ErrCorruptHeader = errors.New("the file header is corrupted")
 )
 
@@ -290,6 +297,16 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 	f.Warnings = f.Warnings[:0]
 	f.Chunks = f.Chunks[:0]
 
+	sig := make([]byte, len(RobloxSig+BinaryMarker))
+	if fr.read(sig) {
+		return fr.end()
+	}
+
+	if !bytes.Equal(sig, []byte(RobloxSig+BinaryMarker)) {
+		fr.err = ErrInvalidSig
+		return fr.end()
+	}
+
 	header := make([]byte, len(BinaryHeader))
 	if fr.read(header) {
 		return fr.end()
@@ -305,7 +322,7 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 	if version != 0 {
-		fr.err = ErrMismatchedVersion{ExpectedVersion: 0, DecodedVersion: version}
+		fr.err = ErrUnrecognizedVersion{ExpectedVersion: 0, DecodedVersion: version}
 		return fr.end()
 	}
 
@@ -368,7 +385,7 @@ loop:
 func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 	fw := &formatWriter{w: w}
 
-	if fw.write([]byte(BinaryHeader)) {
+	if fw.write([]byte(RobloxSig + BinaryMarker + BinaryHeader)) {
 		return fw.end()
 	}
 
