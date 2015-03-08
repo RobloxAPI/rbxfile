@@ -24,7 +24,7 @@ type RobloxCodec struct {
 func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile.Root, err error) {
 	root = new(rbxfile.Root)
 
-	groupLookup := make(map[uint32]*ChunkInstance, model.GroupCount)
+	groupLookup := make(map[uint32]*ChunkInstance, model.TypeCount)
 	instLookup := make(map[int32]*rbxfile.Instance, model.InstanceCount+1)
 	instLookup[-1] = nil
 
@@ -91,13 +91,13 @@ loop:
 				instLookup[ref] = inst
 			}
 
-			if _, ok := groupLookup[chunk.GroupID]; ok {
+			if _, ok := groupLookup[chunk.TypeID]; ok {
 				// ERROR: group already exists
 			}
-			groupLookup[chunk.GroupID] = chunk
+			groupLookup[chunk.TypeID] = chunk
 
 		case *ChunkProperty:
-			instChunk, ok := groupLookup[chunk.GroupID]
+			instChunk, ok := groupLookup[chunk.TypeID]
 			if !ok {
 				// ERROR: group does not exist
 			}
@@ -360,10 +360,10 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 	// Sort chunks by ClassName.
 	instChunkList := make(sortInstChunks, len(instChunkMap))
 	if len(instChunkMap) > 0 {
-		groupID := 0
+		typeID := 0
 		for _, chunk := range instChunkMap {
-			instChunkList[groupID] = chunk
-			groupID++
+			instChunkList[typeID] = chunk
+			typeID++
 		}
 
 		sort.Sort(instChunkList)
@@ -375,7 +375,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 	// Make property chunks.
 	propChunkList := []*ChunkProperty{}
 	for i, instChunk := range instChunkList {
-		instChunk.GroupID = uint32(i)
+		instChunk.TypeID = uint32(i)
 
 		// Maps property names to enum items.
 		propEnums := map[string]enumItems{}
@@ -435,7 +435,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 
 				propChunkMap[member.Name] = &ChunkProperty{
 					isCompressed: true,
-					GroupID:      instChunk.GroupID,
+					TypeID:       instChunk.TypeID,
 					PropertyName: member.Name,
 					DataType:     bval.Type(),
 					Properties:   []Value{},
@@ -466,7 +466,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 
 					propChunkMap[name] = &ChunkProperty{
 						isCompressed: true,
-						GroupID:      instChunk.GroupID,
+						TypeID:       instChunk.TypeID,
 						PropertyName: name,
 						DataType:     bval.Type(),
 						Properties:   []Value{},
@@ -554,7 +554,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 	}
 
 	// Make FormatModel.
-	model.GroupCount = uint32(len(instChunkList))
+	model.TypeCount = uint32(len(instChunkList))
 	model.InstanceCount = uint32(len(instList))
 	model.Chunks = make([]Chunk, len(instChunkList)+len(propChunkList)+1+1)
 	chunks := model.Chunks[:0]

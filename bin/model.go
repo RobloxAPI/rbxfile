@@ -255,8 +255,8 @@ type FormatModel struct {
 	// used by the decoder to look up what kind of chunks can be decoded.
 	ChunkGenerators map[[4]byte]ChunkGenerator
 
-	// GroupCount is the number of instance groups in the model.
-	GroupCount uint32
+	// TypeCount is the number of instance types in the model.
+	TypeCount uint32
 
 	// InstanceCount is the number of unique instances in the model.
 	InstanceCount uint32
@@ -309,7 +309,7 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 
-	if fr.readNumber(binary.LittleEndian, &f.GroupCount) {
+	if fr.readNumber(binary.LittleEndian, &f.TypeCount) {
 		return fr.end()
 	}
 
@@ -377,7 +377,7 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.end()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, f.GroupCount) {
+	if fw.writeNumber(binary.LittleEndian, f.TypeCount) {
 		return fw.end()
 	}
 
@@ -566,8 +566,8 @@ type ChunkInstance struct {
 	// Whether the chunk is compressed.
 	isCompressed bool
 
-	// GroupID is a number identifying the instance group.
-	GroupID uint32
+	// TypeID is a number identifying the instance group.
+	TypeID uint32
 
 	// ClassName indicates the ClassName property of each instance in the
 	// group.
@@ -612,7 +612,7 @@ func (c *ChunkInstance) SetCompressed(b bool) {
 func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := &formatReader{r: r}
 
-	if fr.readNumber(binary.LittleEndian, &c.GroupID) {
+	if fr.readNumber(binary.LittleEndian, &c.TypeID) {
 		return fr.end()
 	}
 
@@ -661,7 +661,7 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 	fw := &formatWriter{w: w}
 
-	if fw.writeNumber(binary.LittleEndian, c.GroupID) {
+	if fw.writeNumber(binary.LittleEndian, c.TypeID) {
 		return fw.end()
 	}
 
@@ -903,8 +903,8 @@ type ChunkProperty struct {
 	// Whether the chunk is compressed.
 	isCompressed bool
 
-	// GroupID is the ID of an instance group contained in a ChunkInstance.
-	GroupID uint32
+	// TypeID is the ID of an instance group contained in a ChunkInstance.
+	TypeID uint32
 
 	// PropertyName is the name of a valid property in each instance of the
 	// corresponding instance group.
@@ -938,7 +938,7 @@ func (c *ChunkProperty) SetCompressed(b bool) {
 func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := &formatReader{r: r}
 
-	if fr.readNumber(binary.LittleEndian, &c.GroupID) {
+	if fr.readNumber(binary.LittleEndian, &c.TypeID) {
 		return fr.end()
 	}
 
@@ -973,7 +973,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 	fw := &formatWriter{w: w}
 
-	if fw.writeNumber(binary.LittleEndian, c.GroupID) {
+	if fw.writeNumber(binary.LittleEndian, c.TypeID) {
 		return fw.end()
 	}
 
