@@ -199,23 +199,24 @@ loop:
 func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Value) (value rbxfile.Value) {
 	switch bvalue := bvalue.(type) {
 	case *ValueString:
-		// TODO: copy array
+		v := make([]byte, len(*bvalue))
+		copy(v, *bvalue)
 
 		switch valueType {
 		case rbxfile.TypeBinaryString.String():
-			value = rbxfile.ValueBinaryString(*bvalue)
+			value = rbxfile.ValueBinaryString(v)
 
 		case rbxfile.TypeProtectedString.String():
-			value = rbxfile.ValueProtectedString(*bvalue)
+			value = rbxfile.ValueProtectedString(v)
 
 		case rbxfile.TypeContent.String():
-			value = rbxfile.ValueContent(*bvalue)
+			value = rbxfile.ValueContent(v)
 
 		case rbxfile.TypeString.String():
 			fallthrough
 
 		default:
-			value = rbxfile.ValueString(*bvalue)
+			value = rbxfile.ValueString(v)
 		}
 
 	case *ValueBool:
@@ -644,17 +645,24 @@ type enumItems struct {
 func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Value) {
 	switch value := value.(type) {
 	case rbxfile.ValueString:
-		// TODO: these need to be copied
-		bvalue = (*ValueString)(&value)
+		v := make([]byte, len(value))
+		copy(v, value)
+		bvalue = (*ValueString)(&v)
 
 	case rbxfile.ValueBinaryString:
-		bvalue = (*ValueString)(&value)
+		v := make([]byte, len(value))
+		copy(v, value)
+		bvalue = (*ValueString)(&v)
 
 	case rbxfile.ValueProtectedString:
-		bvalue = (*ValueString)(&value)
+		v := make([]byte, len(value))
+		copy(v, value)
+		bvalue = (*ValueString)(&v)
 
 	case rbxfile.ValueContent:
-		bvalue = (*ValueString)(&value)
+		v := make([]byte, len(value))
+		copy(v, value)
+		bvalue = (*ValueString)(&v)
 
 	case rbxfile.ValueBool:
 		bvalue = (*ValueBool)(&value)
