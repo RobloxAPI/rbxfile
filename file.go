@@ -57,7 +57,8 @@ type Instance struct {
 // parent.
 func NewInstance(className string, parent *Instance) *Instance {
 	inst := &Instance{
-		ClassName: className,
+		ClassName:  className,
+		Properties: make(map[string]Value, 0),
 	}
 
 	if parent != nil {
