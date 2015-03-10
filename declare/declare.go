@@ -201,22 +201,3 @@ func (prop property) Declare() rbxfile.Value {
 type Ref string
 
 func (Ref) element() {}
-
-func test() *rbxfile.Root {
-	return Root{
-		Instance("Part",
-			Property("Name", String, "BasePlate"),
-			Property("CanCollide", Bool, false),
-			Property("Position", Vector3, 0, 10, 0),
-			Property("Size", Vector3, 4, 4, 4),
-			Instance("CFrameValue", Ref("RBX12345"),
-				Property("Name", String, "Value"),
-				Property("Value", CFrame, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1),
-			),
-			Instance("ObjectValue",
-				Property("Name", String, "Value"),
-				Property("Value", Reference, "RBX12345"),
-			),
-		),
-	}.Declare()
-}
