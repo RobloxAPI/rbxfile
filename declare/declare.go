@@ -3,6 +3,14 @@
 //
 // Most items have a Declare method, which returns a new rbxfile structure
 // corresponding to the declared item.
+//
+// The easiest way to use this package is to import it directly into the
+// current package:
+//
+//     import . "github.com/robloxapi/rbxfile/declare"
+//
+// This allows the package's identifiers to be used directly without a
+// qualifier.
 package declare
 
 import (
