@@ -1,3 +1,8 @@
+// The declare package is used to generate rbxfile structures in a declarative
+// style.
+//
+// Most items have a Declare method, which returns a new rbxfile structure
+// corresponding to the declared item.
 package declare
 
 import (
