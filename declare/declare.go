@@ -133,18 +133,19 @@ func (property) element() {}
 // the property, a type corresponding to a rbxfile.Value, and the value of the
 // property.
 //
-// The value may be one or more values of any type, which are asserted to a
-// rbxfile.Value corresponding to the given type. If the value(s) cannot be
-// asserted, then the zero value is returned instead.
+// The value argument may be one or more values of any type, which are
+// asserted to a rbxfile.Value corresponding to the given type. If the
+// value(s) cannot be asserted, then the zero value for the given type is
+// returned instead.
 //
-// When the type or field of the type is a number, any number type except for
-// complex numbers may be given as the value.
+// When the given type or a field of the given type is a number, any number
+// type except for complex numbers may be given as the value.
 //
 // The value may be a single rbxfile.Value that corresponds to the given type
 // (e.g. rbxfile.ValueString for String), in which case the value itself is
 // returned.
 //
-// For a given type, values must be the following:
+// Otherwise, for a given type, values must be the following:
 //
 // String, BinaryString, ProtectedString, Content: A single string or []byte.
 // Extra values are ignored.
