@@ -457,8 +457,6 @@ func (t ValueAxes) Copy() Value {
 
 ////////////////
 
-//go:generate rbxpipe -i=brickcolorgen.lua -o=brickcolor.go -filter=o
-
 type ValueBrickColor uint32
 
 func newValueBrickColor() Value {
@@ -473,33 +471,6 @@ func (t ValueBrickColor) String() string {
 }
 func (t ValueBrickColor) Copy() Value {
 	return t
-}
-
-func (bc ValueBrickColor) Name() string {
-	name, ok := brickColorNames[bc]
-	if !ok {
-		return brickColorNames[194]
-	}
-
-	return name
-}
-
-func (bc ValueBrickColor) Color() ValueColor3 {
-	color, ok := brickColorColors[bc]
-	if !ok {
-		return brickColorColors[194]
-	}
-
-	return color
-}
-
-func (bc ValueBrickColor) Palette() int {
-	for i, n := range brickColorPalette {
-		if bc == n {
-			return i
-		}
-	}
-	return -1
 }
 
 ////////////////
