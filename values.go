@@ -586,7 +586,10 @@ type ValueCFrame struct {
 }
 
 func newValueCFrame() Value {
-	return *new(ValueCFrame)
+	return ValueCFrame{
+		Position: ValueVector3{0, 0, 0},
+		Rotation: [9]float32{1, 0, 0, 0, 1, 0, 0, 0, 1},
+	}
 }
 
 func (ValueCFrame) Type() Type {
