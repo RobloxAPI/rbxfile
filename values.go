@@ -398,7 +398,7 @@ func (ValueFaces) Type() Type {
 	return TypeFaces
 }
 func (t ValueFaces) String() string {
-	s := make([]string, 6)
+	s := make([]string, 0, 6)
 	if t.Front {
 		s = append(s, "Front")
 	}
@@ -438,7 +438,7 @@ func (ValueAxes) Type() Type {
 	return TypeAxes
 }
 func (t ValueAxes) String() string {
-	s := make([]string, 3)
+	s := make([]string, 0, 3)
 	if t.X {
 		s = append(s, "X")
 	}
