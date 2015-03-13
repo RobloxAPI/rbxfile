@@ -131,12 +131,6 @@ var valueGenerators = map[Type]valueGenerator{
 }
 
 func joinstr(a ...string) string {
-	if len(a) == 0 {
-		return ""
-	}
-	if len(a) == 1 {
-		return a[0]
-	}
 	n := 0
 	for i := 0; i < len(a); i++ {
 		n += len(a[i])
