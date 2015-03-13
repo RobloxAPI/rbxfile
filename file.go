@@ -91,36 +91,17 @@ func NewInstance(className string, parent *Instance) *Instance {
 	return inst
 }
 
-func (inst *Instance) addChild(child *Instance) bool {
-	if child == nil {
-		return false
-	}
-
-	for _, ch := range inst.children {
-		if ch == child {
-			return false
-		}
-	}
-
+func (inst *Instance) addChild(child *Instance) {
 	inst.children = append(inst.children, child)
-
-	return true
 }
 
-func (inst *Instance) removeChild(child *Instance) bool {
-	if child == nil {
-		return false
-	}
-
+func (inst *Instance) removeChild(child *Instance) {
 	for i, ch := range inst.children {
 		if ch == child {
 			inst.children[i] = nil
 			inst.children = append(inst.children[:i], inst.children[i+1:]...)
-			return true
 		}
 	}
-
-	return false
 }
 
 // Parent returns the parent of the instance. Can return nil if the instance
