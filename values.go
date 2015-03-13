@@ -156,7 +156,7 @@ func joinstr(a ...string) string {
 type ValueString []byte
 
 func newValueString() Value {
-	return *new(ValueString)
+	return make(ValueString, 0)
 }
 
 func (ValueString) Type() Type {
@@ -176,7 +176,7 @@ func (t ValueString) Copy() Value {
 type ValueBinaryString []byte
 
 func newValueBinaryString() Value {
-	return *new(ValueBinaryString)
+	return make(ValueBinaryString, 0)
 }
 
 func (ValueBinaryString) Type() Type {
@@ -196,7 +196,7 @@ func (t ValueBinaryString) Copy() Value {
 type ValueProtectedString []byte
 
 func newValueProtectedString() Value {
-	return *new(ValueProtectedString)
+	return make(ValueProtectedString, 0)
 }
 
 func (ValueProtectedString) Type() Type {
@@ -216,7 +216,7 @@ func (t ValueProtectedString) Copy() Value {
 type ValueContent []byte
 
 func newValueContent() Value {
-	return *new(ValueContent)
+	return make(ValueContent, 0)
 }
 
 func (ValueContent) Type() Type {
