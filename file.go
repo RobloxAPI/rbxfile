@@ -262,7 +262,8 @@ func (inst *Instance) Name() string {
 		return ""
 	}
 
-	return string(iname.(ValueString))
+	name, _ := iname.(ValueString)
+	return string(name)
 }
 
 // String implements the fmt.Stringer interface by returning the Name of the
