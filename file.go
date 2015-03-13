@@ -342,9 +342,6 @@ type Codec struct {
 }
 
 func match(magic string, b []byte) bool {
-	if len(magic) != len(b) {
-		return false
-	}
 	for i, c := range b {
 		if magic[i] != c && magic[i] != '?' {
 			return false
