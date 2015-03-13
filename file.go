@@ -212,7 +212,7 @@ func (inst *Instance) GetFullName() string {
 	}
 
 	full := make([]byte, 0, 64)
-	for i := len(names); i > 0; i-- {
+	for i := len(names) - 1; i > 0; i-- {
 		full = append(full, []byte(names[i])...)
 		full = append(full, '.')
 	}
