@@ -284,6 +284,22 @@ func (inst *Instance) Name() string {
 	return string(iname.(ValueString))
 }
 
+// String implements the fmt.Stringer interface by returning the Name of the
+// instance, or the ClassName if Name isn't defined.
+func (inst *Instance) String() string {
+	iname, ok := inst.Properties["Name"]
+	if !ok {
+		return inst.ClassName
+	}
+
+	name, _ := iname.(ValueString)
+	if string(name) == "" {
+		return inst.ClassName
+	}
+
+	return string(name)
+}
+
 // SetName sets the Name property of the instance.
 func (inst *Instance) SetName(name string) {
 	inst.Properties["Name"] = ValueString(name)
