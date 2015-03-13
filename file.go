@@ -390,7 +390,7 @@ func (c *Codec) Encode(w io.Writer, fmt string, root *Root) (err error) {
 	for _, f := range formats {
 		if fmt == f.Name() {
 			format = f
-			return
+			break
 		}
 	}
 	if format == nil {
