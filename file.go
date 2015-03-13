@@ -145,7 +145,7 @@ func (inst *Instance) ClearAllChildren() {
 	// Remove on each child. Remove removes children in order, also calling
 	// Remove on each of them.
 	for len(inst.children) > 0 {
-		inst.children[len(inst.children)].Remove()
+		inst.children[len(inst.children)-1].Remove()
 	}
 }
 
