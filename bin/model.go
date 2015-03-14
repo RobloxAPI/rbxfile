@@ -291,6 +291,10 @@ func NewFormatModel() *FormatModel {
 
 // ReadFrom decodes data from r into the FormatModel.
 func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
+	if r == nil {
+		return 0, errors.New("reader is nil")
+	}
+
 	fr := &formatReader{r: r}
 
 	// reuse space from previous slices
@@ -383,6 +387,10 @@ loop:
 
 // WriteTo encodes the FormatModel as bytes to w.
 func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
+	if w == nil {
+		return 0, errors.New("writer is nil")
+	}
+
 	fw := &formatWriter{w: w}
 
 	if fw.write([]byte(RobloxSig + BinaryMarker + BinaryHeader)) {

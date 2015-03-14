@@ -1,6 +1,7 @@
 package bin
 
 import (
+	"errors"
 	"fmt"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
@@ -24,6 +25,10 @@ type RobloxCodec struct {
 //go:generate rbxpipe -i=cframegen.lua -o=cframe.go -place=cframe.rbxl -filter=o
 
 func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile.Root, err error) {
+	if model == nil {
+		return nil, fmt.Errorf("FormatModel is nil")
+	}
+
 	root = new(rbxfile.Root)
 
 	groupLookup := make(map[int32]*ChunkInstance, model.TypeCount)
@@ -329,6 +334,10 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 }
 
 func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *FormatModel, err error) {
+	if root == nil {
+		return nil, errors.New("Root is nil")
+	}
+
 	model = NewFormatModel()
 
 	// A list of instances in the tree. The index serves as the instance's
