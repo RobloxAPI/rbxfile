@@ -229,25 +229,6 @@ func (f *formatWriter) writeString(data string) (failed bool) {
 
 ////////////////////////////////////////////////////////////////
 
-// Warning is a non-fatal message emitted by the decoder.
-type Warning interface {
-	Warn() string
-}
-
-func warning(text string) Warning {
-	return &warningString{text}
-}
-
-type warningString struct {
-	s string
-}
-
-func (e *warningString) Warn() string {
-	return e.s
-}
-
-////////////////////////////////////////////////////////////////
-
 // chunkGenerator is a function that initializes a type which implements a
 // Chunk.
 type chunkGenerator func() Chunk
@@ -359,7 +340,7 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 	if reserved != 0 {
-		f.Warnings = append(f.Warnings, warning("reserved space in file header is non-zero"))
+		f.Warnings = append(f.Warnings, errors.New("reserved space in file header is non-zero"))
 	}
 
 loop:
@@ -371,7 +352,7 @@ loop:
 
 		newChunk := chunkGenerators(f.Version, rawChunk.signature)
 		if newChunk == nil {
-			f.Warnings = append(f.Warnings, warning("unknown chunk signature `"+string(rawChunk.signature[:])+"`"))
+			f.Warnings = append(f.Warnings, fmt.Errorf("unknown chunk signature `%s`", rawChunk.signature))
 			continue loop
 		}
 
@@ -379,7 +360,7 @@ loop:
 		chunk.SetCompressed(rawChunk.compressed)
 
 		if _, fr.err = chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); fr.err != nil {
-			fr.err = errors.New("chunk " + string(rawChunk.signature[:]) + ": " + fr.err.Error())
+			fr.err = fmt.Errorf("chunk %s: %s", rawChunk.signature, fr.err.Error())
 			return fr.end()
 		}
 
@@ -387,11 +368,11 @@ loop:
 
 		if endChunk, ok := chunk.(*ChunkEnd); ok {
 			if endChunk.Compressed() {
-				f.Warnings = append(f.Warnings, warning("END chunk is not uncompressed"))
+				f.Warnings = append(f.Warnings, errors.New("END chunk is not uncompressed"))
 			}
 
 			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
-				f.Warnings = append(f.Warnings, warning("END chunk content is not `</roblox>`"))
+				f.Warnings = append(f.Warnings, errors.New("END chunk content is not `</roblox>`"))
 			}
 
 			break loop
