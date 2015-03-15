@@ -97,7 +97,7 @@ func (s Serializer) Deserialize(r io.Reader, api *rbxdump.API) (root *rbxfile.Ro
 		return nil, errors.New("a decoder has not been not specified")
 	}
 
-	model := NewFormatModel()
+	model := new(FormatModel)
 
 	if _, err = model.ReadFrom(r); err != nil {
 		return nil, errors.New("error parsing format: " + err.Error())

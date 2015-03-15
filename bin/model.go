@@ -21,13 +21,10 @@ const BinaryMarker = "!"
 // BinaryHeader is the header magic of a binary file.
 const BinaryHeader = "\x89\xff\r\n\x1a\n"
 
-type ErrUnrecognizedVersion struct {
-	ExpectedVersion uint16
-	DecodedVersion  uint16
-}
+type ErrUnrecognizedVersion uint16
 
 func (err ErrUnrecognizedVersion) Error() string {
-	return fmt.Sprintf("unrecognized version %d", err.DecodedVersion)
+	return fmt.Sprintf("unrecognized version %d", err)
 }
 
 var (
@@ -251,16 +248,42 @@ func (e *warningString) Warn() string {
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkGenerator is a function that initializes a type which implements a
+// chunkGenerator is a function that initializes a type which implements a
 // Chunk.
-type ChunkGenerator func() Chunk
+type chunkGenerator func() Chunk
+
+// chunkGenerators returns a function that generates a chunk of the given
+// signature, which exists for the given format version.
+func chunkGenerators(version uint16, sig [4]byte) chunkGenerator {
+	switch version {
+	case 0:
+		switch sig {
+		case newChunkInstance().Signature():
+			return newChunkInstance
+		case newChunkProperty().Signature():
+			return newChunkProperty
+		case newChunkParent().Signature():
+			return newChunkParent
+		case newChunkEnd().Signature():
+			return newChunkEnd
+		default:
+			return nil
+		}
+	default:
+		return nil
+	}
+}
+
+// validChunk returns whether a chunk signature is valid for a format version.
+func validChunk(version uint16, sig [4]byte) bool {
+	return chunkGenerators(version, sig) != nil
+}
 
 // FormatModel models Roblox's binary file format. Directly, it can be used to
 // control exactly how a file is encoded.
 type FormatModel struct {
-	// ChunkGenerators maps a chunk signature to a ChunkGenerator, which is
-	// used by the decoder to look up what kind of chunks can be decoded.
-	ChunkGenerators map[[4]byte]ChunkGenerator
+	// Version indicates the version of the format model.
+	Version uint16
 
 	// TypeCount is the number of instance types in the model.
 	TypeCount uint32
@@ -271,22 +294,10 @@ type FormatModel struct {
 	// Chunks is a list of Chunks present in the model.
 	Chunks []Chunk
 
-	// Warnings is a list of non-fatal problems that were encountered while
-	// decoding.
-	Warnings []Warning
-}
-
-// NewFormatModel returns a FormatModel initialized with the current version
-// of the format codec.
-func NewFormatModel() *FormatModel {
-	f := new(FormatModel)
-	f.ChunkGenerators = map[[4]byte]ChunkGenerator{
-		newChunkInstance().Signature(): newChunkInstance,
-		newChunkProperty().Signature(): newChunkProperty,
-		newChunkParent().Signature():   newChunkParent,
-		newChunkEnd().Signature():      newChunkEnd,
-	}
-	return f
+	// Warnings is a list of non-fatal problems that have occurred. This will
+	// be cleared and populated when calling either ReadFrom and WriteTo.
+	// Codecs may also clear and populate this when decoding or encoding.
+	Warnings []error
 }
 
 // ReadFrom decodes data from r into the FormatModel.
@@ -296,10 +307,6 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 
 	fr := &formatReader{r: r}
-
-	// reuse space from previous slices
-	f.Warnings = f.Warnings[:0]
-	f.Chunks = f.Chunks[:0]
 
 	sig := make([]byte, len(RobloxSig+BinaryMarker))
 	if fr.read(sig) {
@@ -325,10 +332,19 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 	if fr.readNumber(binary.LittleEndian, &version) {
 		return fr.end()
 	}
-	if version != 0 {
-		fr.err = ErrUnrecognizedVersion{ExpectedVersion: 0, DecodedVersion: version}
+
+	switch version {
+	default:
+		fr.err = ErrUnrecognizedVersion(version)
 		return fr.end()
+	case 0:
 	}
+
+	f.Version = version
+
+	// reuse space from previous slices
+	f.Warnings = f.Warnings[:0]
+	f.Chunks = f.Chunks[:0]
 
 	if fr.readNumber(binary.LittleEndian, &f.TypeCount) {
 		return fr.end()
@@ -353,8 +369,8 @@ loop:
 			return fr.end()
 		}
 
-		newChunk, ok := f.ChunkGenerators[rawChunk.signature]
-		if !ok {
+		newChunk := chunkGenerators(f.Version, rawChunk.signature)
+		if newChunk == nil {
 			f.Warnings = append(f.Warnings, warning("unknown chunk signature `"+string(rawChunk.signature[:])+"`"))
 			continue loop
 		}
@@ -397,8 +413,7 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.end()
 	}
 
-	// version; unknown endianness
-	if fw.writeNumber(binary.LittleEndian, uint16(0)) {
+	if fw.writeNumber(binary.LittleEndian, f.Version) {
 		return fw.end()
 	}
 
@@ -416,6 +431,11 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	for _, chunk := range f.Chunks {
+		if !validChunk(f.Version, chunk.Signature()) {
+			fw.err = fmt.Errorf("unknown chunk signature `%s`", chunk.Signature())
+			return fw.end()
+		}
+
 		rawChunk := new(rawChunk)
 		rawChunk.signature = chunk.Signature()
 		rawChunk.compressed = chunk.Compressed()

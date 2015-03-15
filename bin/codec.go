@@ -338,7 +338,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 		return nil, errors.New("Root is nil")
 	}
 
-	model = NewFormatModel()
+	model = new(FormatModel)
 
 	// A list of instances in the tree. The index serves as the instance's
 	// reference number.
