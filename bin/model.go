@@ -411,10 +411,24 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.end()
 	}
 
-	for _, chunk := range f.Chunks {
+	for i, chunk := range f.Chunks {
 		if !validChunk(f.Version, chunk.Signature()) {
 			fw.err = fmt.Errorf("unknown chunk signature `%s`", chunk.Signature())
 			return fw.end()
+		}
+
+		if endChunk, ok := chunk.(*ChunkEnd); ok {
+			if endChunk.IsCompressed {
+				f.Warnings = append(f.Warnings, errors.New("END chunk is not uncompressed"))
+			}
+
+			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
+				f.Warnings = append(f.Warnings, errors.New("END chunk content is not `</roblox>`"))
+			}
+
+			if i != len(f.Chunks)-1 {
+				f.Warnings = append(f.Warnings, errors.New("END chunk is not the last chunk"))
+			}
 		}
 
 		rawChunk := new(rawChunk)
