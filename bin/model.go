@@ -423,6 +423,8 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 		return 0, errors.New("writer is nil")
 	}
 
+	f.Warnings = f.Warnings[:0]
+
 	fw := &formatWriter{w: w}
 
 	if fw.write([]byte(RobloxSig + BinaryMarker + BinaryHeader)) {
