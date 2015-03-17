@@ -450,8 +450,8 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 
 	for i, chunk := range f.Chunks {
 		if !validChunk(f.Version, chunk.Signature()) {
-			fw.err = WarnUnknownChunk(chunk.Signature())
-			return fw.end()
+			f.Warnings = append(f.Warnings, WarnUnknownChunk(chunk.Signature()))
+			continue
 		}
 
 		if endChunk, ok := chunk.(*ChunkEnd); ok {
