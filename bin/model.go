@@ -21,16 +21,51 @@ const BinaryMarker = "!"
 // BinaryHeader is the header magic of a binary file.
 const BinaryHeader = "\x89\xff\r\n\x1a\n"
 
+var (
+	ErrInvalidSig       = errors.New("invalid signature")
+	ErrCorruptHeader    = errors.New("the file header is corrupted")
+	ErrChunkParentArray = errors.New("length of parent array does not match children array")
+	ErrInvalidType      = errors.New("invalid data type")
+)
+
 type ErrUnrecognizedVersion uint16
 
 func (err ErrUnrecognizedVersion) Error() string {
 	return fmt.Sprintf("unrecognized version %d", err)
 }
 
+// ErrChunk is an error produced by a chunk of a certain type.
+type ErrChunk struct {
+	Sig [4]byte
+	Err error
+}
+
+func (err ErrChunk) Error() string {
+	return fmt.Sprintf("chunk %s: %s", err.Sig, err.Err.Error())
+}
+
+// ErrValue is an error that is produced by a Value of a certain Type.
+type ErrValue struct {
+	Type Type
+	Err  error
+}
+
+func (err ErrValue) Error() string {
+	return fmt.Sprintf("type %s (0x%X): %s", err.Type.String(), err.Type, err.Error())
+}
+
 var (
-	ErrInvalidSig    = errors.New("invalid signature")
-	ErrCorruptHeader = errors.New("the file header is corrupted")
+	WarnReserveNonZero     = errors.New("reserved space in file header is non-zero")
+	WarnEndChunkCompressed = errors.New("end chunk is compressed")
+	WarnEndChunkContent    = errors.New("end chunk content is not `</roblox>`")
+	WarnEndChunkNotLast    = errors.New("end chunk is not the last chunk")
 )
+
+type WarnUnknownChunk [4]byte
+
+func (w WarnUnknownChunk) Error() string {
+	return fmt.Sprintf("unknown chunk signature `%s`", w)
+}
 
 ////////////////////////////////////////////////////////////////
 
@@ -340,7 +375,7 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 	if reserved != 0 {
-		f.Warnings = append(f.Warnings, errors.New("reserved space in file header is non-zero"))
+		f.Warnings = append(f.Warnings, WarnReserveNonZero)
 	}
 
 loop:
@@ -352,7 +387,7 @@ loop:
 
 		newChunk := chunkGenerators(f.Version, rawChunk.signature)
 		if newChunk == nil {
-			f.Warnings = append(f.Warnings, fmt.Errorf("unknown chunk signature `%s`", rawChunk.signature))
+			f.Warnings = append(f.Warnings, WarnUnknownChunk(rawChunk.signature))
 			continue loop
 		}
 
@@ -360,7 +395,7 @@ loop:
 		chunk.SetCompressed(rawChunk.compressed)
 
 		if _, fr.err = chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); fr.err != nil {
-			fr.err = fmt.Errorf("chunk %s: %s", rawChunk.signature, fr.err.Error())
+			fr.err = ErrChunk{Sig: rawChunk.signature, Err: fr.err}
 			return fr.end()
 		}
 
@@ -368,11 +403,11 @@ loop:
 
 		if endChunk, ok := chunk.(*ChunkEnd); ok {
 			if endChunk.Compressed() {
-				f.Warnings = append(f.Warnings, errors.New("END chunk is not uncompressed"))
+				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
 			}
 
 			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
-				f.Warnings = append(f.Warnings, errors.New("END chunk content is not `</roblox>`"))
+				f.Warnings = append(f.Warnings, WarnEndChunkContent)
 			}
 
 			break loop
@@ -413,21 +448,21 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 
 	for i, chunk := range f.Chunks {
 		if !validChunk(f.Version, chunk.Signature()) {
-			fw.err = fmt.Errorf("unknown chunk signature `%s`", chunk.Signature())
+			fw.err = WarnUnknownChunk(chunk.Signature())
 			return fw.end()
 		}
 
 		if endChunk, ok := chunk.(*ChunkEnd); ok {
 			if endChunk.IsCompressed {
-				f.Warnings = append(f.Warnings, errors.New("END chunk is not uncompressed"))
+				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
 			}
 
 			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
-				f.Warnings = append(f.Warnings, errors.New("END chunk content is not `</roblox>`"))
+				f.Warnings = append(f.Warnings, WarnEndChunkContent)
 			}
 
 			if i != len(f.Chunks)-1 {
-				f.Warnings = append(f.Warnings, errors.New("END chunk is not the last chunk"))
+				f.Warnings = append(f.Warnings, WarnEndChunkNotLast)
 			}
 		}
 
@@ -526,7 +561,7 @@ func (c *rawChunk) ReadFrom(fr *formatReader) bool {
 		// validation, though the error message isn't the same.
 
 		if _, err := lz4.Decode(c.payload, compressedData); err != nil {
-			fr.err = errors.New("lz4: " + err.Error())
+			fr.err = fmt.Errorf("lz4: %s", err.Error())
 			return true
 		}
 	}
@@ -914,7 +949,7 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 
 		// Parents
 		if len(c.Parents) != instanceCount {
-			fw.err = errors.New("length of parent array does not match children array")
+			fw.err = ErrChunkParentArray
 			return fw.end()
 		}
 
@@ -997,13 +1032,13 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 
 	newValue, ok := valueGenerators[c.DataType]
 	if !ok {
-		fr.err = errors.New("unrecognized data type")
+		fr.err = ErrInvalidType
 		return fr.end()
 	}
 
 	c.Properties, fr.err = newValue().FromArrayBytes(rawBytes)
 	if fr.err != nil {
-		fr.err = fmt.Errorf("type %s (0x%X): %s", newValue().Type().String(), c.DataType, fr.err.Error())
+		fr.err = ErrValue{Type: c.DataType, Err: fr.err}
 		return fr.end()
 	}
 
@@ -1027,7 +1062,7 @@ func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 
 	newValue, ok := valueGenerators[c.DataType]
 	if !ok {
-		fw.err = errors.New("unrecognized data type")
+		fw.err = ErrInvalidType
 		return fw.end()
 	}
 
