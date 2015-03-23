@@ -64,7 +64,7 @@ var (
 type WarnUnknownChunk [4]byte
 
 func (w WarnUnknownChunk) Error() string {
-	return fmt.Sprintf("unknown chunk signature `%s`", w)
+	return fmt.Sprintf("unknown chunk signature `%s`", [4]byte(w))
 }
 
 ////////////////////////////////////////////////////////////////
