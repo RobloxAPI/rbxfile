@@ -165,11 +165,11 @@ func TestInstance_ClearAllChildren(t *testing.T) {
 func TestInstance_Clone(t *testing.T) {
 	inst := rbxfile.NewInstance("Instance", nil)
 	inst.SetName("InstanceName")
-	inst.Properties["Position"] = rbxfile.ValueVector3{1, 2, 3}
+	inst.Properties["Position"] = rbxfile.ValueVector3{X: 1, Y: 2, Z: 3}
 
 	child := rbxfile.NewInstance("Child", inst)
 	child.SetName("ChildName")
-	child.Properties["Size"] = rbxfile.ValueVector3{4, 5, 6}
+	child.Properties["Size"] = rbxfile.ValueVector3{X: 4, Y: 5, Z: 6}
 
 	cinst := inst.Clone()
 
