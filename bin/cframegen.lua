@@ -56,7 +56,7 @@ write('var p1 = float32(math.Copysign(1, 1))\n')
 write('\n')
 write('var cframeSpecialMatrix = map[uint8][9]float32{\n')
 for i = 1, #nums do
-	write('\t0x%02X: [9]float32{%s},\n', nums[i], cframes[i])
+	write('\t0x%02X: {%s},\n', nums[i], cframes[i])
 end
 write('}\n')
 write('\n')
