@@ -319,6 +319,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 				B: float32(v&0x000000FF) / 255,
 			}, true
 		} else {
+			//DIFF: If any tags are missing, entire value defaults.
 			v := *new(rbxfile.ValueColor3)
 			components{
 				"R": &v.R,
