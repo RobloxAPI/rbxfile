@@ -467,20 +467,14 @@ func (v *ValueBool) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (v ValueBool) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(v.Type(), b, 1)
-	if err != nil {
-		return nil, err
-	}
-
-	return a, nil
+	return appendByteValues(v.Type(), b, 1, 0)
 }
 
 func (v ValueBool) Bytes() []byte {
 	if v {
 		return []byte{1}
-	} else {
-		return []byte{0}
 	}
+	return []byte{0}
 }
 
 func (v *ValueBool) FromBytes(b []byte) error {
