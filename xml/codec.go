@@ -509,6 +509,10 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 type components map[string]interface{}
 
 func (c components) getFrom(tag *Tag) {
+	if tag == nil {
+		return
+	}
+
 	// Used to ensure that only the first matched tag is selected.
 	d := map[string]bool{}
 
