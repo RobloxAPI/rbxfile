@@ -349,15 +349,40 @@ func appendValueBytes(id Type, a []Value) (b []byte, err error) {
 }
 
 // Reads a byte array as an array of Values of a certain type. Size is the
-// byte size of each Value.
-func appendByteValues(id Type, b []byte, size int) (a []Value, err error) {
+// byte size of each Value. If size is less than 0, then values are assumed to
+// be of variable length. The first 4 bytes of a value is read as length N of
+// the value. Field then indicates the size of each field in the value, so the
+// next N*field bytes are read as the full value.
+func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err error) {
 	gen := valueGenerators[id]
-	for i := 0; i+size <= len(b); i += size {
-		v := gen()
-		if err := v.FromBytes(b[i : i+size]); err != nil {
-			return nil, err
+	if size < 0 {
+		// Variable length; get size from first 4 bytes.
+		ba := b
+		for len(ba) > 0 {
+			if len(ba) < 4 {
+				return nil, errors.New("expected 4 more bytes in array")
+			}
+			size := int(binary.LittleEndian.Uint32(ba))
+			if len(ba[4:]) < size*field {
+				return nil, fmt.Errorf("expected %d more bytes in array", size*field)
+			}
+
+			v := gen()
+			if err := v.FromBytes(ba[:4+size*field]); err != nil {
+				return nil, err
+			}
+			a = append(a, v)
+
+			ba = ba[4+size*field:]
 		}
-		a = append(a, v)
+	} else {
+		for i := 0; i+size <= len(b); i += size {
+			v := gen()
+			if err := v.FromBytes(b[i : i+size]); err != nil {
+				return nil, err
+			}
+			a = append(a, v)
+		}
 	}
 	return a, nil
 }
