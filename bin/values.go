@@ -519,7 +519,7 @@ func (v ValueInt) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(v.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -575,7 +575,7 @@ func (v ValueFloat) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(v.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +616,7 @@ func (v *ValueDouble) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (v ValueDouble) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(v.Type(), b, 8)
+	a, err = appendByteValues(v.Type(), b, 8, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -786,7 +786,7 @@ func (v *ValueRay) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (v ValueRay) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(v.Type(), b, 24)
+	a, err = appendByteValues(v.Type(), b, 24, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +839,7 @@ func (v *ValueFaces) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (v ValueFaces) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(v.Type(), b, 1)
+	a, err = appendByteValues(v.Type(), b, 1, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -893,7 +893,7 @@ func (v *ValueAxes) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (v ValueAxes) FromArrayBytes(b []byte) (a []Value, err error) {
-	a, err = appendByteValues(v.Type(), b, 1)
+	a, err = appendByteValues(v.Type(), b, 1, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -957,7 +957,7 @@ func (v ValueBrickColor) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(v.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -1402,7 +1402,7 @@ func (v ValueToken) FromArrayBytes(b []byte) (a []Value, err error) {
 		return nil, err
 	}
 
-	a, err = appendByteValues(v.Type(), bc, 4)
+	a, err = appendByteValues(v.Type(), bc, 4, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -1537,7 +1537,7 @@ func (v *ValueVector3int16) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (v ValueVector3int16) FromArrayBytes(b []byte) (a []Value, err error) {
-	return appendByteValues(v.Type(), b, 6)
+	return appendByteValues(v.Type(), b, 6, 0)
 }
 
 func (v ValueVector3int16) Bytes() []byte {
