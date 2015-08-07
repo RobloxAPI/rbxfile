@@ -307,8 +307,9 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 		return v, true
 
 	case "Color3":
-		if len(tag.Tags) == 0 {
-			v, err := strconv.ParseUint(getContent(tag), 10, 32)
+		content := getContent(tag)
+		if len(content) > 0 {
+			v, err := strconv.ParseUint(content, 10, 32)
 			if err != nil {
 				return nil, false
 			}
