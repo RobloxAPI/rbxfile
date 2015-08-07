@@ -39,9 +39,12 @@ const (
 	TypeVector2int16 Type = 0xF
 	TypeCFrame       Type = 0x10
 	//TypeCFrameQuat Type = 0x11
-	TypeToken        Type = 0x12
-	TypeReference    Type = 0x13
-	TypeVector3int16 Type = 0x14
+	TypeToken          Type = 0x12
+	TypeReference      Type = 0x13
+	TypeVector3int16   Type = 0x14
+	TypeNumberSequence Type = 0x15
+	TypeColorSequence  Type = 0x16
+	TypeNumberRange    Type = 0x17
 )
 
 var typeStrings = map[Type]string{
@@ -62,9 +65,12 @@ var typeStrings = map[Type]string{
 	TypeVector2int16: "Vector2int16",
 	TypeCFrame:       "CFrame",
 	//TypeCFrameQuat: "CFrameQuat",
-	TypeToken:        "Token",
-	TypeReference:    "Reference",
-	TypeVector3int16: "Vector3int16",
+	TypeToken:          "Token",
+	TypeReference:      "Reference",
+	TypeVector3int16:   "Vector3int16",
+	TypeNumberSequence: "NumberSequence",
+	TypeColorSequence:  "ColorSequence",
+	TypeNumberRange:    "NumberRange",
 }
 
 // Value is a property value of a certain Type.
@@ -118,9 +124,12 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeVector2int16: newValueVector2int16,
 	TypeCFrame:       newValueCFrame,
 	//TypeCFrameQuat: newValueCFrameQuat,
-	TypeToken:        newValueToken,
-	TypeReference:    newValueReference,
-	TypeVector3int16: newValueVector3int16,
+	TypeToken:          newValueToken,
+	TypeReference:      newValueReference,
+	TypeVector3int16:   newValueVector3int16,
+	TypeNumberSequence: newValueNumberSequence,
+	TypeColorSequence:  newValueColorSequence,
+	TypeNumberRange:    newValueNumberRange,
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1558,6 +1567,194 @@ func (v *ValueVector3int16) FromBytes(b []byte) error {
 	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
 	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
 	v.Z = int16(binary.LittleEndian.Uint16(b[4:6]))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+const sizeNSK = 3 * 4
+
+type ValueNumberSequenceKeypoint struct {
+	Time, Value, Envelope float32
+}
+
+type ValueNumberSequence []ValueNumberSequenceKeypoint
+
+func newValueNumberSequence() Value {
+	return new(ValueNumberSequence)
+}
+
+func (ValueNumberSequence) Type() Type {
+	return TypeNumberSequence
+}
+
+func (v *ValueNumberSequence) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
+}
+
+func (v ValueNumberSequence) FromArrayBytes(b []byte) (a []Value, err error) {
+	return appendByteValues(v.Type(), b, -1, sizeNSK)
+}
+
+func (v ValueNumberSequence) Bytes() []byte {
+	b := make([]byte, 4+len(v)*sizeNSK)
+
+	binary.LittleEndian.PutUint32(b, uint32(len(v)))
+	ba := b[4:]
+
+	for i, nsk := range v {
+		bk := ba[i*sizeNSK:]
+		binary.LittleEndian.PutUint32(bk[0:4], math.Float32bits(nsk.Time))
+		binary.LittleEndian.PutUint32(bk[4:8], math.Float32bits(nsk.Value))
+		binary.LittleEndian.PutUint32(bk[8:12], math.Float32bits(nsk.Envelope))
+	}
+
+	return b
+}
+
+func (v *ValueNumberSequence) FromBytes(b []byte) error {
+	if len(b) < 4 {
+		return errors.New("array length must be at least 4")
+	}
+
+	length := int(binary.LittleEndian.Uint32(b))
+	ba := b[4:]
+	if len(ba) != sizeNSK*length {
+		return fmt.Errorf("expected array length of %d (4 + %d * %d)", 4+sizeNSK*length, sizeNSK, length)
+	}
+
+	a := make(ValueNumberSequence, length)
+	for i := 0; i < length; i++ {
+		bk := ba[i*sizeNSK:]
+		a[i] = ValueNumberSequenceKeypoint{
+			Time:     math.Float32frombits(binary.LittleEndian.Uint32(bk[0:4])),
+			Value:    math.Float32frombits(binary.LittleEndian.Uint32(bk[4:8])),
+			Envelope: math.Float32frombits(binary.LittleEndian.Uint32(bk[8:12])),
+		}
+	}
+
+	*v = a
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+const sizeCSK = 4 + 3*4 + 4
+
+type ValueColorSequenceKeypoint struct {
+	Time     float32
+	Value    ValueColor3
+	Envelope float32
+}
+
+type ValueColorSequence []ValueColorSequenceKeypoint
+
+func newValueColorSequence() Value {
+	return new(ValueColorSequence)
+}
+
+func (ValueColorSequence) Type() Type {
+	return TypeColorSequence
+}
+
+func (v *ValueColorSequence) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
+}
+
+func (v ValueColorSequence) FromArrayBytes(b []byte) (a []Value, err error) {
+	return appendByteValues(v.Type(), b, -1, sizeCSK)
+}
+
+func (v ValueColorSequence) Bytes() []byte {
+	b := make([]byte, 4+len(v)*sizeCSK)
+
+	binary.LittleEndian.PutUint32(b, uint32(len(v)))
+	ba := b[4:]
+
+	for i, csk := range v {
+		bk := ba[i*sizeCSK:]
+		binary.LittleEndian.PutUint32(bk[0:4], math.Float32bits(csk.Time))
+		binary.LittleEndian.PutUint32(bk[4:8], math.Float32bits(float32(csk.Value.R)))
+		binary.LittleEndian.PutUint32(bk[8:12], math.Float32bits(float32(csk.Value.G)))
+		binary.LittleEndian.PutUint32(bk[12:16], math.Float32bits(float32(csk.Value.B)))
+		binary.LittleEndian.PutUint32(bk[16:20], math.Float32bits(csk.Envelope))
+	}
+
+	return b
+}
+
+func (v *ValueColorSequence) FromBytes(b []byte) error {
+	if len(b) < 4 {
+		return errors.New("array length must be at least 4")
+	}
+
+	length := int(binary.LittleEndian.Uint32(b))
+	ba := b[4:]
+	if len(ba) != sizeCSK*length {
+		return fmt.Errorf("expected array length of %d (4 + %d * %d)", 4+sizeCSK*length, sizeCSK, length)
+	}
+
+	a := make(ValueColorSequence, length)
+	for i := 0; i < length; i++ {
+		bk := ba[i*sizeCSK:]
+		c3 := *new(ValueColor3)
+		c3.FromBytes(bk[4:16])
+		a[i] = ValueColorSequenceKeypoint{
+			Time: math.Float32frombits(binary.LittleEndian.Uint32(bk[0:4])),
+			Value: ValueColor3{
+				R: ValueFloat(math.Float32frombits(binary.LittleEndian.Uint32(bk[4:8]))),
+				G: ValueFloat(math.Float32frombits(binary.LittleEndian.Uint32(bk[8:12]))),
+				B: ValueFloat(math.Float32frombits(binary.LittleEndian.Uint32(bk[12:16]))),
+			},
+			Envelope: math.Float32frombits(binary.LittleEndian.Uint32(bk[16:20])),
+		}
+	}
+
+	*v = a
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValueNumberRange struct {
+	Min, Max float32
+}
+
+func newValueNumberRange() Value {
+	return new(ValueNumberRange)
+}
+
+func (ValueNumberRange) Type() Type {
+	return TypeNumberRange
+}
+
+func (v *ValueNumberRange) ArrayBytes(a []Value) (b []byte, err error) {
+	return appendValueBytes(v.Type(), a)
+}
+
+func (v ValueNumberRange) FromArrayBytes(b []byte) (a []Value, err error) {
+	return appendByteValues(v.Type(), b, 8, 0)
+}
+
+func (v ValueNumberRange) Bytes() []byte {
+	b := make([]byte, 8)
+
+	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.Min))
+	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.Max))
+
+	return b
+}
+
+func (v *ValueNumberRange) FromBytes(b []byte) error {
+	if len(b) != 8 {
+		return errors.New("array length must be 8")
+	}
+
+	v.Min = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
+	v.Max = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
 
 	return nil
 }
