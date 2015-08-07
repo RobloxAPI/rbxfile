@@ -72,6 +72,64 @@ func (t Tag) AttrValue(name string) (value string, exists bool) {
 	return "", false
 }
 
+// NewRoot initializes a Tag containing values standard to a root tag.
+// Optionally, Item tags can be given as arguments, which will be added to the
+// root as sub-tags.
+func NewRoot(items ...*Tag) *Tag {
+	return &Tag{
+		StartName: "roblox",
+		Attr: []Attr{
+			Attr{
+				Name:  "xmlns:xmime",
+				Value: "http://www.w3.org/2005/05/xmlmime",
+			},
+			Attr{
+				Name:  "xmlns:xsi",
+				Value: "http://www.w3.org/2001/XMLSchema-instance",
+			},
+			Attr{
+				Name:  "xsi:noNamespaceSchemaLocation",
+				Value: "http://www.roblox.com/roblox.xsd",
+			},
+			Attr{
+				Name:  "version",
+				Value: "4",
+			},
+		},
+		Tags: items,
+	}
+}
+
+// NewItem initializes an "Item" Tag representing a Roblox class.
+func NewItem(class, referent string, properties ...*Tag) *Tag {
+	return &Tag{
+		StartName: "Item",
+		Attr: []Attr{
+			Attr{Name: "class", Value: class},
+			Attr{Name: "referent", Value: referent},
+		},
+		Tags: []*Tag{
+			&Tag{
+				StartName: "Properties",
+				Tags:      properties,
+			},
+		},
+	}
+}
+
+// NewProp initializes a basic property tag representing a property in a
+// Roblox class.
+func NewProp(valueType, propName, value string) *Tag {
+	return &Tag{
+		StartName: valueType,
+		Attr: []Attr{
+			Attr{Name: "name", Value: propName},
+		},
+		Text:     value,
+		NoIndent: true,
+	}
+}
+
 // Attr represents an attribute of a tag.
 type Attr struct {
 	Name  string
