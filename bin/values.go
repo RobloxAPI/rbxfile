@@ -416,26 +416,7 @@ func (v *ValueString) ArrayBytes(a []Value) (b []byte, err error) {
 }
 
 func (v ValueString) FromArrayBytes(b []byte) (a []Value, err error) {
-	for i := 0; i < len(b); {
-		if i+4 > len(b) {
-			return nil, errors.New("array element must be at least 4 bytes")
-		}
-		length := binary.LittleEndian.Uint32(b[i:])
-
-		if i+4+int(length) > len(b) {
-			return nil, fmt.Errorf("array length (%d) must be at least 4+%d bytes", len(b), length)
-		}
-
-		v := new(ValueString)
-		if err = v.FromBytes(b[i : i+4+int(length)]); err != nil {
-			return nil, err
-		}
-		a = append(a, v)
-
-		i += 4 + int(length)
-	}
-
-	return a, nil
+	return appendByteValues(v.Type(), b, -1, 1)
 }
 
 func (v ValueString) Bytes() []byte {
