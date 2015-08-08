@@ -45,6 +45,7 @@ const (
 	TypeNumberSequence Type = 0x15
 	TypeColorSequence  Type = 0x16
 	TypeNumberRange    Type = 0x17
+	TypeRect2D         Type = 0x18
 )
 
 var typeStrings = map[Type]string{
@@ -71,6 +72,7 @@ var typeStrings = map[Type]string{
 	TypeNumberSequence: "NumberSequence",
 	TypeColorSequence:  "ColorSequence",
 	TypeNumberRange:    "NumberRange",
+	TypeRect2D:         "Rect2D",
 }
 
 // Value is a property value of a certain Type.
@@ -130,6 +132,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeNumberSequence: newValueNumberSequence,
 	TypeColorSequence:  newValueColorSequence,
 	TypeNumberRange:    newValueNumberRange,
+	TypeRect2D:         newValueRect2D,
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1757,6 +1760,80 @@ func (v *ValueNumberRange) FromBytes(b []byte) error {
 	v.Max = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
 
 	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValueRect2D struct {
+	Min, Max ValueVector2
+}
+
+func newValueRect2D() Value {
+	return new(ValueRect2D)
+}
+
+func (ValueRect2D) Type() Type {
+	return TypeRect2D
+}
+
+func (v ValueRect2D) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(v.Type(), a)
+}
+
+func (v ValueRect2D) FromArrayBytes(b []byte) (a []Value, err error) {
+	return deinterleaveFields(v.Type(), b)
+}
+
+func (v ValueRect2D) Bytes() []byte {
+	b := make([]byte, 16)
+
+	copy(b[0:8], v.Min.Bytes())
+	copy(b[8:16], v.Max.Bytes())
+
+	return b
+}
+
+func (v *ValueRect2D) FromBytes(b []byte) error {
+	if len(b) != 16 {
+		return errors.New("array length must be 16")
+	}
+
+	v.Min.FromBytes(b[0:8])
+	v.Max.FromBytes(b[8:16])
+
+	return nil
+}
+
+func (ValueRect2D) fieldLen() []int {
+	return []int{4, 4, 4, 4}
+}
+
+func (v *ValueRect2D) fieldSet(i int, b []byte) (err error) {
+	switch i {
+	case 0:
+		err = v.Min.X.FromBytes(b)
+	case 1:
+		err = v.Min.Y.FromBytes(b)
+	case 2:
+		err = v.Max.X.FromBytes(b)
+	case 3:
+		err = v.Max.Y.FromBytes(b)
+	}
+	return
+}
+
+func (v ValueRect2D) fieldGet(i int) (b []byte) {
+	switch i {
+	case 0:
+		return v.Min.X.Bytes()
+	case 1:
+		return v.Min.Y.Bytes()
+	case 2:
+		return v.Max.X.Bytes()
+	case 3:
+		return v.Max.Y.Bytes()
+	}
+	return
 }
 
 ////////////////////////////////////////////////////////////////
