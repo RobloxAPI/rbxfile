@@ -42,6 +42,10 @@ const (
 	TypeReference
 	TypeVector3int16
 	TypeVector2int16
+	TypeNumberSequence
+	TypeColorSequence
+	TypeNumberRange
+	TypeRect2D
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -78,6 +82,10 @@ var typeStrings = map[Type]string{
 	TypeReference:       "Object",
 	TypeVector3int16:    "Vector3int16",
 	TypeVector2int16:    "Vector2int16",
+	TypeNumberSequence:  "NumberSequence",
+	TypeColorSequence:   "ColorSequence",
+	TypeNumberRange:     "NumberRange",
+	TypeRect2D:          "Rect2D",
 }
 
 // Value holds a value of a particular Type.
@@ -128,6 +136,10 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeReference:       newValueReference,
 	TypeVector3int16:    newValueVector3int16,
 	TypeVector2int16:    newValueVector2int16,
+	TypeNumberSequence:  newValueNumberSequence,
+	TypeColorSequence:   newValueColorSequence,
+	TypeNumberRange:     newValueNumberRange,
+	TypeRect2D:          newValueRect2D,
 }
 
 func joinstr(a ...string) string {
@@ -662,6 +674,142 @@ func (t ValueVector2int16) String() string {
 	)
 }
 func (t ValueVector2int16) Copy() Value {
+	return t
+}
+
+////////////////
+
+type ValueNumberSequenceKeypoint struct {
+	Time, Value, Envelope float32
+}
+
+func (t ValueNumberSequenceKeypoint) String() string {
+	return joinstr(
+		strconv.FormatFloat(float64(t.Time), 'f', -1, 32),
+		" ",
+		strconv.FormatFloat(float64(t.Value), 'f', -1, 32),
+		" ",
+		strconv.FormatFloat(float64(t.Envelope), 'f', -1, 32),
+	)
+}
+
+type ValueNumberSequence []ValueNumberSequenceKeypoint
+
+func newValueNumberSequence() Value {
+	return make(ValueNumberSequence, 0, 8)
+}
+
+func (ValueNumberSequence) Type() Type {
+	return TypeNumberSequence
+}
+func (t ValueNumberSequence) String() string {
+	b := make([]byte, 0, 64)
+	for _, v := range t {
+		b = append(b, []byte(v.String())...)
+		b = append(b, ' ')
+	}
+	return string(b)
+}
+func (t ValueNumberSequence) Copy() Value {
+	c := make(ValueNumberSequence, len(t))
+	copy(c, t)
+	return c
+}
+
+////////////////
+
+type ValueColorSequenceKeypoint struct {
+	Time     float32
+	Value    ValueColor3
+	Envelope float32
+}
+
+func (t ValueColorSequenceKeypoint) String() string {
+	return joinstr(
+		strconv.FormatFloat(float64(t.Time), 'f', -1, 32),
+		" ",
+		strconv.FormatFloat(float64(t.Value.R), 'f', -1, 32),
+		" ",
+		strconv.FormatFloat(float64(t.Value.G), 'f', -1, 32),
+		" ",
+		strconv.FormatFloat(float64(t.Value.B), 'f', -1, 32),
+		" ",
+		strconv.FormatFloat(float64(t.Envelope), 'f', -1, 32),
+	)
+}
+
+type ValueColorSequence []ValueColorSequenceKeypoint
+
+func newValueColorSequence() Value {
+	return *new(ValueColorSequence)
+}
+
+func (ValueColorSequence) Type() Type {
+	return TypeColorSequence
+}
+func (t ValueColorSequence) String() string {
+	b := make([]byte, 0, 64)
+	for _, v := range t {
+		b = append(b, []byte(v.String())...)
+		b = append(b, ' ')
+	}
+	return string(b)
+}
+func (t ValueColorSequence) Copy() Value {
+	c := make(ValueColorSequence, len(t))
+	copy(c, t)
+	return c
+}
+
+////////////////
+
+type ValueNumberRange struct {
+	Min, Max float32
+}
+
+func newValueNumberRange() Value {
+	return *new(ValueNumberRange)
+}
+
+func (ValueNumberRange) Type() Type {
+	return TypeNumberRange
+}
+func (t ValueNumberRange) String() string {
+	return joinstr(
+		strconv.FormatFloat(float64(t.Min), 'f', -1, 32),
+		" ",
+		strconv.FormatFloat(float64(t.Max), 'f', -1, 32),
+	)
+}
+func (t ValueNumberRange) Copy() Value {
+	return t
+}
+
+////////////////
+
+type ValueRect2D struct {
+	Min, Max ValueVector2
+}
+
+func newValueRect2D() Value {
+	return *new(ValueRect2D)
+}
+
+func (ValueRect2D) Type() Type {
+	return TypeRect2D
+}
+func (t ValueRect2D) String() string {
+	return joinstr(
+		strconv.FormatFloat(float64(t.Min.X), 'f', -1, 32),
+		", ",
+		strconv.FormatFloat(float64(t.Min.Y), 'f', -1, 32),
+		", ",
+		strconv.FormatFloat(float64(t.Max.X), 'f', -1, 32),
+		", ",
+		strconv.FormatFloat(float64(t.Max.Y), 'f', -1, 32),
+	)
+}
+func (t ValueRect2D) Copy() Value {
 	return t
 }
 
