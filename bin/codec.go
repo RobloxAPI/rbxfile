@@ -328,6 +328,47 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 
 	case *ValueVector3int16:
 		value = rbxfile.ValueVector3int16(*bvalue)
+
+	case *ValueNumberSequence:
+		v := make(rbxfile.ValueNumberSequence, len(*bvalue))
+		for i, nsk := range *bvalue {
+			v[i] = rbxfile.ValueNumberSequenceKeypoint{
+				Time:     nsk.Time,
+				Value:    nsk.Value,
+				Envelope: nsk.Envelope,
+			}
+		}
+		value = v
+
+	case *ValueColorSequence:
+		v := make(rbxfile.ValueColorSequence, len(*bvalue))
+		for i, nsk := range *bvalue {
+			v[i] = rbxfile.ValueColorSequenceKeypoint{
+				Time: nsk.Time,
+				Value: rbxfile.ValueColor3{
+					R: float32(nsk.Value.R),
+					G: float32(nsk.Value.G),
+					B: float32(nsk.Value.B),
+				},
+				Envelope: nsk.Envelope,
+			}
+		}
+		value = v
+
+	case *ValueNumberRange:
+		value = rbxfile.ValueNumberRange(*bvalue)
+
+	case *ValueRect2D:
+		value = rbxfile.ValueRect2D{
+			Min: rbxfile.ValueVector2{
+				X: float32(bvalue.Min.X),
+				Y: float32(bvalue.Min.Y),
+			},
+			Max: rbxfile.ValueVector2{
+				X: float32(bvalue.Max.X),
+				Y: float32(bvalue.Max.Y),
+			},
+		}
 	}
 
 	return
@@ -779,6 +820,47 @@ func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Va
 
 	case rbxfile.ValueVector2int16:
 		bvalue = (*ValueVector2int16)(&value)
+
+	case rbxfile.ValueNumberSequence:
+		v := make(ValueNumberSequence, len(value))
+		for i, nsk := range value {
+			v[i] = ValueNumberSequenceKeypoint{
+				Time:     nsk.Time,
+				Value:    nsk.Value,
+				Envelope: nsk.Envelope,
+			}
+		}
+		bvalue = &v
+
+	case rbxfile.ValueColorSequence:
+		v := make(ValueColorSequence, len(value))
+		for i, nsk := range value {
+			v[i] = ValueColorSequenceKeypoint{
+				Time: nsk.Time,
+				Value: ValueColor3{
+					R: ValueFloat(nsk.Value.R),
+					G: ValueFloat(nsk.Value.G),
+					B: ValueFloat(nsk.Value.B),
+				},
+				Envelope: nsk.Envelope,
+			}
+		}
+		bvalue = &v
+
+	case rbxfile.ValueNumberRange:
+		bvalue = (*ValueNumberRange)(&value)
+
+	case rbxfile.ValueRect2D:
+		bvalue = &ValueRect2D{
+			Min: ValueVector2{
+				X: ValueFloat(value.Min.X),
+				Y: ValueFloat(value.Min.Y),
+			},
+			Max: ValueVector2{
+				X: ValueFloat(value.Max.X),
+				Y: ValueFloat(value.Max.Y),
+			},
+		}
 	}
 
 	return
