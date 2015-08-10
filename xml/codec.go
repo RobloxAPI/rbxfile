@@ -241,6 +241,14 @@ func (dec *rdecoder) getCanonType(valueType string) string {
 		return "Vector3"
 	case "vector3int16":
 		return "Vector3int16"
+	case "numbersequence":
+		return "NumberSequence"
+	case "colorsequence":
+		return "ColorSequence"
+	case "numberrange":
+		return "NumberRange"
+	case "rect2d":
+		return "Rect2D"
 	}
 	return ""
 }
@@ -501,9 +509,95 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 			"Z": &v.Z,
 		}.getFrom(tag)
 		return v, true
+
+	case "NumberSequence":
+		b := []byte(getContent(tag))
+		v := make(rbxfile.ValueNumberSequence, 0, 4)
+		for i := 0; i < len(b); {
+			nsk := rbxfile.ValueNumberSequenceKeypoint{}
+			nsk.Time, i = scanFloat(b, i)
+			nsk.Value, i = scanFloat(b, i)
+			nsk.Envelope, i = scanFloat(b, i)
+			if i < 0 {
+				return nil, false
+			}
+			v = append(v, nsk)
+		}
+		return v, true
+
+	case "ColorSequence":
+		b := []byte(getContent(tag))
+		v := make(rbxfile.ValueColorSequence, 0, 4)
+		for i := 0; i < len(b); {
+			csk := rbxfile.ValueColorSequenceKeypoint{}
+			csk.Time, i = scanFloat(b, i)
+			csk.Value.R, i = scanFloat(b, i)
+			csk.Value.G, i = scanFloat(b, i)
+			csk.Value.B, i = scanFloat(b, i)
+			csk.Envelope, i = scanFloat(b, i)
+			if i < 0 {
+				return nil, false
+			}
+			v = append(v, csk)
+		}
+		return v, true
+
+	case "NumberRange":
+		b := []byte(getContent(tag))
+		v := *new(rbxfile.ValueNumberRange)
+		i := 0
+		v.Min, i = scanFloat(b, i)
+		v.Max, i = scanFloat(b, i)
+		if i < 0 {
+			return nil, false
+		}
+		return v, true
+
+	case "Rect2D":
+		var min, max *Tag
+		components{
+			"min": &min,
+			"max": &max,
+		}.getFrom(tag)
+
+		v := *new(rbxfile.ValueRect2D)
+
+		components{
+			"X": &v.Min.X,
+			"Y": &v.Min.Y,
+		}.getFrom(min)
+
+		components{
+			"X": &v.Max.X,
+			"Y": &v.Max.Y,
+		}.getFrom(max)
+
+		return v, true
 	}
 
 	return nil, false
+}
+
+func scanFloat(b []byte, i int) (float32, int) {
+	if i < 0 || i >= len(b) {
+		return 0, -1
+	}
+	s := i
+	for ; i < len(b); i++ {
+		if isSpace(b[i]) {
+			f, err := strconv.ParseFloat(string(b[s:i]), 32)
+			if err != nil {
+				return 0, -1
+			}
+			for ; i < len(b); i++ {
+				if !isSpace(b[i]) {
+					break
+				}
+			}
+			return float32(f), i
+		}
+	}
+	return 0, -1
 }
 
 type components map[string]interface{}
@@ -937,6 +1031,76 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 				&Tag{StartName: "Z", NoIndent: true, Text: strconv.FormatInt(int64(value.Z), 10)},
 			},
 		}
+
+	case rbxfile.ValueNumberSequence:
+		b := make([]byte, 0, 16)
+		for _, nsk := range value {
+			b = append(b, []byte(encodeFloatPrec(nsk.Time, 6))...)
+			b = append(b, ' ')
+			b = append(b, []byte(encodeFloatPrec(nsk.Value, 6))...)
+			b = append(b, ' ')
+			b = append(b, []byte(encodeFloatPrec(nsk.Envelope, 6))...)
+			b = append(b, ' ')
+		}
+		return &Tag{
+			StartName: "NumberSequence",
+			Attr:      attr,
+			Text:      string(b),
+		}
+
+	case rbxfile.ValueColorSequence:
+		b := make([]byte, 0, 32)
+		for _, csk := range value {
+			b = append(b, []byte(encodeFloatPrec(csk.Time, 6))...)
+			b = append(b, ' ')
+			b = append(b, []byte(encodeFloatPrec(csk.Value.R, 6))...)
+			b = append(b, ' ')
+			b = append(b, []byte(encodeFloatPrec(csk.Value.G, 6))...)
+			b = append(b, ' ')
+			b = append(b, []byte(encodeFloatPrec(csk.Value.B, 6))...)
+			b = append(b, ' ')
+			b = append(b, []byte(encodeFloatPrec(csk.Envelope, 6))...)
+			b = append(b, ' ')
+		}
+		return &Tag{
+			StartName: "ColorSequence",
+			Attr:      attr,
+			Text:      string(b),
+		}
+
+	case rbxfile.ValueNumberRange:
+		b := make([]byte, 0, 8)
+		b = append(b, []byte(encodeFloatPrec(value.Min, 6))...)
+		b = append(b, ' ')
+		b = append(b, []byte(encodeFloatPrec(value.Max, 6))...)
+		b = append(b, ' ')
+		return &Tag{
+			StartName: "NumberRange",
+			Attr:      attr,
+			Text:      string(b),
+		}
+
+	case rbxfile.ValueRect2D:
+		return &Tag{
+			StartName: "Rect2D",
+			Attr:      attr,
+			Tags: []*Tag{
+				&Tag{
+					StartName: "min",
+					Tags: []*Tag{
+						&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.Min.X)},
+						&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Min.Y)},
+					},
+				},
+				&Tag{
+					StartName: "max",
+					Tags: []*Tag{
+						&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.Max.X)},
+						&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Max.Y)},
+					},
+				},
+			},
+		}
 	}
 
 	return nil
@@ -1080,6 +1244,14 @@ func isCanonType(t string, v rbxfile.Value) bool {
 		return t == "Vector3"
 	case rbxfile.ValueVector3int16:
 		return t == "Vector3int16"
+	case rbxfile.ValueNumberSequence:
+		return t == "NumberSequence"
+	case rbxfile.ValueColorSequence:
+		return t == "ColorSequence"
+	case rbxfile.ValueNumberRange:
+		return t == "NumberRange"
+	case rbxfile.ValueRect2D:
+		return t == "Rect2D"
 	}
 	return false
 }
