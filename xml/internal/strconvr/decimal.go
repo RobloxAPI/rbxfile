@@ -299,13 +299,6 @@ func shouldRoundUp(a *decimal, nd int) bool {
 	if nd < 0 || nd >= a.nd {
 		return false
 	}
-	if a.d[nd] == '5' && nd+1 == a.nd { // exactly halfway - round to even
-		// if we truncated, a little higher than what's recorded - always round up
-		if a.trunc {
-			return true
-		}
-		return nd > 0 && (a.d[nd-1]-'0')%2 != 0
-	}
 	// not halfway - digit tells all
 	return a.d[nd] >= '5'
 }
