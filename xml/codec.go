@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
+	"github.com/robloxapi/rbxfile/xml/internal/strconvr"
 	"github.com/satori/go.uuid"
 	"io"
 	"io/ioutil"
 	"sort"
-	"strconv"
 	"strings"
 )
 
