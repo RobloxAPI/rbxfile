@@ -1006,12 +1006,19 @@ func (l *lineSplit) Write(p []byte) (n int, err error) {
 }
 
 func encodeFloat(f float32) string {
-	s := strconv.FormatFloat(float64(f), 'g', 9, 32)
+	return fixFloatExp(strconv.FormatFloat(float64(f), 'g', 9, 32), 3)
+}
+
+func encodeFloatPrec(f float32, prec int) string {
+	return fixFloatExp(strconv.FormatFloat(float64(f), 'g', prec, 32), 3)
+}
+
+func fixFloatExp(s string, n int) string {
 	if e := strings.Index(s, "e"); e >= 0 {
-		// Adjust exponent to have length of at least 3, using leading zeros.
+		// Adjust exponent to have length of at least n, using leading zeros.
 		exp := s[e+2:]
-		if len(exp) < 3 {
-			s = s[:e+2] + strings.Repeat("0", 3-len(exp)) + exp
+		if len(exp) < n {
+			s = s[:e+2] + strings.Repeat("0", n-len(exp)) + exp
 		}
 	}
 	return s
