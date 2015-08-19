@@ -355,14 +355,23 @@ func match(magic string, b []byte) bool {
 //
 // Returns ErrFormat if the format could not be detected.
 func (c *Codec) Decode(r io.Reader) (root *Root, err error) {
+	format, buf := GuessFormat(r)
+	if format == nil {
+		return nil, ErrFormat
+	}
+	return format.Decode(buf, c.API)
+}
+
+// GuessFormat reads `r` in an attempt to determine the format of the data. It
+// returns a Format, if one was found, as well as a Reader that can be used to
+// fully decode `r`.
+func GuessFormat(r io.Reader) (format Format, br io.Reader) {
 	var buf *bufio.Reader
 	if br, ok := r.(*bufio.Reader); ok {
 		buf = br
 	} else {
 		buf = bufio.NewReader(r)
 	}
-
-	var format Format
 	for _, f := range formats {
 		magic := f.Magic()
 		header, err := buf.Peek(len(magic))
@@ -370,11 +379,7 @@ func (c *Codec) Decode(r io.Reader) (root *Root, err error) {
 			format = f
 		}
 	}
-	if format == nil {
-		return nil, ErrFormat
-	}
-
-	return format.Decode(buf, c.API)
+	return format, buf
 }
 
 // Encode attempts to encode a data structure to a given format. The fmt
