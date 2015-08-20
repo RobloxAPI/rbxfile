@@ -140,17 +140,6 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 	return instances, properties
 }
 
-func isEmptyRef(ref string) bool {
-	switch ref {
-	case "", "null", "nil":
-		// A "true" implementation might determine these values from
-		// <External> tags.
-		return true
-	default:
-		return false
-	}
-}
-
 func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMembers map[string]*rbxdump.Property) (name string, value rbxfile.Value, ok bool) {
 	name, ok = tag.AttrValue("name")
 	if !ok {
@@ -693,7 +682,7 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 		}
 	}
 
-	ref := enc.checkRef(instance)
+	ref := GetReference(instance, enc.refs)
 	properties := enc.encodeProperties(instance)
 	item := NewItem(instance.ClassName, ref, properties...)
 	parent.Tags = append(parent.Tags, item)
@@ -953,7 +942,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 
 		referent := value.Instance
 		if referent != nil {
-			tag.Text = enc.checkRef(referent)
+			tag.Text = GetReference(referent, enc.refs)
 		} else {
 			tag.Text = "null"
 		}
@@ -1106,12 +1095,16 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 	return nil
 }
 
-func (enc *rencoder) checkRef(instance *rbxfile.Instance) (ref string) {
+// GetReference gets a reference from a rbxfile.Instance, using refs to check
+// for duplicates. If the instance's reference already exists in refs, then a
+// new reference is generated and applied to the instance. The instance's
+// reference is then added to refs.
+func GetReference(instance *rbxfile.Instance, refs map[string]*rbxfile.Instance) (ref string) {
 	ref = string(instance.Reference)
 	// If the reference is not empty, or if the reference is not marked, or
 	// the marked reference already refers to the current instance, then do
 	// nothing.
-	if isEmptyRef(ref) || enc.refs[ref] != nil && enc.refs[ref] != instance {
+	if isEmptyRef(ref) || refs[ref] != nil && refs[ref] != instance {
 		// Otherwise, regenerate the reference until it is not a duplicate.
 		for {
 			// If a generated reference matches a reference that was not yet
@@ -1120,15 +1113,26 @@ func (enc *rencoder) checkRef(instance *rbxfile.Instance) (ref string) {
 			// discern whetehr this is correct because it is extremely
 			// unlikely that a duplicate will be generated.
 			ref = generateRef()
-			if _, ok := enc.refs[ref]; !ok {
+			if _, ok := refs[ref]; !ok {
 				instance.Reference = []byte(ref)
 				break
 			}
 		}
 	}
 	// Mark reference as taken.
-	enc.refs[ref] = instance
+	refs[ref] = instance
 	return ref
+}
+
+func isEmptyRef(ref string) bool {
+	switch ref {
+	case "", "null", "nil":
+		// A "true" implementation might determine these values from
+		// <External> tags.
+		return true
+	default:
+		return false
+	}
 }
 
 func generateRef() string {
