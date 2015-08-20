@@ -3,12 +3,10 @@ package xml
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
 	"github.com/robloxapi/rbxfile/xml/internal/strconvr"
-	"github.com/satori/go.uuid"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -68,11 +66,9 @@ func (dec *rdecoder) decode() error {
 	dec.root.Instances, _ = dec.getItems(nil, dec.document.Root.Tags, nil)
 
 	for _, propRef := range dec.propRefs {
-		referent, ok := dec.instLookup[propRef.ref]
-		if !ok {
-			continue
+		propRef.inst.Properties[propRef.prop] = rbxfile.ValueReference{
+			Instance: dec.instLookup[propRef.ref],
 		}
-		propRef.inst.Properties[propRef.prop] = rbxfile.ValueReference{Instance: referent}
 	}
 
 	return nil
@@ -109,7 +105,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 			referent, ok := tag.AttrValue("referent")
 			if ok && len(referent) > 0 {
 				instance.Reference = []byte(referent)
-				if !isEmptyRef(referent) {
+				if !rbxfile.IsEmptyReference(referent) {
 					dec.instLookup[referent] = instance
 				}
 			}
@@ -171,7 +167,7 @@ processValue:
 	}
 
 	ref := getContent(tag)
-	if _, ok := value.(rbxfile.ValueReference); ok && !isEmptyRef(ref) {
+	if _, ok := value.(rbxfile.ValueReference); ok && !rbxfile.IsEmptyReference(ref) {
 		dec.propRefs = append(dec.propRefs, propRef{
 			inst: instance,
 			prop: name,
@@ -682,7 +678,7 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 		}
 	}
 
-	ref := GetReference(instance, enc.refs)
+	ref := rbxfile.GetReference(instance, enc.refs)
 	properties := enc.encodeProperties(instance)
 	item := NewItem(instance.ClassName, ref, properties...)
 	parent.Tags = append(parent.Tags, item)
@@ -942,7 +938,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 
 		referent := value.Instance
 		if referent != nil {
-			tag.Text = GetReference(referent, enc.refs)
+			tag.Text = rbxfile.GetReference(referent, enc.refs)
 		} else {
 			tag.Text = "null"
 		}
@@ -1093,50 +1089,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 	}
 
 	return nil
-}
-
-// GetReference gets a reference from a rbxfile.Instance, using refs to check
-// for duplicates. If the instance's reference already exists in refs, then a
-// new reference is generated and applied to the instance. The instance's
-// reference is then added to refs.
-func GetReference(instance *rbxfile.Instance, refs map[string]*rbxfile.Instance) (ref string) {
-	ref = string(instance.Reference)
-	// If the reference is not empty, or if the reference is not marked, or
-	// the marked reference already refers to the current instance, then do
-	// nothing.
-	if isEmptyRef(ref) || refs[ref] != nil && refs[ref] != instance {
-		// Otherwise, regenerate the reference until it is not a duplicate.
-		for {
-			// If a generated reference matches a reference that was not yet
-			// traversed, then the latter reference will be regenerated, which
-			// may not match Roblox's implementation. It is difficult to
-			// discern whetehr this is correct because it is extremely
-			// unlikely that a duplicate will be generated.
-			ref = generateRef()
-			if _, ok := refs[ref]; !ok {
-				instance.Reference = []byte(ref)
-				break
-			}
-		}
-	}
-	// Mark reference as taken.
-	refs[ref] = instance
-	return ref
-}
-
-func isEmptyRef(ref string) bool {
-	switch ref {
-	case "", "null", "nil":
-		// A "true" implementation might determine these values from
-		// <External> tags.
-		return true
-	default:
-		return false
-	}
-}
-
-func generateRef() string {
-	return "RBX" + strings.ToUpper(hex.EncodeToString(uuid.NewV4().Bytes()))
 }
 
 type lineSplit struct {
