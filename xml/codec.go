@@ -13,18 +13,9 @@ import (
 	"strings"
 )
 
-type Mode uint8
-
-const (
-	ModePlace Mode = iota // Data is decoded and encoded as a Roblox place (RBXL) file.
-	ModeModel             // Data is decoded and encoded as a Roblox model (RBXM) file.
-)
-
 // RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
 // codec as closely as possible.
-type RobloxCodec struct {
-	Mode Mode
-}
+type RobloxCodec struct{}
 
 type propRef struct {
 	inst *rbxfile.Instance

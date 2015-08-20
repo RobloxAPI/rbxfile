@@ -92,34 +92,16 @@ func (s Serializer) Serialize(w io.Writer, api *rbxdump.API, root *rbxfile.Root)
 }
 
 // Deserialize decodes data from r into a Root structure using the default
-// decoder. Data is interpreted as a Roblox place file. An optional API can be
-// given to ensure more correct data.
-func DeserializePlace(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
-	codec := RobloxCodec{Mode: ModePlace}
+// decoder. An optional API can be given to ensure more correct data.
+func Deserialize(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
+	codec := RobloxCodec{}
 	return NewSerializer(codec, codec).Deserialize(r, api)
 }
 
 // Serialize encodes data from a Root structure to w using the default
-// encoder. Data is interpreted as a Roblox place file. An optional API can be
-// given to ensure more correct data.
-func SerializePlace(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
-	codec := RobloxCodec{Mode: ModePlace}
-	return NewSerializer(codec, codec).Serialize(w, api, root)
-}
-
-// Deserialize decodes data from r into a Root structure using the default
-// decoder. Data is interpreted as a Roblox model file. An optional API can be
-// given to ensure more correct data.
-func DeserializeModel(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
-	codec := RobloxCodec{Mode: ModeModel}
-	return NewSerializer(codec, codec).Deserialize(r, api)
-}
-
-// Serialize encodes data from a Root structure to w using the default
-// encoder. Data is interpreted as a Roblox model file. An optional API can be
-// given to ensure more correct data.
-func SerializeModel(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
-	codec := RobloxCodec{Mode: ModeModel}
+// encoder. An optional API can be given to ensure more correct data.
+func Serialize(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
+	codec := RobloxCodec{}
 	return NewSerializer(codec, codec).Serialize(w, api, root)
 }
 
@@ -148,19 +130,17 @@ func (f format) Encode(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err e
 }
 
 func init() {
-	// rbxl will always be chosen over rbxm when decoding, but rbxm can still
-	// be encoded.
-	rbxlCodec := RobloxCodec{Mode: ModePlace}
+	// rbxlx will always be chosen over rbxm when decoding, but rbxmx can
+	// still be encoded.
+	codec := RobloxCodec{}
 	rbxfile.RegisterFormat(format{
 		name:       "rbxlx",
 		magic:      "<roblox ",
-		serializer: NewSerializer(rbxlCodec, rbxlCodec),
+		serializer: NewSerializer(codec, codec),
 	})
-
-	rbxmCodec := RobloxCodec{Mode: ModeModel}
 	rbxfile.RegisterFormat(format{
 		name:       "rbxmx",
 		magic:      "<roblox ",
-		serializer: NewSerializer(rbxmCodec, rbxmCodec),
+		serializer: NewSerializer(codec, codec),
 	})
 }
