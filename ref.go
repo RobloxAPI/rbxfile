@@ -11,6 +11,10 @@ import (
 // new reference is generated and applied to the instance. The instance's
 // reference is then added to refs.
 func GetReference(instance *Instance, refs map[string]*Instance) (ref string) {
+	if instance == nil {
+		return ""
+	}
+
 	ref = string(instance.Reference)
 	// If the reference is not empty, or if the reference is not marked, or
 	// the marked reference already refers to the current instance, then do
