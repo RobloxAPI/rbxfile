@@ -20,6 +20,22 @@ const (
 // codec as closely as possible.
 type RobloxCodec struct {
 	Mode Mode
+
+	// ExcludeInvalidAPI determines whether invalid items are excluded when
+	// encoding or decoding. An invalid item is an instance or property that
+	// does not exist or has incorrect information, according to a provided
+	// rbxdump.API.
+	//
+	// If true, then warnings will be emitted for invalid items, and the items
+	// will not be included in the output. If false, then warnings are still
+	// emitted, but invalid items are handled as if they were valid. This
+	// applies when decoding from a FormatModel, and when encoding from a
+	// rbxfile.Root.
+	//
+	// Since an API may exclude some items even though they're correct, it is
+	// generally preferred to set ExcludeInvalidAPI to false, so that false
+	// negatives do not lead to lost data.
+	ExcludeInvalidAPI bool
 }
 
 //go:generate rbxpipe -i=cframegen.lua -o=cframe.go -place=cframe.rbxl -filter=o
@@ -28,6 +44,7 @@ func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile
 	if model == nil {
 		return nil, fmt.Errorf("FormatModel is nil")
 	}
+	model.Warnings = model.Warnings[:0]
 
 	root = new(rbxfile.Root)
 
@@ -40,12 +57,26 @@ func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile
 	// Caches an enum name to a set of enum item values.
 	enumCache := map[string]enumItems{}
 
+	var chunkType string
+	var chunkNum int
+
+	addWarn := func(format string, v ...interface{}) {
+		q := make([]interface{}, 0, len(v)+2)
+		q = append(q, chunkType)
+		q = append(q, chunkNum)
+		q = append(q, v...)
+		model.Warnings = append(model.Warnings, fmt.Errorf("%s chunk (#%d): "+format, q...))
+	}
+
 loop:
 	for ic, chunk := range model.Chunks {
+		chunkNum = ic
 		switch chunk := chunk.(type) {
 		case *ChunkInstance:
+			chunkType = "instance"
 			if chunk.TypeID < 0 || uint32(chunk.TypeID) >= model.TypeCount {
-				return nil, fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+				err = fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+				goto chunkErr
 			}
 			// No error if TypeCount > actual count.
 
@@ -53,8 +84,10 @@ loop:
 				class, ok := api.Classes[chunk.ClassName]
 				if !ok {
 					// Invalid ClassNames cause the chunk to be ignored.
-					// WARNING: invalid ClassName
-					continue
+					addWarn("invalid ClassName `%s`", chunk.ClassName)
+					if c.ExcludeInvalidAPI {
+						continue
+					}
 				}
 
 				// Cache property names and types for the class.
@@ -89,18 +122,21 @@ loop:
 			}
 
 			if chunk.IsService && len(chunk.InstanceIDs) != len(chunk.GetService) {
-				return nil, fmt.Errorf("malformed instance chunk (type ID %d): GetService array length does not equal InstanceIDs array length", chunk.TypeID)
+				err = fmt.Errorf("malformed instance chunk (type ID %d): GetService array length does not equal InstanceIDs array length", chunk.TypeID)
+				goto chunkErr
 			}
 
 			for i, ref := range chunk.InstanceIDs {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					return nil, fmt.Errorf("invalid id %d", ref)
+					err = fmt.Errorf("invalid id %d", ref)
+					goto chunkErr
 				}
 				// No error if InstanceCount > actual count.
 
 				inst := rbxfile.NewInstance(chunk.ClassName, nil)
 				if _, ok := instLookup[ref]; ok {
-					return nil, fmt.Errorf("duplicate id: %d", ref)
+					err = fmt.Errorf("duplicate id: %d", ref)
+					goto chunkErr
 				}
 
 				if chunk.IsService && chunk.GetService[i] == 1 {
@@ -111,32 +147,38 @@ loop:
 			}
 
 			if _, ok := groupLookup[chunk.TypeID]; ok {
-				return nil, fmt.Errorf("duplicate type index: %d", chunk.TypeID)
+				err = fmt.Errorf("duplicate type index: %d", chunk.TypeID)
+				goto chunkErr
 			}
 			groupLookup[chunk.TypeID] = chunk
 
 		case *ChunkProperty:
+			chunkType = "property"
 			if chunk.TypeID < 0 || uint32(chunk.TypeID) >= model.TypeCount {
-				return nil, fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+				err = fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+				goto chunkErr
 			}
 			// No error if TypeCount > actual count.
 
 			instChunk, ok := groupLookup[chunk.TypeID]
 			if !ok {
-				// WARNING: type of property group is invalid or unknown
+				addWarn("type `%d` of property group is invalid or unknown", chunk.TypeID)
 				continue
 			}
 
 			if len(chunk.Properties) != len(instChunk.InstanceIDs) {
-				return nil, fmt.Errorf("length of properties array (%d) does not equal length of type array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
+				err = fmt.Errorf("length of properties array (%d) does not equal length of type array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
+				goto chunkErr
 			}
 
 			var propType string
 			if api != nil {
 				var ok bool
 				if propType, ok = propTypes[instChunk.ClassName][chunk.PropertyName]; !ok {
-					// WARNING: chunk name is not a valid property of the group class
-					continue
+					addWarn("chunk name `%s` is not a valid property of the group class `%s`", chunk.PropertyName, instChunk.ClassName)
+					if c.ExcludeInvalidAPI {
+						continue
+					}
 				}
 			}
 
@@ -160,22 +202,26 @@ loop:
 			}
 
 		case *ChunkParent:
+			chunkType = "parent"
 			if chunk.Version != 0 {
-				return nil, fmt.Errorf("unrecognized parent link format %d", chunk.Version)
+				err = fmt.Errorf("unrecognized parent link format %d", chunk.Version)
+				goto chunkErr
 			}
 
 			if len(chunk.Parents) != len(chunk.Children) {
-				return nil, fmt.Errorf("malformed parent chunk (#%d): length of Parents array does not equal length of Children array", ic)
+				err = fmt.Errorf("length of Parents array does not equal length of Children array")
+				goto chunkErr
 			}
 
 			for i, ref := range chunk.Children {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					return nil, fmt.Errorf("invalid id %d", ref)
+					err = fmt.Errorf("invalid id %d", ref)
+					goto chunkErr
 				}
 
 				child := instLookup[ref]
 				if child == nil {
-					// WARNING: referent does not exist
+					addWarn("referent #%d `%d` does not exist", i, ref)
 					continue
 				}
 
@@ -190,18 +236,23 @@ loop:
 					continue
 				}
 
-				if err := child.SetParent(parent); err != nil {
-					return nil, err
+				if err = child.SetParent(parent); err != nil {
+					goto chunkErr
 				}
 
 			}
 
 		case *ChunkEnd:
+			chunkType = "end"
 			break loop
 		}
 	}
 
 	return
+
+chunkErr:
+	err = fmt.Errorf("%s chunk (#%d): %s", chunkType, chunkNum, err)
+	return nil, err
 }
 
 // Decode a bin.value to a rbxfile.Value based on a given value type.
@@ -402,8 +453,10 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 
 		if api != nil {
 			if _, ok := api.Classes[inst.ClassName]; !ok {
-				// Warning: Instance `` does not have a valid ClassName.
-				return
+				model.Warnings = append(model.Warnings, fmt.Errorf("invalid ClassName `%s`", inst.ClassName))
+				if c.ExcludeInvalidAPI {
+					return
+				}
 			}
 		}
 
@@ -466,14 +519,21 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 	for i, instChunk := range instChunkList {
 		instChunk.TypeID = int32(i)
 
+		addWarn := func(format string, v ...interface{}) {
+			q := make([]interface{}, 0, len(v)+1)
+			q = append(q, instChunk.TypeID)
+			q = append(q, v...)
+			model.Warnings = append(model.Warnings, fmt.Errorf("instance chunk #%d: "+format, q...))
+		}
+
 		// Maps property names to enum items.
 		propEnums := map[string]enumItems{}
 
 		propChunkMap := map[string]*ChunkProperty{}
 
-		// Populate propChunkMap.
+		var propAPI map[string]*rbxdump.Property
 		if api != nil {
-			// Use members of the current instance.
+			propAPI = make(map[string]*rbxdump.Property)
 
 			// Should exist due to previous checks.
 			class := api.Classes[instChunk.ClassName]
@@ -483,83 +543,132 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 				if !ok {
 					continue
 				}
+				propAPI[member.Name] = member
+			}
+		}
 
-				// Read-only members should not be written.
-				if member.ReadOnly {
+		// Populate propChunkMap.
+		for _, ref := range instChunk.InstanceIDs {
+			inst := instList[ref]
+			for name, value := range inst.Properties {
+				if _, ok := propChunkMap[name]; ok {
+					// A chunk of the property name already exists.
 					continue
 				}
 
-				typ := rbxfile.TypeFromString(member.ValueType)
-				if typ == rbxfile.TypeInvalid {
-					// Check if property type is an enum.
-					enum, ok := api.Enums[member.ValueType]
+				dataType := TypeInvalid
+				if propAPI != nil {
+					member, ok := propAPI[name]
 					if !ok {
-						// Property type is not known; ignore it.
+						addWarn("invalid property %s.`%s`", inst.ClassName, name)
+						if c.ExcludeInvalidAPI {
+							// Skip over the property entirely.
+							continue
+						}
+						// Fallback to the given property type as the chunk
+						// type.
+						goto useFirst
+					}
+					typ := rbxfile.TypeFromString(member.ValueType)
+					if typ == rbxfile.TypeInvalid {
+						// Check if property type is an enum.
+						enum, ok := api.Enums[member.ValueType]
+						if !ok {
+							addWarn("encountered unknown data type `%s` in API", member.ValueType)
+							if c.ExcludeInvalidAPI {
+								continue
+							}
+							goto useFirst
+						}
+
+						// TypeToken represents an enum.
+						typ = rbxfile.TypeToken
+
+						// Generate an enum items map to be used later.
+						items, ok := enumCache[enum.Name]
+						if !ok {
+							items = enumItems{
+								name:   enum.Name,
+								first:  enum.Items[0].Value,
+								values: make(map[uint32]bool, len(enum.Items)),
+							}
+							for _, item := range enum.Items {
+								items.values[item.Value] = true
+							}
+							enumCache[enum.Name] = items
+						}
+						propEnums[member.Name] = items
+					}
+
+					bval := encodeValue(refs, rbxfile.NewValue(typ))
+					if bval == nil {
+						addWarn("encountered unknown data type `%s` in API", member.ValueType)
+						if c.ExcludeInvalidAPI {
+							continue
+						}
+						goto useFirst
+					}
+					// Use API type as property chunk type.
+					dataType = bval.Type()
+					goto finish
+				}
+
+			useFirst:
+				// Use type from existing property in the first instance.
+				{
+					bval := encodeValue(refs, value)
+					if bval == nil {
+						addWarn("unknown property type (%d) in instance #%d (%s.%s)", byte(value.Type()), ref, inst.ClassName, name)
 						continue
 					}
-
-					// TypeToken represents an enum.
-					typ = rbxfile.TypeToken
-
-					// Generate an enum items map to be used later.
-					items, ok := enumCache[enum.Name]
-					if !ok {
-						items = enumItems{
-							first:  enum.Items[0].Value,
-							values: make(map[uint32]bool, len(enum.Items)),
-						}
-						for _, item := range enum.Items {
-							items.values[item.Value] = true
-						}
-						enumCache[enum.Name] = items
-					}
-					propEnums[member.Name] = items
+					dataType = bval.Type()
 				}
 
-				bval := encodeValue(refs, rbxfile.NewValue(typ))
-				if bval == nil {
-					// Property type cannot be encoded; ignore it.
-					continue
-				}
-
-				propChunkMap[member.Name] = &ChunkProperty{
+			finish:
+				propChunkMap[name] = &ChunkProperty{
 					IsCompressed: true,
 					TypeID:       instChunk.TypeID,
-					PropertyName: member.Name,
-					DataType:     bval.Type(),
+					PropertyName: name,
+					DataType:     dataType,
 					Properties:   []Value{},
 				}
 			}
-		} else {
-			// Assume that each instance's properties are valid.
-			for _, ref := range instChunk.InstanceIDs {
-				for name, value := range instList[ref].Properties {
-					// The DataType of the chunk is selected by the first
-					// instance that has a valid value of the property.
+		}
 
-					if _, ok := propChunkMap[name]; ok {
-						// A chunk of the property name already exists.
+		if propAPI != nil && !c.ExcludeInvalidAPI {
+			// Check to see if all existing properties types match. If they
+			// do, prefer those types over the API's type.
+			for name, propChunk := range propChunkMap {
+				var instRef int32 = -1
+				dataType := rbxfile.TypeInvalid
+				matches := true
+				for _, ref := range instChunk.InstanceIDs {
+					inst := instList[ref]
+					prop, ok := inst.Properties[name]
+					if !ok {
 						continue
 					}
-
-					if value.Type() == rbxfile.TypeInvalid {
-						// Property type is not known; ignore it.
+					if dataType == rbxfile.TypeInvalid {
+						// Set data type to the first valid property.
+						dataType = prop.Type()
+						instRef = ref
 						continue
 					}
+					if prop.Type() != dataType {
+						// If at least one property type does not match with the
+						// rest, then stop.
+						matches = false
+						break
+					}
+				}
 
-					bval := encodeValue(refs, value)
+				if matches {
+					bval := encodeValue(refs, rbxfile.NewValue(dataType))
 					if bval == nil {
-						// Property type cannot be encoded; ignore it.
+						addWarn("unknown property data type (%d) in instance #%d (%s.%s)", byte(dataType), instRef, instList[instRef].ClassName, name)
 						continue
 					}
-
-					propChunkMap[name] = &ChunkProperty{
-						IsCompressed: true,
-						TypeID:       instChunk.TypeID,
-						PropertyName: name,
-						DataType:     bval.Type(),
-						Properties:   []Value{},
-					}
+					propChunk.DataType = bval.Type()
 				}
 			}
 		}
@@ -585,10 +694,13 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 					if items, ok := propEnums[name]; ok {
 						token := bvalue.(*ValueToken)
 						if !items.values[uint32(*token)] {
-							// If it isn't valid, then use the first value of
-							// the enum instead.
-							v := items.first
-							*token = ValueToken(v)
+							addWarn("invalid value `%d` for enum %s in instance #%d (%s.%s)", token, items.name, ref, inst.ClassName, name)
+							if c.ExcludeInvalidAPI {
+								// If it isn't valid, then use the first value of
+								// the enum instead.
+								v := items.first
+								*token = ValueToken(v)
+							}
 						}
 					}
 				}
@@ -692,6 +804,7 @@ func (c sortPropChunks) Swap(i, j int) {
 }
 
 type enumItems struct {
+	name   string
 	first  uint32
 	values map[uint32]bool
 }
