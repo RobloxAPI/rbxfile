@@ -3,6 +3,7 @@ package xml
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
@@ -23,6 +24,22 @@ type RobloxCodec struct {
 	// ExcludeExternal determines whether standard <External> tags should be
 	// added to the root tag when encoding.
 	ExcludeExternal bool
+
+	// ExcludeInvalidAPI determines whether invalid items are excluded when
+	// encoding or decoding. An invalid item is an instance or property that
+	// does not exist or has incorrect information, according to a provided
+	// rbxdump.API.
+	//
+	// If true, then warnings will be emitted for invalid items, and the items
+	// will not be included in the output. If false, then warnings are still
+	// emitted, but invalid items are handled as if they were valid. This
+	// applies when decoding from a Document, and when encoding from a
+	// rbxfile.Root.
+	//
+	// Since an API may exclude some items even though they're correct, it is
+	// generally preferred to set ExcludeInvalidAPI to false, so that false
+	// negatives do not lead to lost data.
+	ExcludeInvalidAPI bool
 }
 
 type propRef struct {
@@ -41,6 +58,7 @@ func (c RobloxCodec) Decode(document *Document, api *rbxdump.API) (root *rbxfile
 		api:        api,
 		root:       new(rbxfile.Root),
 		instLookup: make(map[string]*rbxfile.Instance),
+		noinvalid:  c.ExcludeInvalidAPI,
 	}
 
 	dec.decode()
@@ -54,6 +72,7 @@ type rdecoder struct {
 	err        error
 	instLookup map[string]*rbxfile.Instance
 	propRefs   []propRef
+	noinvalid  bool
 }
 
 func (dec *rdecoder) decode() error {
@@ -82,7 +101,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 		case "Item":
 			className, ok := tag.AttrValue("class")
 			if !ok {
-				// WARN: item with missing class attribute
+				dec.document.Warnings = append(dec.document.Warnings, errors.New("item with missing class attribute"))
 				continue
 			}
 
@@ -90,7 +109,10 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 			if dec.api != nil {
 				class := dec.api.Classes[className]
 				if class == nil {
-					//WARN: invalid class name
+					dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid class name `%s`", className))
+					if dec.noinvalid {
+						continue
+					}
 				} else {
 					for _, member := range class.Members {
 						if member, ok := member.(*rbxdump.Property); ok {
@@ -153,6 +175,9 @@ func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMemb
 				enum = e
 			}
 			goto processValue
+		} else if dec.noinvalid {
+			dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid property name %s.`%s`", instance.ClassName, name))
+			return "", nil, false
 		}
 	}
 
@@ -331,7 +356,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 		for _, subtag := range tag.Tags {
 			switch subtag.StartName {
 			case "binary":
-				//DIFF: Throws `not reading binary data` warning
+				dec.document.Warnings = append(dec.document.Warnings, errors.New("not reading binary data"))
 				fallthrough
 			case "hash":
 				// Ignored.
@@ -436,11 +461,13 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 					return rbxfile.ValueToken(v), true
 				}
 			}
-			return rbxfile.ValueToken(v), false
-		} else {
-			// Assume that it is correct
-			return rbxfile.ValueToken(v), true
+			if dec.noinvalid {
+				dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid item `%d` for enum %s", v, enum.Name))
+				return nil, false
+			}
 		}
+		// Assume that it is correct
+		return rbxfile.ValueToken(v), true
 
 	case "UDim":
 		// Unknown
@@ -627,22 +654,24 @@ func getContent(tag *Tag) string {
 }
 
 type rencoder struct {
-	root     *rbxfile.Root
-	api      *rbxdump.API
-	document *Document
-	refs     map[string]*rbxfile.Instance
-	err      error
-	norefs   bool
-	noext    bool
+	root      *rbxfile.Root
+	api       *rbxdump.API
+	document  *Document
+	refs      map[string]*rbxfile.Instance
+	err       error
+	norefs    bool
+	noext     bool
+	noinvalid bool
 }
 
 func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (document *Document, err error) {
 	enc := &rencoder{
-		root:   root,
-		api:    api,
-		refs:   make(map[string]*rbxfile.Instance),
-		norefs: c.ExcludeReferent,
-		noext:  c.ExcludeExternal,
+		root:      root,
+		api:       api,
+		refs:      make(map[string]*rbxfile.Instance),
+		norefs:    c.ExcludeReferent,
+		noext:     c.ExcludeExternal,
+		noinvalid: c.ExcludeInvalidAPI,
 	}
 
 	enc.encode()
@@ -673,8 +702,10 @@ func (enc *rencoder) encode() {
 func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 	if enc.api != nil {
 		if _, ok := enc.api.Classes[instance.ClassName]; !ok {
-			//WARN: `ClassName` is not a valid class
-			return
+			enc.document.Warnings = append(enc.document.Warnings, fmt.Errorf("invalid class `%s`", instance.ClassName))
+			if enc.noinvalid {
+				return
+			}
 		}
 	}
 
@@ -721,8 +752,12 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 				token, istoken := value.(rbxfile.ValueToken)
 				enum := enc.api.Enums[typ]
 				if istoken && enum == nil || !isCanonType(typ, value) {
-					//WARN: incorrect value type for property
-					continue
+					enc.document.Warnings = append(enc.document.Warnings,
+						fmt.Errorf("invalid value type `%s` for property %s.%s (%s)", value, instance.ClassName, name, typ),
+					)
+					if enc.noinvalid {
+						continue
+					}
 				} else if istoken && enum != nil {
 					for _, item := range enum.Items {
 						if uint32(token) == item.Value {
@@ -730,10 +765,19 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 						}
 					}
 
-					//WARN: invalid value for token
-					continue
+					enc.document.Warnings = append(enc.document.Warnings,
+						fmt.Errorf("invalid enum value `%d` for property %s.%s (%s)", uint32(token), instance.ClassName, name, enum.Name),
+					)
+					if enc.noinvalid {
+						continue
+					}
 
 				finishToken:
+				}
+			} else {
+				enc.document.Warnings = append(enc.document.Warnings, fmt.Errorf("invalid property %s.`%s`", instance.ClassName, name))
+				if enc.noinvalid {
+					continue
 				}
 			}
 		}
