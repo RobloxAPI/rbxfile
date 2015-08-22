@@ -19,6 +19,10 @@ type RobloxCodec struct {
 	// ExcludeReferent determines whether the "referent" attribute should be
 	// added to Item tags when encoding.
 	ExcludeReferent bool
+
+	// ExcludeExternal determines whether standard <External> tags should be
+	// added to the root tag when encoding.
+	ExcludeExternal bool
 }
 
 type propRef struct {
@@ -629,6 +633,7 @@ type rencoder struct {
 	refs     map[string]*rbxfile.Instance
 	err      error
 	norefs   bool
+	noext    bool
 }
 
 func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (document *Document, err error) {
@@ -637,6 +642,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (document *Doc
 		api:    api,
 		refs:   make(map[string]*rbxfile.Instance),
 		norefs: c.ExcludeReferent,
+		noext:  c.ExcludeExternal,
 	}
 
 	enc.encode()
@@ -649,16 +655,13 @@ func (enc *rencoder) encode() {
 		Prefix: "",
 		Indent: "\t",
 		Suffix: "",
-		Root: NewRoot(
-			&Tag{
-				StartName: "External",
-				Text:      "null",
-			},
-			&Tag{
-				StartName: "External",
-				Text:      "nil",
-			},
-		),
+		Root:   NewRoot(),
+	}
+	if !enc.noext {
+		enc.document.Root.Tags = []*Tag{
+			&Tag{StartName: "External", Text: "null"},
+			&Tag{StartName: "External", Text: "nil"},
+		}
 	}
 
 	for _, instance := range enc.root.Instances {
