@@ -15,7 +15,11 @@ import (
 
 // RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
 // codec as closely as possible.
-type RobloxCodec struct{}
+type RobloxCodec struct {
+	// ExcludeReferent determines whether the "referent" attribute should be
+	// added to Item tags when encoding.
+	ExcludeReferent bool
+}
 
 type propRef struct {
 	inst *rbxfile.Instance
@@ -624,13 +628,15 @@ type rencoder struct {
 	document *Document
 	refs     map[string]*rbxfile.Instance
 	err      error
+	norefs   bool
 }
 
 func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (document *Document, err error) {
 	enc := &rencoder{
-		root: root,
-		api:  api,
-		refs: make(map[string]*rbxfile.Instance),
+		root:   root,
+		api:    api,
+		refs:   make(map[string]*rbxfile.Instance),
+		norefs: c.ExcludeReferent,
 	}
 
 	enc.encode()
@@ -672,6 +678,9 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 	ref := rbxfile.GetReference(instance, enc.refs)
 	properties := enc.encodeProperties(instance)
 	item := NewItem(instance.ClassName, ref, properties...)
+	if enc.norefs {
+		item.SetAttrValue("referent", "")
+	}
 	parent.Tags = append(parent.Tags, item)
 
 	for _, child := range instance.GetChildren() {
