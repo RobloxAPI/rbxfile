@@ -72,6 +72,27 @@ func (t Tag) AttrValue(name string) (value string, exists bool) {
 	return "", false
 }
 
+// SetAttrValue sets the value of the first attribute of the given name, if it
+// exists. If value is an empty string, then the attribute will be removed
+// instead. If the attribute does not exist and value is not empty, then the
+// attribute is added.
+func (t *Tag) SetAttrValue(name, value string) {
+	for i, a := range t.Attr {
+		if a.Name == name {
+			if value == "" {
+				t.Attr = append(t.Attr[:i], t.Attr[i+1:]...)
+			} else {
+				a.Value = value
+			}
+			return
+		}
+	}
+	if value == "" {
+		return
+	}
+	t.Attr = append(t.Attr, Attr{Name: name, Value: value})
+}
+
 // NewRoot initializes a Tag containing values standard to a root tag.
 // Optionally, Item tags can be given as arguments, which will be added to the
 // root as sub-tags.
