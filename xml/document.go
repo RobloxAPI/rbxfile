@@ -176,6 +176,11 @@ type Document struct {
 
 	// Root is the root tag in the document.
 	Root *Tag
+
+	// Warnings is a list of non-fatal problems that have occurred. This will
+	// be cleared and populated when calling either ReadFrom and WriteTo.
+	// Codecs may also clear and populate this when decoding or encoding.
+	Warnings []error
 }
 
 // A SyntaxError represents a syntax error in the XML input stream.
@@ -203,52 +208,64 @@ func (d *decoder) syntaxError(msg string) error {
 	return &SyntaxError{Msg: msg, Line: d.line}
 }
 
+func (d *decoder) ignoreStartTag(err error) int {
+	// Treat error as warning.
+	d.doc.Warnings = append(d.doc.Warnings, err)
+	// Read until end of start tag.
+	for {
+		b, ok := d.mustgetc()
+		if !ok {
+			return -1
+		}
+		if b == '>' {
+			break
+		}
+	}
+	return 0
+}
+
 //DIFF: Start tag parser has unexpected behavior that is difficult to
 //pin-point.
-func (d *decoder) decodeStartTag(tag *Tag) bool {
+func (d *decoder) decodeStartTag(tag *Tag) int {
 	b, ok := d.getc()
 	if !ok {
-		return false
+		return -1
 	}
 
 	if b != '<' {
 		d.err = d.syntaxError("expected start tag")
-		return false
+		return -1
 	}
 
 	if b, ok = d.mustgetc(); !ok {
-		return false
+		return -1
 	}
 	if b == '/' {
 		// </: End element; invalid
 		d.err = d.syntaxError("unexpected end tag")
-		return false
+		return -1
 	}
 
 	// Must be an open element like <a href="foo">
 	d.ungetc(b)
 
-	if tag.StartName, ok = d.name(); !ok {
-		if d.err == nil {
-			d.err = d.syntaxError("expected element name after <")
-		}
-		return false
+	if tag.StartName, ok = d.name(nameTag); !ok {
+		return d.ignoreStartTag(d.syntaxError("expected element name after <"))
 	}
 
 	tag.Attr = make([]Attr, 0, 4)
 	for {
 		d.space()
 		if b, ok = d.mustgetc(); !ok {
-			return false
+			return -1
 		}
 		if b == '/' {
 			tag.Empty = true
 			if b, ok = d.mustgetc(); !ok {
-				return false
+				return -1
 			}
 			if b != '>' {
-				d.err = d.syntaxError("expected /> in element")
-				return false
+				return d.ignoreStartTag(d.syntaxError("expected /> in element"))
 			}
 			break
 		}
@@ -265,29 +282,25 @@ func (d *decoder) decodeStartTag(tag *Tag) bool {
 		}
 		tag.Attr = tag.Attr[0 : n+1]
 		a := &tag.Attr[n]
-		if a.Name, ok = d.name(); !ok {
-			if d.err == nil {
-				d.err = d.syntaxError("expected attribute name in element")
-			}
-			return false
+		if a.Name, ok = d.name(nameAttr); !ok {
+			return d.ignoreStartTag(d.syntaxError("expected attribute name in element"))
 		}
 		d.space()
 		if b, ok = d.mustgetc(); !ok {
-			return false
+			return -1
 		}
 		if b != '=' {
-			d.err = d.syntaxError("attribute name without = in element")
-			return false
+			return d.ignoreStartTag(d.syntaxError("attribute name without = in element"))
 		} else {
 			d.space()
 			data := d.attrval()
 			if data == nil {
-				return false
+				return -1
 			}
 			a.Value = string(data)
 		}
 	}
-	return true
+	return 1
 }
 
 func (d *decoder) decodeCData(tag *Tag) bool {
@@ -346,7 +359,7 @@ func (d *decoder) decodeEndTag(tag *Tag) bool {
 	}
 
 	// </: End element
-	if tag.EndName, ok = d.name(); !ok {
+	if tag.EndName, ok = d.name(nameTag); !ok {
 		if d.err == nil {
 			d.err = d.syntaxError("expected element name after </")
 		}
@@ -382,7 +395,8 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 		}
 	}
 
-	if !d.decodeStartTag(tag) {
+	startTagState := d.decodeStartTag(tag)
+	if startTagState < 0 {
 		return nil, d.err
 	}
 
@@ -410,6 +424,9 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 	}
 
 	if tag.Empty {
+		if startTagState == 0 {
+			return nil, nil
+		}
 		return
 	}
 
@@ -492,7 +509,9 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 		if err != nil {
 			return nil, err
 		}
-		tag.Tags = append(tag.Tags, subtag)
+		if subtag != nil {
+			tag.Tags = append(tag.Tags, subtag)
+		}
 	}
 	if len(tag.Tags) > 0 {
 		nocontent = false
@@ -501,6 +520,11 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 	if !nocontent {
 		// Do not set NoIndent if the tag is empty.
 		tag.NoIndent = noindent
+	}
+
+	if startTagState == 0 {
+		// Ignore the entire tag.
+		return nil, nil
 	}
 
 	return tag, nil
@@ -715,7 +739,7 @@ Input:
 				}
 			} else {
 				d.ungetc(b)
-				if !d.readName() {
+				if !d.readName(nameEntity) {
 					if d.err != nil {
 						return nil
 					}
@@ -772,9 +796,9 @@ Input:
 // Get name: /first(first|second)*/
 // Do not set d.err if the name is missing (unless unexpected EOF is received):
 // let the caller provide better context.
-func (d *decoder) name() (s string, ok bool) {
+func (d *decoder) name(typ int) (s string, ok bool) {
 	d.buf.Reset()
-	if !d.readName() {
+	if !d.readName(typ) {
 		return "", false
 	}
 
@@ -784,12 +808,12 @@ func (d *decoder) name() (s string, ok bool) {
 // Read a name and append its bytes to d.buf.
 // The name is delimited by any single-byte character not valid in names.
 // All multi-byte characters are accepted; the caller must check their validity.
-func (d *decoder) readName() (ok bool) {
+func (d *decoder) readName(typ int) (ok bool) {
 	var b byte
 	if b, ok = d.mustgetc(); !ok {
 		return
 	}
-	if !isNameByte(b) {
+	if !isNameByte(b, typ) {
 		d.ungetc(b)
 		return false
 	}
@@ -799,7 +823,7 @@ func (d *decoder) readName() (ok bool) {
 		if b, ok = d.mustgetc(); !ok {
 			return
 		}
-		if !isNameByte(b) {
+		if !isNameByte(b, typ) {
 			d.ungetc(b)
 			break
 		}
@@ -808,11 +832,25 @@ func (d *decoder) readName() (ok bool) {
 	return true
 }
 
-func isNameByte(c byte) bool {
-	return 'A' <= c && c <= 'Z' ||
-		'a' <= c && c <= 'z' ||
-		'0' <= c && c <= '9' ||
-		c == '_' || c == ':' || c == '.' || c == '-'
+const (
+	nameTag = iota
+	nameAttr
+	nameEntity
+)
+
+func isNameByte(c byte, t int) bool {
+	if '!' <= c && c <= '~' && c != '>' {
+		switch t {
+		case 1:
+			// Attribute
+			return c != '='
+		case 2:
+			// Entity
+			return c != ';'
+		}
+		return true
+	}
+	return false
 }
 
 // ReadFrom decode data from r into the Document.
@@ -823,6 +861,7 @@ func (doc *Document) ReadFrom(r io.Reader) (n int64, err error) {
 
 	doc.Prefix = ""
 	doc.Indent = ""
+	doc.Warnings = doc.Warnings[:0]
 
 	d := &decoder{
 		doc:      doc,
@@ -885,17 +924,42 @@ func (e *encoder) encodeText(tag *Tag) bool {
 	return true
 }
 
-func (e *encoder) encodeTag(tag *Tag, noTags bool, noindent bool) bool {
-	if e.err != nil {
+func (e *encoder) checkName(name string, typ int) bool {
+	if len(name) == 0 {
 		return false
 	}
+	for _, c := range []byte(name) {
+		if !isNameByte(c, typ) {
+			return false
+		}
+	}
+	return true
+}
+
+func (e *encoder) encodeTag(tag *Tag, noTags bool, noindent bool) int {
+	if e.err != nil {
+		return -1
+	}
+
+	endName := tag.EndName
 
 	if !noTags {
+		if !e.checkName(tag.StartName, nameTag) {
+			e.d.Warnings = append(e.d.Warnings, errors.New("ignored tag with malformed start name `"+tag.StartName+"`"))
+			return 0
+		}
+
+		if !e.checkName(endName, nameTag) && endName != "" {
+			endName = tag.StartName
+			e.d.Warnings = append(e.d.Warnings, errors.New("tag with malformed end name `"+tag.EndName+"`, used start name instead"))
+		}
+
 		e.writeByte('<')
 		e.writeString(tag.StartName)
 
 		for _, attr := range tag.Attr {
-			if attr.Name == "" {
+			if !e.checkName(attr.Name, nameAttr) {
+				e.d.Warnings = append(e.d.Warnings, errors.New("ignored attribute with malformed name `"+attr.Name+"`"))
 				continue
 			}
 			e.writeByte(' ')
@@ -910,19 +974,19 @@ func (e *encoder) encodeTag(tag *Tag, noTags bool, noindent bool) bool {
 			e.writeByte('/')
 			e.writeByte('>')
 			if !e.flush() {
-				return false
+				return -1
 			}
-			return true
+			return 1
 		}
 
 		e.writeByte('>')
 		if !e.flush() {
-			return false
+			return -1
 		}
 	}
 
 	if !e.encodeCData(tag) {
-		return false
+		return -1
 	}
 
 	if !noindent && !tag.NoIndent {
@@ -936,12 +1000,14 @@ func (e *encoder) encodeTag(tag *Tag, noTags bool, noindent bool) bool {
 	}
 
 	if !e.encodeText(tag) {
-		return false
+		return -1
 	}
 
 	for i, sub := range tag.Tags {
-		if !e.encodeTag(sub, false, noindent || tag.NoIndent) {
-			return false
+		if r := e.encodeTag(sub, false, noindent || tag.NoIndent); r < 0 {
+			return -1
+		} else if r == 0 {
+			continue
 		}
 		if !noindent && !tag.NoIndent {
 			if i == len(tag.Tags)-1 {
@@ -959,19 +1025,19 @@ func (e *encoder) encodeTag(tag *Tag, noTags bool, noindent bool) bool {
 	if !noTags {
 		e.writeByte('<')
 		e.writeByte('/')
-		if tag.EndName == "" {
+		if endName == "" {
 			e.writeString(tag.StartName)
 		} else {
-			e.writeString(tag.EndName)
+			e.writeString(endName)
 		}
 		e.writeByte('>')
 
 		if !e.flush() {
-			return false
+			return -1
 		}
 	}
 
-	return true
+	return 1
 }
 
 func (e *encoder) write(p []byte) bool {
@@ -1111,11 +1177,13 @@ func (e *encoder) escapeString(s string, escapeLead bool) {
 
 // WriteTo encodes the Document as bytes to w.
 func (d *Document) WriteTo(w io.Writer) (n int64, err error) {
+	d.Warnings = d.Warnings[:0]
+
 	e := &encoder{Writer: bufio.NewWriter(w), d: d}
 
 	e.writeString(e.d.Prefix)
 
-	if !e.encodeTag(d.Root, d.ExcludeRoot, d.Root.NoIndent) {
+	if r := e.encodeTag(d.Root, d.ExcludeRoot, d.Root.NoIndent); r < 0 {
 		return e.n, e.err
 	}
 
