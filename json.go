@@ -433,7 +433,7 @@ func valueFromJSONInterface(typ Type, ivalue interface{}) (value Value) {
 		}
 		return ValueUDim{
 			Scale:  v["scale"].(float32),
-			Offset: v["offset"].(int32),
+			Offset: v["offset"].(int16),
 		}
 	case TypeUDim2:
 		v, ok := ivalue.(map[string]interface{})

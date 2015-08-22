@@ -317,7 +317,7 @@ func (t ValueDouble) Copy() Value {
 
 type ValueUDim struct {
 	Scale  float32
-	Offset int32
+	Offset int16
 }
 
 func newValueUDim() Value {

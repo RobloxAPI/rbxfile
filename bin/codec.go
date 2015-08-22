@@ -294,18 +294,18 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 	case *ValueUDim:
 		value = rbxfile.ValueUDim{
 			Scale:  float32(bvalue.Scale),
-			Offset: int32(bvalue.Offset),
+			Offset: int16(bvalue.Offset),
 		}
 
 	case *ValueUDim2:
 		value = rbxfile.ValueUDim2{
 			X: rbxfile.ValueUDim{
 				Scale:  float32(bvalue.ScaleX),
-				Offset: int32(bvalue.OffsetX),
+				Offset: int16(bvalue.OffsetX),
 			},
 			Y: rbxfile.ValueUDim{
 				Scale:  float32(bvalue.ScaleY),
-				Offset: int32(bvalue.OffsetY),
+				Offset: int16(bvalue.OffsetY),
 			},
 		}
 

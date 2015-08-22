@@ -296,7 +296,7 @@ func (t Type) value(refs map[string]*rbxfile.Instance, v []interface{}) rbxfile.
 		if len(v) == 2 {
 			return rbxfile.ValueUDim{
 				Scale:  normFloat32(v[0]),
-				Offset: normInt32(v[1]),
+				Offset: normInt16(v[1]),
 			}
 		}
 	case UDim2:
@@ -304,11 +304,11 @@ func (t Type) value(refs map[string]*rbxfile.Instance, v []interface{}) rbxfile.
 			return rbxfile.ValueUDim2{
 				X: rbxfile.ValueUDim{
 					Scale:  normFloat32(v[0]),
-					Offset: normInt32(v[1]),
+					Offset: normInt16(v[1]),
 				},
 				Y: rbxfile.ValueUDim{
 					Scale:  normFloat32(v[2]),
-					Offset: normInt32(v[3]),
+					Offset: normInt16(v[3]),
 				},
 			}
 		}
