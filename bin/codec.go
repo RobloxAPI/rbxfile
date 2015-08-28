@@ -630,7 +630,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 					TypeID:       instChunk.TypeID,
 					PropertyName: name,
 					DataType:     dataType,
-					Properties:   []Value{},
+					Properties:   make([]Value, len(instChunk.InstanceIDs)),
 				}
 			}
 		}
