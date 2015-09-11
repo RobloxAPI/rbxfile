@@ -1486,7 +1486,8 @@ func (v ValueReference) FromArrayBytes(b []byte) (a []Value, err error) {
 
 		if i > 0 {
 			// Convert relative ref to absolute ref.
-			*ref = *a[i-1].(*ValueReference) + *ref
+			r := *a[i-1].(*ValueReference)
+			*ref = r + *ref
 		}
 
 		a[i] = ref
