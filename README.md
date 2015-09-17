@@ -1,4 +1,4 @@
-[![GoDoc](https://godoc.org/github.com/RobloxAPI/rbxfile?status.png)](https://godoc.org/github.com/RobloxAPI/rbxfile)
+[![GoDoc](https://godoc.org/github.com/robloxapi/rbxfile?status.png)](https://godoc.org/github.com/robloxapi/rbxfile)
 
 # rbxfile
 
@@ -31,11 +31,11 @@ Besides decoding from a format, root structures can also be created manually.
 The best way to do this is through the [declare][declare] sub-package, which
 provides an easy way to generate root structures.
 
-[root]: https://godoc.org/github.com/RobloxAPI/rbxfile#Root
-[inst]: https://godoc.org/github.com/RobloxAPI/rbxfile#Instance
-[type]: https://godoc.org/github.com/RobloxAPI/rbxfile#Type
-[value]: https://godoc.org/github.com/RobloxAPI/rbxfile#Value
-[dec]: https://godoc.org/github.com/RobloxAPI/rbxfile#Decode
-[enc]: https://godoc.org/github.com/RobloxAPI/rbxfile#Encode
-[bin]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin
-[declare]: https://godoc.org/github.com/RobloxAPI/rbxfile/declare
+[root]: https://godoc.org/github.com/robloxapi/rbxfile#Root
+[inst]: https://godoc.org/github.com/robloxapi/rbxfile#Instance
+[type]: https://godoc.org/github.com/robloxapi/rbxfile#Type
+[value]: https://godoc.org/github.com/robloxapi/rbxfile#Value
+[dec]: https://godoc.org/github.com/robloxapi/rbxfile#Decode
+[enc]: https://godoc.org/github.com/robloxapi/rbxfile#Encode
+[bin]: https://godoc.org/github.com/robloxapi/rbxfile/bin
+[declare]: https://godoc.org/github.com/robloxapi/rbxfile/declare

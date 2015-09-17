@@ -1,6 +1,6 @@
 # rbxfile/bin
 
-[![GoDoc](https://godoc.org/github.com/RobloxAPI/rbxfile/bin?status.png)](https://godoc.org/github.com/RobloxAPI/rbxfile/bin)
+[![GoDoc](https://godoc.org/github.com/robloxapi/rbxfile/bin?status.png)](https://godoc.org/github.com/robloxapi/rbxfile/bin)
 
 Package bin implements a decoder and encoder for Roblox's binary file format.
 
@@ -42,15 +42,15 @@ decoded) to and from Root structures in multiple ways, which is specified by
 codecs. However, there is only one way to encode and decode to and from a byte
 stream, which is handled by the FormatModel.
 
-[dserp]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#DeserializePlace
-[serp]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#SerializePlace
-[dserm]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#DeserializeModel
-[serm]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#SerializeModel
+[dserp]: https://godoc.org/github.com/robloxapi/rbxfile/bin#DeserializePlace
+[serp]: https://godoc.org/github.com/robloxapi/rbxfile/bin#SerializePlace
+[dserm]: https://godoc.org/github.com/robloxapi/rbxfile/bin#DeserializeModel
+[serm]: https://godoc.org/github.com/robloxapi/rbxfile/bin#SerializeModel
 
-[rbxfile]: https://godoc.org/github.com/RobloxAPI/rbxfile
-[root]: https://godoc.org/github.com/RobloxAPI/rbxfile#Root
-[serzr]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#Serializer
-[decr]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#Decoder
-[encr]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#Encoder
-[roco]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#RobloxCodec
-[fmtm]: https://godoc.org/github.com/RobloxAPI/rbxfile/bin#FormatModel
+[rbxfile]: https://godoc.org/github.com/robloxapi/rbxfile
+[root]: https://godoc.org/github.com/robloxapi/rbxfile#Root
+[serzr]: https://godoc.org/github.com/robloxapi/rbxfile/bin#Serializer
+[decr]: https://godoc.org/github.com/robloxapi/rbxfile/bin#Decoder
+[encr]: https://godoc.org/github.com/robloxapi/rbxfile/bin#Encoder
+[roco]: https://godoc.org/github.com/robloxapi/rbxfile/bin#RobloxCodec
+[fmtm]: https://godoc.org/github.com/robloxapi/rbxfile/bin#FormatModel
