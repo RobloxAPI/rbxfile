@@ -39,9 +39,12 @@
 package bin
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"github.com/robloxapi/rbxdump"
 	"github.com/robloxapi/rbxfile"
+	"github.com/robloxapi/rbxfile/xml"
 	"io"
 )
 
@@ -65,15 +68,22 @@ type Encoder interface {
 type Serializer struct {
 	Decoder Decoder
 	Encoder Encoder
+
+	// DecoderXML is used to decode the legacy XML format. If DecoderXML is
+	// not nil, then the serializer will attempt to detect if the stream is in
+	// the XML format. If so, then it will be decoded using an xml.Serializer
+	// with the given decoder.
+	DecoderXML xml.Decoder
 }
 
 // NewSerializer returns a new Serializer with a specified decoder and
 // encoder. If either value is nil, the default RobloxCodec will be used in
-// its place.
+// its place. DecoderXML is set to xml.RobloxCodec.
 func NewSerializer(d Decoder, e Encoder) Serializer {
 	s := Serializer{
-		Decoder: d,
-		Encoder: e,
+		Decoder:    d,
+		Encoder:    e,
+		DecoderXML: xml.RobloxCodec{},
 	}
 
 	if d == nil || e == nil {
@@ -95,6 +105,28 @@ func NewSerializer(d Decoder, e Encoder) Serializer {
 func (s Serializer) Deserialize(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
 	if s.Decoder == nil {
 		return nil, errors.New("a decoder has not been not specified")
+	}
+
+	if s.DecoderXML != nil {
+		var buf *bufio.Reader
+		if br, ok := r.(*bufio.Reader); ok {
+			buf = br
+		} else {
+			buf = bufio.NewReader(r)
+		}
+
+		sig, err := buf.Peek(len(RobloxSig) + len(BinaryMarker))
+		if err != nil {
+			return nil, err
+		}
+		if !bytes.Equal(sig[:len(RobloxSig)], []byte(RobloxSig)) {
+			return nil, ErrInvalidSig
+		}
+
+		if !bytes.Equal(sig[len(RobloxSig):], []byte(BinaryMarker)) {
+			return xml.NewSerializer(s.DecoderXML, nil).Deserialize(buf, api)
+		}
+		r = buf
 	}
 
 	model := new(FormatModel)
