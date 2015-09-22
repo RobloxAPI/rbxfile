@@ -163,8 +163,8 @@ func instanceToJSONInterface(inst *Instance, refs map[string]*Instance) interfac
 		properties[name] = iprop
 	}
 	iinst["properties"] = properties
-	children := make([]interface{}, len(inst.children))
-	for i, child := range inst.GetChildren() {
+	children := make([]interface{}, len(inst.Children))
+	for i, child := range inst.Children {
 		children[i] = instanceToJSONInterface(child, refs)
 	}
 	iinst["children"] = children
@@ -224,13 +224,14 @@ func instanceFromJSONInterface(iinst interface{}, refs map[string]*Instance, pro
 		return inst, true
 	}
 
-	inst.children = make([]*Instance, len(children))
+	inst.Children = make([]*Instance, 0, len(children))
 	for _, ichild := range children {
 		child, ok := instanceFromJSONInterface(ichild, refs, propRefs)
 		if !ok {
 			continue
 		}
-		child.SetParent(inst)
+		inst.Children = append(inst.Children, child)
+		child.parent = inst
 	}
 	return inst, true
 }

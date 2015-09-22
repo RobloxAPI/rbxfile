@@ -22,11 +22,8 @@
 package rbxfile
 
 import (
-	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/satori/go.uuid"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -43,10 +40,6 @@ type Instance struct {
 	// ClassName indicates the instance's type.
 	ClassName string
 
-	// Properties is a map of properties of the instance. It maps the name of
-	// the property to its current value.
-	Properties map[string]Value
-
 	// Reference is a unique string used to refer to the instance from
 	// elsewhere in the tree.
 	Reference []byte
@@ -55,8 +48,13 @@ type Instance struct {
 	// service.
 	IsService bool
 
-	// Contains instances that are the children of the current instance.
-	children []*Instance
+	// Properties is a map of properties of the instance. It maps the name of
+	// the property to its current value.
+	Properties map[string]Value
+
+	// Children contains instances that are the children of the current
+	// instance.
+	Children []*Instance
 
 	// The parent of the instance. Can be nil.
 	parent *Instance
@@ -67,33 +65,109 @@ type Instance struct {
 func NewInstance(className string, parent *Instance) *Instance {
 	inst := &Instance{
 		ClassName:  className,
+		Reference:  []byte(GenerateReference()),
 		Properties: make(map[string]Value, 0),
 	}
-
-	ref := uuid.NewV4()
-	inst.Reference = make([]byte, 3+hex.EncodedLen(len(ref)))
-	copy(inst.Reference[:3], []byte("RBX"))
-	hex.Encode(inst.Reference[3:], ref.Bytes())
-	inst.Reference = bytes.ToUpper(inst.Reference)
-
 	if parent != nil {
-		inst.SetParent(parent)
+		parent.Children = append(parent.Children, inst)
+		inst.parent = parent
 	}
-
 	return inst
 }
 
-func (inst *Instance) addChild(child *Instance) {
-	inst.children = append(inst.children, child)
+func assertLoop(child, parent *Instance) error {
+	if parent == child {
+		return fmt.Errorf("attempt to set %s as its own parent", child.Name())
+	}
+	if parent != nil && parent.IsDescendantOf(child) {
+		return errors.New("attempt to set parent would result in circular reference")
+	}
+	return nil
 }
 
-func (inst *Instance) removeChild(child *Instance) {
-	for i, ch := range inst.children {
-		if ch == child {
-			inst.children[i] = nil
-			inst.children = append(inst.children[:i], inst.children[i+1:]...)
+func (inst *Instance) addChild(child *Instance) {
+	if child.parent != nil {
+		child.parent.RemoveChild(child)
+	}
+	inst.Children = append(inst.Children, child)
+	child.parent = inst
+}
+
+// AddChild appends a child instance to the instance's list of children. If
+// the child has a parent, it is first removed. The parent of the child is set
+// to the instance. An error is returned if the instance is a descendant of
+// the child, or if the child is the instance itself.
+func (inst *Instance) AddChild(child *Instance) error {
+	if err := assertLoop(child, inst); err != nil {
+		return err
+	}
+	inst.addChild(child)
+	return nil
+}
+
+// AddChildAt inserts a child instance into the instance's list of children at
+// a given position. If the child has a parent, it is first removed. The
+// parent of the child is set to the instance. If the index is outside the
+// bounds of the list, then it is constrained. An error is returned if the
+// instance is a descendant of the child, or if the child is the instance
+// itself.
+func (inst *Instance) AddChildAt(index int, child *Instance) error {
+	if err := assertLoop(child, inst); err != nil {
+		return err
+	}
+	if index < 0 {
+		index = 0
+	} else if index >= len(inst.Children) {
+		inst.addChild(child)
+		return nil
+	}
+	if child.parent != nil {
+		child.parent.RemoveChild(child)
+	}
+	inst.Children = append(inst.Children, nil)
+	copy(inst.Children[index+1:], inst.Children[index:])
+	inst.Children[index] = child
+	child.parent = inst
+	return nil
+}
+
+func (inst *Instance) removeChildAt(index int) {
+	child := inst.Children[index]
+	child.parent = nil
+	copy(inst.Children[index:], inst.Children[index+1:])
+	inst.Children[len(inst.Children)-1] = nil
+	inst.Children = inst.Children[:len(inst.Children)-1]
+}
+
+// RemoveChild removes a child instance from the instance's list of children.
+// The parent of the child is set to nil.
+func (inst *Instance) RemoveChild(child *Instance) {
+	for index, c := range inst.Children {
+		if c == child {
+			inst.removeChildAt(index)
+			return
 		}
 	}
+}
+
+// RemoveChildAt removes the child at a given position from the instance's
+// list of children. The parent of the child is set to nil. If the index is
+// outside the bounds of the list, then no children are removed.
+func (inst *Instance) RemoveChildAt(index int) {
+	if index < 0 || index >= len(inst.Children) {
+		return
+	}
+	inst.removeChildAt(index)
+}
+
+// RemoveAll remove every child from the instance. The parent of each child is
+// set to nil.
+func (inst *Instance) RemoveAll() {
+	for i, child := range inst.Children {
+		child.parent = nil
+		inst.Children[i] = nil
+	}
+	inst.Children = inst.Children[:0]
 }
 
 // Parent returns the parent of the instance. Can return nil if the instance
@@ -102,43 +176,26 @@ func (inst *Instance) Parent() *Instance {
 	return inst.parent
 }
 
-// SetParent sets the parent of the instance. The parent can be set to nil.
-// The function will error if the parent is a descendant of the instance.
+// SetParent sets the parent of the instance, removing itself from the
+// children of the old parent, and adding itself as a child of the new parent.
+// The parent can be set to nil. An error is returned if the parent is a
+// descendant of the instance, or if the parent is the instance itself. If the
+// new parent is the same as the old parent, then the position of the instance
+// in the parent's children is unchanged.
 func (inst *Instance) SetParent(parent *Instance) error {
 	if inst.parent == parent {
 		return nil
 	}
-
-	if parent == inst {
-		return fmt.Errorf("attempt to set %s as its own parent", inst.Name())
+	if err := assertLoop(inst, parent); err != nil {
+		return err
 	}
-
-	if parent != nil && parent.IsDescendantOf(inst) {
-		return errors.New("attempt to set parent would result in circular reference")
-	}
-
 	if inst.parent != nil {
-		inst.parent.removeChild(inst)
+		inst.parent.RemoveChild(inst)
 	}
-
-	inst.parent = parent
-
 	if parent != nil {
 		parent.addChild(inst)
 	}
-
 	return nil
-}
-
-// ClearAllChildren sets the Parent of each of the children of the instance to
-// nil.
-func (inst *Instance) ClearAllChildren() {
-	// Note: Roblox's ClearAllChildren traverses children in reverse, calling
-	// Remove on each child. Remove removes children in order, also calling
-	// Remove on each of them.
-	for len(inst.children) > 0 {
-		inst.children[len(inst.children)-1].Remove()
-	}
 }
 
 // Clone returns a copy of the instance. Each property and all descendants are
@@ -147,12 +204,16 @@ func (inst *Instance) ClearAllChildren() {
 func (inst *Instance) Clone() *Instance {
 	clone := NewInstance(inst.ClassName, nil)
 
+	clone.Properties = make(map[string]Value, len(inst.Properties))
 	for name, value := range inst.Properties {
 		clone.Properties[name] = value.Copy()
 	}
 
-	for _, child := range inst.children {
-		child.Clone().SetParent(clone)
+	clone.Children = make([]*Instance, len(inst.Children))
+	for i, child := range inst.Children {
+		c := child.Clone()
+		clone.Children[i] = c
+		c.parent = clone
 	}
 
 	return clone
@@ -162,29 +223,21 @@ func (inst *Instance) Clone() *Instance {
 // the given name. Returns nil if no child was found. If recursive is true,
 // then FindFirstChild will be called on descendants as well.
 func (inst *Instance) FindFirstChild(name string, recursive bool) *Instance {
-	for _, child := range inst.children {
+	for _, child := range inst.Children {
 		if child.Name() == name {
 			return child
 		}
 	}
 
 	if recursive {
-		for _, child := range inst.children {
-			desc := child.FindFirstChild(name, true)
-			if desc != nil {
+		for _, child := range inst.Children {
+			if desc := child.FindFirstChild(name, true); desc != nil {
 				return desc
 			}
 		}
 	}
 
 	return nil
-}
-
-// GetChildren returns a list of children of the instance.
-func (inst *Instance) GetChildren() []*Instance {
-	list := make([]*Instance, len(inst.children))
-	copy(list, inst.children)
-	return list
 }
 
 // GetFullName returns the "full" name of the instance, which is the combined
@@ -233,17 +286,6 @@ func (inst *Instance) IsDescendantOf(ancestor *Instance) bool {
 		parent = parent.Parent()
 	}
 	return false
-}
-
-// Remove sets the parent of the instance to nil, then calls Remove on each of
-// the instance's children.
-func (inst *Instance) Remove() {
-	inst.SetParent(nil)
-
-	// Roblox's implementation removes children in order.
-	for len(inst.children) > 0 {
-		inst.children[0].Remove()
-	}
 }
 
 // Name returns the Name property of the instance, or an empty string if it is
