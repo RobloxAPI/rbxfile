@@ -300,7 +300,15 @@ func (t Type) value(refs map[string]*rbxfile.Instance, v []interface{}) rbxfile.
 			}
 		}
 	case UDim2:
-		if len(v) == 4 {
+		switch len(v) {
+		case 2:
+			x, _ := v[0].(rbxfile.ValueUDim)
+			y, _ := v[1].(rbxfile.ValueUDim)
+			return rbxfile.ValueUDim2{
+				X: x,
+				Y: y,
+			}
+		case 4:
 			return rbxfile.ValueUDim2{
 				X: rbxfile.ValueUDim{
 					Scale:  normFloat32(v[0]),
