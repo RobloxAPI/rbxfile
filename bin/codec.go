@@ -734,17 +734,23 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 
 	if len(instList) > 0 {
 		i := 0
-		for _, instChunk := range instChunkList {
-			for _, instRef := range instChunk.InstanceIDs {
-				parentChunk.Children[i] = instRef
-				inst := instList[instRef]
-				parentRef, ok := refs[inst.Parent()]
-				if !ok {
-					parentRef = -1
-				}
-				parentChunk.Parents[i] = int32(parentRef)
-				i++
+		var recInst func(inst *rbxfile.Instance)
+		recInst = func(inst *rbxfile.Instance) {
+			for _, child := range inst.GetChildren() {
+				recInst(child)
 			}
+
+			instRef := int32(refs[inst])
+			parentChunk.Children[i] = instRef
+			parentRef, ok := refs[inst.Parent()]
+			if !ok {
+				parentRef = -1
+			}
+			parentChunk.Parents[i] = int32(parentRef)
+			i++
+		}
+		for _, inst := range root.Instances {
+			recInst(inst)
 		}
 	}
 
