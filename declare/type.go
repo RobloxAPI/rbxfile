@@ -31,6 +31,10 @@ const (
 	Reference
 	Vector3int16
 	Vector2int16
+	NumberSequence
+	ColorSequence
+	NumberRange
+	Rect2D
 )
 
 func normInt16(v interface{}) int16 {
@@ -239,6 +243,14 @@ func assertValue(t Type, v interface{}) (value rbxfile.Value, ok bool) {
 		value, ok = v.(rbxfile.ValueVector3int16)
 	case Vector2int16:
 		value, ok = v.(rbxfile.ValueVector2int16)
+	case NumberSequence:
+		value, ok = v.(rbxfile.ValueNumberSequence)
+	case ColorSequence:
+		value, ok = v.(rbxfile.ValueColorSequence)
+	case NumberRange:
+		value, ok = v.(rbxfile.ValueNumberRange)
+	case Rect2D:
+		value, ok = v.(rbxfile.ValueRect2D)
 	}
 	return
 }
@@ -455,6 +467,88 @@ func (t Type) value(refs map[string]*rbxfile.Instance, v []interface{}) rbxfile.
 			return rbxfile.ValueVector2int16{
 				X: normInt16(v[0]),
 				Y: normInt16(v[1]),
+			}
+		}
+	case NumberSequence:
+		if len(v) > 0 {
+			if _, ok := v[0].(rbxfile.ValueNumberSequenceKeypoint); ok && len(v) >= 2 {
+				ns := make(rbxfile.ValueNumberSequence, len(v))
+				for i, k := range v {
+					k, _ := k.(rbxfile.ValueNumberSequenceKeypoint)
+					ns[i] = k
+				}
+				return ns
+			} else if len(v)%3 == 0 && len(v) >= 6 {
+				ns := make(rbxfile.ValueNumberSequence, len(v)/3)
+				for i := 0; i < len(v); i += 3 {
+					ns[i/3] = rbxfile.ValueNumberSequenceKeypoint{
+						Time:     normFloat32(v[i+0]),
+						Value:    normFloat32(v[i+1]),
+						Envelope: normFloat32(v[i+2]),
+					}
+				}
+			}
+		}
+	case ColorSequence:
+		if len(v) > 0 {
+			if _, ok := v[0].(rbxfile.ValueColorSequenceKeypoint); ok && len(v) >= 2 {
+				cs := make(rbxfile.ValueColorSequence, len(v))
+				for i, k := range v {
+					k, _ := k.(rbxfile.ValueColorSequenceKeypoint)
+					cs[i] = k
+				}
+				return cs
+			} else if _, ok := v[1].(rbxfile.ValueColor3); ok && len(v)%3 == 0 && len(v) >= 6 {
+				cs := make(rbxfile.ValueColorSequence, len(v)/3)
+				for i := 0; i < len(v); i += 3 {
+					kval, _ := v[i+1].(rbxfile.ValueColor3)
+					cs[i/3] = rbxfile.ValueColorSequenceKeypoint{
+						Time:     normFloat32(v[i+0]),
+						Value:    kval,
+						Envelope: normFloat32(v[i+2]),
+					}
+				}
+			} else if len(v)%5 == 0 && len(v) >= 10 {
+				cs := make(rbxfile.ValueColorSequence, len(v)/5)
+				for i := 0; i < len(v); i += 5 {
+					cs[i/5] = rbxfile.ValueColorSequenceKeypoint{
+						Time: normFloat32(v[i+0]),
+						Value: rbxfile.ValueColor3{
+							R: normFloat32(v[i+1]),
+							G: normFloat32(v[i+2]),
+							B: normFloat32(v[i+3]),
+						},
+						Envelope: normFloat32(v[i+4]),
+					}
+				}
+			}
+		}
+	case NumberRange:
+		if len(v) == 2 {
+			return rbxfile.ValueNumberRange{
+				Min: normFloat32(v[0]),
+				Max: normFloat32(v[1]),
+			}
+		}
+	case Rect2D:
+		switch len(v) {
+		case 2:
+			min, _ := v[0].(rbxfile.ValueVector2)
+			max, _ := v[0].(rbxfile.ValueVector2)
+			return rbxfile.ValueRect2D{
+				Min: min,
+				Max: max,
+			}
+		case 4:
+			return rbxfile.ValueRect2D{
+				Min: rbxfile.ValueVector2{
+					X: normFloat32(v[0]),
+					Y: normFloat32(v[1]),
+				},
+				Max: rbxfile.ValueVector2{
+					X: normFloat32(v[2]),
+					Y: normFloat32(v[3]),
+				},
 			}
 		}
 	}

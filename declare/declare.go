@@ -213,6 +213,32 @@ func (property) element() {}
 //         ignored. When the value is a string or []byte, the reference is
 //         resolved by looking for an instance whose "Ref" declaration is
 //         equal to the value.
+//
+//     NumberSequence:
+//         1) 2 or more rbxfile.ValueNumberSequenceKeypoints, which correspond
+//            to keypoints in the sequence.
+//         2) 2 or more groups of 3 numbers. Each group corresponds to the
+//            fields Time, Value, and Envelope of a single keypoint in the
+//            sequence.
+//
+//     ColorSequence:
+//         1) 2 or more rbxfile.ValueColorSequenceKeypoints, which correspond
+//            to keypoints in the sequence.
+//         2) 2 or more groups of 3 values: A number, a rbxfile.ValueColor3,
+//            and a number. Each group corresponds to the Time, Value and
+//            Envelope fields of a single keypoint in the sequence.
+//         3) 2 or more groups of 5 numbers. Each group corresponds to the
+//            fields Time, Value.R, Value.G, Value.B, and Envelope of a single
+//            keypoint in the sequence.
+//
+//     NumberRange:
+//         2 numbers, corresponding to the Min and Max fields.
+//
+//     Rect2D:
+//         1) 2 rbxfile.ValueVector2s, corresponding to the Min and Max
+//            fields.
+//         2) 4 numbers, corresponding to the Min.X, Min.Y, Max.X, and Max.Y
+//            fields.
 func Property(name string, typ Type, value ...interface{}) property {
 	return property{name: name, typ: typ, value: value}
 }
