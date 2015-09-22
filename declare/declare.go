@@ -160,44 +160,59 @@ func (property) element() {}
 //
 // Otherwise, for a given type, values must be the following:
 //
-// String, BinaryString, ProtectedString, Content: A single string or []byte.
-// Extra values are ignored.
+//     String, BinaryString, ProtectedString, Content:
+//         A single string or []byte. Extra values are ignored.
 //
-// Bool: A single bool. Extra values are ignored.
+//     Bool:
+//         A single bool. Extra values are ignored.
 //
-// Int, Float, Double, BrickColor, Token: A single number. Extra values are
-// ignored.
+//     Int, Float, Double, BrickColor, Token:
+//         A single number. Extra values are ignored.
 //
-// UDim: 2 numbers, corresponding to the Scale and Offset fields.
+//     UDim:
+//         2 numbers, corresponding to the Scale and Offset fields.
 //
-// UDim2: 4 numbers, corresponding to the fields X.Scale, X.Offset, Y.Scale,
-// and Y.Offset.
+//     UDim2:
+//         1) 2 rbxfile.ValueUDims, corresponding to the X and Y fields.
+//         2) 4 numbers, corresponding to the X.Scale, X.Offset, Y.Scale, and
+//            Y.Offset fields.
 //
-// Ray: Either 2 rbxfile.ValueVector3s, or 6 numbers. The ValueVector3s
-// correspond to the Origin and Direction fields. Each number corresponds to
-// the X, Y, and Z fields of Origin, then Direction.
+//     Ray:
+//         1) 2 rbxfile.ValueVector3s, corresponding to the Origin and
+//            Direction fields.
+//         2) 6 numbers, corresponding to the X, Y, and Z fields of Origin,
+//            then of Direction.
 //
-// Faces: 6 bools, corresponding to the fields Right, Top, Back, Left, Bottom,
-// Front.
+//     Faces:
+//         6 bools, corresponding to the Right, Top, Back, Left, Bottom, and
+//         Front fields.
 //
-// Axes: 3 bools, corresponding to the fields X, Y, and Z.
+//     Axes:
+//         3 bools, corresponding to the X, Y, and Z fields.
 //
-// Color3: 3 numbers, corresponding to the fields R, G, and B.
+//     Color3:
+//         3 numbers, corresponding to the R, G, and B fields.
 //
-// Vector2, Vector2int16: 2 numbers, corresponding to the fields X and Y.
+//     Vector2, Vector2int16:
+//         2 numbers, corresponding to the X and Y fields.
 //
-// Vector3, Vector3int16: 3 numbers, corresponding to the fields X, Y, and Z.
+//     Vector3, Vector3int16:
+//         3 numbers, corresponding to the X, Y, and Z fields.
 //
-// CFrame: Either 10 or 12 values. When 10 values are given, the first value
-// must be a rbxfile.ValueVector3, which corresponds to the Position field.
-// The remaining 9 values must be numbers, which correspond to the components
-// of the Rotation field. When 12 values are given, all must be numbers, with
-// the first 3 corresponding to the X, Y, and Z fields of the Position field.
-// The remaining 9 numbers correspond to the Rotation field.
+//     CFrame:
+//         1) 10 values. The first value must be a rbxfile.ValueVector3, which
+//            corresponds to the Position field. The remaining 9 values must
+//            be numbers, which correspond to the components of the Rotation
+//            field.
+//         2) 12 numbers. The first 3 correspond to the X, Y, and Z fields of
+//            the Position field. The remaining 9 numbers correspond to the
+//            Rotation field.
 //
-// Reference: A single string, []byte or *rbxfile.Instance. Extra values are
-// ignored. When the value is a string or []byte, the reference is resolved by
-// looking for an instance whose "Ref" declaration is equal to the value.
+//     Reference:
+//         A single string, []byte or *rbxfile.Instance. Extra values are
+//         ignored. When the value is a string or []byte, the reference is
+//         resolved by looking for an instance whose "Ref" declaration is
+//         equal to the value.
 func Property(name string, typ Type, value ...interface{}) property {
 	return property{name: name, typ: typ, value: value}
 }
