@@ -134,7 +134,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 			var children []*rbxfile.Instance
 			children, instance.Properties = dec.getItems(instance, tag.Tags, classMemb)
 			for _, child := range children {
-				child.SetParent(instance)
+				instance.AddChild(child)
 			}
 
 			instances = append(instances, instance)
@@ -717,7 +717,7 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 	}
 	parent.Tags = append(parent.Tags, item)
 
-	for _, child := range instance.GetChildren() {
+	for _, child := range instance.Children {
 		enc.encodeInstance(child, item)
 	}
 }

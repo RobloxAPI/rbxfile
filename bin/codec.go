@@ -236,7 +236,7 @@ loop:
 					continue
 				}
 
-				if err = child.SetParent(parent); err != nil {
+				if err = parent.AddChild(child); err != nil {
 					goto chunkErr
 				}
 
@@ -464,7 +464,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 		refs[inst] = len(instList)
 		instList = append(instList, inst)
 
-		for _, child := range inst.GetChildren() {
+		for _, child := range inst.Children {
 			addInstance(child)
 		}
 	}
@@ -736,7 +736,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 		i := 0
 		var recInst func(inst *rbxfile.Instance)
 		recInst = func(inst *rbxfile.Instance) {
-			for _, child := range inst.GetChildren() {
+			for _, child := range inst.Children {
 				recInst(child)
 			}
 
