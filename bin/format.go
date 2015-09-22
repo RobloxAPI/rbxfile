@@ -1,9 +1,6 @@
 // Package bin implements a decoder and encoder for Roblox's binary file
 // format.
 //
-// This package registers the formats "rbxl" and "rbxm" to the rbxfile
-// package.
-//
 // The easiest way to decode and encode files is through the functions
 // DeserializePlace, SerializePlace, DeserializeModel, and SerializeModel.
 // These decode and encode directly between byte streams and Root structures
