@@ -16,16 +16,9 @@ value of a certain [type][type]. Every available type implements the
 [Value][value] interface, and is prefixed with "Value".
 
 Root structures can be decoded from and encoded to various formats, including
-Roblox's native file formats. This is done with the [Decode][dec] and
-[Encode][enc] functions. In order to use these functions, one or more formats
-must be registered. Usually, this occurs as a side-effect of importing a
-package that implements the format. For example, the [bin][bin] sub-package,
-which implements Roblox's binary format, registers the formats "rbxl" and
-"rbxm" when imported:
-
-```go
-import _ "github.com/robloxapi/rbxfile/bin"
-```
+Roblox's native file formats. The two sub-packages [bin][bin] and [xml][xml]
+provide formats for Roblox's binary and XML formats. Root structures can also
+be encoded and decoded with the [json][json] package.
 
 Besides decoding from a format, root structures can also be created manually.
 The best way to do this is through the [declare][declare] sub-package, which
@@ -35,7 +28,7 @@ provides an easy way to generate root structures.
 [inst]: https://godoc.org/github.com/robloxapi/rbxfile#Instance
 [type]: https://godoc.org/github.com/robloxapi/rbxfile#Type
 [value]: https://godoc.org/github.com/robloxapi/rbxfile#Value
-[dec]: https://godoc.org/github.com/robloxapi/rbxfile#Decode
-[enc]: https://godoc.org/github.com/robloxapi/rbxfile#Encode
 [bin]: https://godoc.org/github.com/robloxapi/rbxfile/bin
+[xml]: https://godoc.org/github.com/robloxapi/rbxfile/xml
+[json]: https://godoc.org/encoding/json
 [declare]: https://godoc.org/github.com/robloxapi/rbxfile/declare
