@@ -39,13 +39,14 @@ const (
 	TypeVector2int16 Type = 0xF
 	TypeCFrame       Type = 0x10
 	//TypeCFrameQuat Type = 0x11
-	TypeToken          Type = 0x12
-	TypeReference      Type = 0x13
-	TypeVector3int16   Type = 0x14
-	TypeNumberSequence Type = 0x15
-	TypeColorSequence  Type = 0x16
-	TypeNumberRange    Type = 0x17
-	TypeRect2D         Type = 0x18
+	TypeToken              Type = 0x12
+	TypeReference          Type = 0x13
+	TypeVector3int16       Type = 0x14
+	TypeNumberSequence     Type = 0x15
+	TypeColorSequence      Type = 0x16
+	TypeNumberRange        Type = 0x17
+	TypeRect2D             Type = 0x18
+	TypePhysicalProperties Type = 0x19
 )
 
 var typeStrings = map[Type]string{
@@ -66,13 +67,14 @@ var typeStrings = map[Type]string{
 	TypeVector2int16: "Vector2int16",
 	TypeCFrame:       "CFrame",
 	//TypeCFrameQuat: "CFrameQuat",
-	TypeToken:          "Token",
-	TypeReference:      "Reference",
-	TypeVector3int16:   "Vector3int16",
-	TypeNumberSequence: "NumberSequence",
-	TypeColorSequence:  "ColorSequence",
-	TypeNumberRange:    "NumberRange",
-	TypeRect2D:         "Rect2D",
+	TypeToken:              "Token",
+	TypeReference:          "Reference",
+	TypeVector3int16:       "Vector3int16",
+	TypeNumberSequence:     "NumberSequence",
+	TypeColorSequence:      "ColorSequence",
+	TypeNumberRange:        "NumberRange",
+	TypeRect2D:             "Rect2D",
+	TypePhysicalProperties: "PhysicalProperties",
 }
 
 // Value is a property value of a certain Type.
@@ -126,13 +128,14 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeVector2int16: newValueVector2int16,
 	TypeCFrame:       newValueCFrame,
 	//TypeCFrameQuat: newValueCFrameQuat,
-	TypeToken:          newValueToken,
-	TypeReference:      newValueReference,
-	TypeVector3int16:   newValueVector3int16,
-	TypeNumberSequence: newValueNumberSequence,
-	TypeColorSequence:  newValueColorSequence,
-	TypeNumberRange:    newValueNumberRange,
-	TypeRect2D:         newValueRect2D,
+	TypeToken:              newValueToken,
+	TypeReference:          newValueReference,
+	TypeVector3int16:       newValueVector3int16,
+	TypeNumberSequence:     newValueNumberSequence,
+	TypeColorSequence:      newValueColorSequence,
+	TypeNumberRange:        newValueNumberRange,
+	TypeRect2D:             newValueRect2D,
+	TypePhysicalProperties: newValuePhysicalProperties,
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1816,6 +1819,110 @@ func (v ValueRect2D) fieldGet(i int) (b []byte) {
 		return v.Max.Y.Bytes()
 	}
 	return
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValuePhysicalProperties struct {
+	CustomPhysics    byte
+	Density          float32
+	Friction         float32
+	Elasticity       float32
+	FrictionWeight   float32
+	ElasticityWeight float32
+}
+
+func newValuePhysicalProperties() Value {
+	return new(ValuePhysicalProperties)
+}
+
+func (ValuePhysicalProperties) Type() Type {
+	return TypePhysicalProperties
+}
+
+func (v *ValuePhysicalProperties) ArrayBytes(a []Value) (b []byte, err error) {
+	q := make([]byte, 20)
+	for i, pp := range a {
+		pp, ok := pp.(*ValuePhysicalProperties)
+		if !ok {
+			return nil, fmt.Errorf("element %d is of type `%s` where `%s` is expected", i, pp.Type().String(), v.Type().String())
+		}
+
+		b = append(b, v.CustomPhysics)
+		if v.CustomPhysics != 0 {
+			binary.LittleEndian.PutUint32(q[0*4:0*4+4], math.Float32bits(pp.Density))
+			binary.LittleEndian.PutUint32(q[1*4:1*4+4], math.Float32bits(pp.Friction))
+			binary.LittleEndian.PutUint32(q[2*4:2*4+4], math.Float32bits(pp.Elasticity))
+			binary.LittleEndian.PutUint32(q[3*4:3*4+4], math.Float32bits(pp.FrictionWeight))
+			binary.LittleEndian.PutUint32(q[4*4:4*4+4], math.Float32bits(pp.ElasticityWeight))
+			b = append(b, q...)
+		}
+	}
+	return b, nil
+}
+
+func (v ValuePhysicalProperties) FromArrayBytes(b []byte) (a []Value, err error) {
+	for i := 0; i < len(b); {
+		pp := new(ValuePhysicalProperties)
+		pp.CustomPhysics = b[i]
+		i++
+		if pp.CustomPhysics != 0 {
+			const size = 5 * 4
+			p := b[i:]
+			if len(p) < size {
+				return nil, fmt.Errorf("expected %d more bytes in array", size)
+			}
+			pp.Density = math.Float32frombits(binary.LittleEndian.Uint32(p[0*4 : 0*4+4]))
+			pp.Friction = math.Float32frombits(binary.LittleEndian.Uint32(p[1*4 : 1*4+4]))
+			pp.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(p[2*4 : 2*4+4]))
+			pp.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[3*4 : 3*4+4]))
+			pp.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[4*4 : 4*4+4]))
+			i += size
+		}
+		a = append(a, pp)
+	}
+	return a, err
+}
+
+func (v ValuePhysicalProperties) Bytes() []byte {
+	if v.CustomPhysics != 0 {
+		b := make([]byte, 21)
+		b[0] = v.CustomPhysics
+		q := b[1:]
+		binary.LittleEndian.PutUint32(q[0*4:0*4+4], math.Float32bits(v.Density))
+		binary.LittleEndian.PutUint32(q[1*4:1*4+4], math.Float32bits(v.Friction))
+		binary.LittleEndian.PutUint32(q[2*4:2*4+4], math.Float32bits(v.Elasticity))
+		binary.LittleEndian.PutUint32(q[3*4:3*4+4], math.Float32bits(v.FrictionWeight))
+		binary.LittleEndian.PutUint32(q[4*4:4*4+4], math.Float32bits(v.ElasticityWeight))
+		return b
+	}
+	return make([]byte, 1)
+}
+
+func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
+	if b[0] == 0 && len(b) != 21 {
+		return errors.New("array length must be 21")
+	} else if b[0] != 0 && len(b) != 1 {
+		return errors.New("array length must be 1")
+	}
+
+	v.CustomPhysics = b[0]
+	if v.CustomPhysics != 0 {
+		p := b[1:]
+		v.Density = math.Float32frombits(binary.LittleEndian.Uint32(p[0*4 : 0*4+4]))
+		v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(p[1*4 : 1*4+4]))
+		v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(p[2*4 : 2*4+4]))
+		v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[3*4 : 3*4+4]))
+		v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[4*4 : 4*4+4]))
+	} else {
+		v.Density = 0
+		v.Friction = 0
+		v.Elasticity = 0
+		v.FrictionWeight = 0
+		v.ElasticityWeight = 0
+	}
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
