@@ -46,6 +46,7 @@ const (
 	TypeColorSequence
 	TypeNumberRange
 	TypeRect2D
+	TypePhysicalProperties
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -60,32 +61,33 @@ func TypeFromString(s string) Type {
 }
 
 var typeStrings = map[Type]string{
-	TypeString:          "string",
-	TypeBinaryString:    "BinaryString",
-	TypeProtectedString: "ProtectedString",
-	TypeContent:         "Content",
-	TypeBool:            "bool",
-	TypeInt:             "int",
-	TypeFloat:           "float",
-	TypeDouble:          "double",
-	TypeUDim:            "UDim",
-	TypeUDim2:           "UDim2",
-	TypeRay:             "Ray",
-	TypeFaces:           "Faces",
-	TypeAxes:            "Axes",
-	TypeBrickColor:      "BrickColor",
-	TypeColor3:          "Color3",
-	TypeVector2:         "Vector2",
-	TypeVector3:         "Vector3",
-	TypeCFrame:          "CoordinateFrame",
-	TypeToken:           "token",
-	TypeReference:       "Object",
-	TypeVector3int16:    "Vector3int16",
-	TypeVector2int16:    "Vector2int16",
-	TypeNumberSequence:  "NumberSequence",
-	TypeColorSequence:   "ColorSequence",
-	TypeNumberRange:     "NumberRange",
-	TypeRect2D:          "Rect2D",
+	TypeString:             "string",
+	TypeBinaryString:       "BinaryString",
+	TypeProtectedString:    "ProtectedString",
+	TypeContent:            "Content",
+	TypeBool:               "bool",
+	TypeInt:                "int",
+	TypeFloat:              "float",
+	TypeDouble:             "double",
+	TypeUDim:               "UDim",
+	TypeUDim2:              "UDim2",
+	TypeRay:                "Ray",
+	TypeFaces:              "Faces",
+	TypeAxes:               "Axes",
+	TypeBrickColor:         "BrickColor",
+	TypeColor3:             "Color3",
+	TypeVector2:            "Vector2",
+	TypeVector3:            "Vector3",
+	TypeCFrame:             "CoordinateFrame",
+	TypeToken:              "token",
+	TypeReference:          "Object",
+	TypeVector3int16:       "Vector3int16",
+	TypeVector2int16:       "Vector2int16",
+	TypeNumberSequence:     "NumberSequence",
+	TypeColorSequence:      "ColorSequence",
+	TypeNumberRange:        "NumberRange",
+	TypeRect2D:             "Rect2D",
+	TypePhysicalProperties: "PhysicalProperties",
 }
 
 // Value holds a value of a particular Type.
@@ -114,32 +116,33 @@ func NewValue(typ Type) Value {
 type valueGenerator func() Value
 
 var valueGenerators = map[Type]valueGenerator{
-	TypeString:          newValueString,
-	TypeBinaryString:    newValueBinaryString,
-	TypeProtectedString: newValueProtectedString,
-	TypeContent:         newValueContent,
-	TypeBool:            newValueBool,
-	TypeInt:             newValueInt,
-	TypeFloat:           newValueFloat,
-	TypeDouble:          newValueDouble,
-	TypeUDim:            newValueUDim,
-	TypeUDim2:           newValueUDim2,
-	TypeRay:             newValueRay,
-	TypeFaces:           newValueFaces,
-	TypeAxes:            newValueAxes,
-	TypeBrickColor:      newValueBrickColor,
-	TypeColor3:          newValueColor3,
-	TypeVector2:         newValueVector2,
-	TypeVector3:         newValueVector3,
-	TypeCFrame:          newValueCFrame,
-	TypeToken:           newValueToken,
-	TypeReference:       newValueReference,
-	TypeVector3int16:    newValueVector3int16,
-	TypeVector2int16:    newValueVector2int16,
-	TypeNumberSequence:  newValueNumberSequence,
-	TypeColorSequence:   newValueColorSequence,
-	TypeNumberRange:     newValueNumberRange,
-	TypeRect2D:          newValueRect2D,
+	TypeString:             newValueString,
+	TypeBinaryString:       newValueBinaryString,
+	TypeProtectedString:    newValueProtectedString,
+	TypeContent:            newValueContent,
+	TypeBool:               newValueBool,
+	TypeInt:                newValueInt,
+	TypeFloat:              newValueFloat,
+	TypeDouble:             newValueDouble,
+	TypeUDim:               newValueUDim,
+	TypeUDim2:              newValueUDim2,
+	TypeRay:                newValueRay,
+	TypeFaces:              newValueFaces,
+	TypeAxes:               newValueAxes,
+	TypeBrickColor:         newValueBrickColor,
+	TypeColor3:             newValueColor3,
+	TypeVector2:            newValueVector2,
+	TypeVector3:            newValueVector3,
+	TypeCFrame:             newValueCFrame,
+	TypeToken:              newValueToken,
+	TypeReference:          newValueReference,
+	TypeVector3int16:       newValueVector3int16,
+	TypeVector2int16:       newValueVector2int16,
+	TypeNumberSequence:     newValueNumberSequence,
+	TypeColorSequence:      newValueColorSequence,
+	TypeNumberRange:        newValueNumberRange,
+	TypeRect2D:             newValueRect2D,
+	TypePhysicalProperties: newValuePhysicalProperties,
 }
 
 func joinstr(a ...string) string {
@@ -810,6 +813,40 @@ func (t ValueRect2D) String() string {
 	)
 }
 func (t ValueRect2D) Copy() Value {
+	return t
+}
+
+////////////////
+
+type ValuePhysicalProperties struct {
+	CustomPhysics    bool
+	Density          float32
+	Friction         float32
+	Elasticity       float32
+	FrictionWeight   float32
+	ElasticityWeight float32
+}
+
+func newValuePhysicalProperties() Value {
+	return *new(ValuePhysicalProperties)
+}
+
+func (ValuePhysicalProperties) Type() Type {
+	return TypePhysicalProperties
+}
+func (t ValuePhysicalProperties) String() string {
+	if t.CustomPhysics {
+		return joinstr(
+			strconv.FormatFloat(float64(t.Density), 'f', -1, 32), ", ",
+			strconv.FormatFloat(float64(t.Friction), 'f', -1, 32), ", ",
+			strconv.FormatFloat(float64(t.Elasticity), 'f', -1, 32), ", ",
+			strconv.FormatFloat(float64(t.FrictionWeight), 'f', -1, 32), ", ",
+			strconv.FormatFloat(float64(t.ElasticityWeight), 'f', -1, 32),
+		)
+	}
+	return "nil"
+}
+func (t ValuePhysicalProperties) Copy() Value {
 	return t
 }
 
