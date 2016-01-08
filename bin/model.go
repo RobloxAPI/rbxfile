@@ -51,8 +51,9 @@ func (err ErrInvalidType) Error() string {
 
 // ErrValue is an error that is produced by a Value of a certain Type.
 type ErrValue struct {
-	Type Type
-	Err  error
+	Type  Type
+	Bytes []byte
+	Err   error
 }
 
 func (err ErrValue) Error() string {
@@ -1045,7 +1046,9 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 
 	c.Properties, fr.err = newValue().FromArrayBytes(rawBytes)
 	if fr.err != nil {
-		fr.err = ErrValue{Type: c.DataType, Err: fr.err}
+		errBytes := make([]byte, len(rawBytes))
+		copy(errBytes, rawBytes)
+		fr.err = ErrValue{Type: c.DataType, Bytes: errBytes, Err: fr.err}
 		return fr.end()
 	}
 
