@@ -420,6 +420,16 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 				Y: float32(bvalue.Max.Y),
 			},
 		}
+
+	case *ValuePhysicalProperties:
+		value = rbxfile.ValuePhysicalProperties{
+			CustomPhysics:    bvalue.CustomPhysics != 0,
+			Density:          bvalue.Density,
+			Friction:         bvalue.Friction,
+			Elasticity:       bvalue.Elasticity,
+			FrictionWeight:   bvalue.FrictionWeight,
+			ElasticityWeight: bvalue.ElasticityWeight,
+		}
 	}
 
 	return
@@ -980,6 +990,21 @@ func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Va
 				Y: ValueFloat(value.Max.Y),
 			},
 		}
+
+	case rbxfile.ValuePhysicalProperties:
+		v := ValuePhysicalProperties{
+			Density:          value.Density,
+			Friction:         value.Friction,
+			Elasticity:       value.Elasticity,
+			FrictionWeight:   value.FrictionWeight,
+			ElasticityWeight: value.ElasticityWeight,
+		}
+		if value.CustomPhysics {
+			v.CustomPhysics = 1
+		} else {
+			v.CustomPhysics = 0
+		}
+		bvalue = &v
 	}
 
 	return
