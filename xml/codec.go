@@ -258,6 +258,8 @@ func (dec *rdecoder) getCanonType(valueType string) string {
 		return "NumberRange"
 	case "rect2d":
 		return "Rect2D"
+	case "physicalproperties":
+		return "PhysicalProperties"
 	}
 	return ""
 }
@@ -583,6 +585,21 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 			"Y": &v.Max.Y,
 		}.getFrom(max)
 
+		return v, true
+
+	case "PhysicalProperties":
+		v := *new(rbxfile.ValuePhysicalProperties)
+		var cp *Tag
+		components{
+			"CustomPhysics":    &cp,
+			"Density":          &v.Density,
+			"Friction":         &v.Friction,
+			"Elasticity":       &v.Elasticity,
+			"FrictionWeight":   &v.FrictionWeight,
+			"ElasticityWeight": &v.ElasticityWeight,
+		}.getFrom(tag)
+		vb, _ := dec.getValue(cp, "bool", enum)
+		v.CustomPhysics = bool(vb.(rbxfile.ValueBool))
 		return v, true
 	}
 
@@ -1132,6 +1149,30 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 					},
 				},
 			},
+		}
+
+	case rbxfile.ValuePhysicalProperties:
+		if value.CustomPhysics {
+			return &Tag{
+				StartName: "PhysicalProperties",
+				Attr:      attr,
+				Tags: []*Tag{
+					&Tag{StartName: "CustomPhysics", Text: "true"},
+					&Tag{StartName: "Density", Text: encodeFloat(value.Density)},
+					&Tag{StartName: "Friction", Text: encodeFloat(value.Friction)},
+					&Tag{StartName: "Elasticity", Text: encodeFloat(value.Elasticity)},
+					&Tag{StartName: "FrictionWeight", Text: encodeFloat(value.FrictionWeight)},
+					&Tag{StartName: "ElasticityWeight", Text: encodeFloat(value.ElasticityWeight)},
+				},
+			}
+		} else {
+			return &Tag{
+				StartName: "PhysicalProperties",
+				Attr:      attr,
+				Tags: []*Tag{
+					&Tag{StartName: "CustomPhysics", Text: "false"},
+				},
+			}
 		}
 	}
 
