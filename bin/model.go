@@ -56,7 +56,7 @@ type ErrValue struct {
 }
 
 func (err ErrValue) Error() string {
-	return fmt.Sprintf("type %s (0x%X): %s", err.Type.String(), err.Type, err.Err.Error())
+	return fmt.Sprintf("type %s (0x%X): %s", err.Type.String(), byte(err.Type), err.Err.Error())
 }
 
 var (
