@@ -25,7 +25,6 @@ var (
 	ErrInvalidSig       = errors.New("invalid signature")
 	ErrCorruptHeader    = errors.New("the file header is corrupted")
 	ErrChunkParentArray = errors.New("length of parent array does not match children array")
-	ErrInvalidType      = errors.New("invalid data type")
 )
 
 type ErrUnrecognizedVersion uint16
@@ -42,6 +41,12 @@ type ErrChunk struct {
 
 func (err ErrChunk) Error() string {
 	return fmt.Sprintf("chunk %s: %s", err.Sig, err.Err.Error())
+}
+
+type ErrInvalidType byte
+
+func (err ErrInvalidType) Error() string {
+	return fmt.Sprintf("invalid data type 0x%X", byte(err))
 }
 
 // ErrValue is an error that is produced by a Value of a certain Type.
@@ -1034,7 +1039,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 
 	newValue, ok := valueGenerators[c.DataType]
 	if !ok {
-		fr.err = ErrInvalidType
+		fr.err = ErrInvalidType(c.DataType)
 		return fr.end()
 	}
 
@@ -1064,7 +1069,7 @@ func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 
 	newValue, ok := valueGenerators[c.DataType]
 	if !ok {
-		fw.err = ErrInvalidType
+		fw.err = ErrInvalidType(c.DataType)
 		return fw.end()
 	}
 
