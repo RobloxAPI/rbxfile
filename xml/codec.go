@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/robloxapi/rbxdump"
+	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
 	"github.com/robloxapi/rbxfile/xml/internal/strconvr"
 	"io"
@@ -28,7 +28,7 @@ type RobloxCodec struct {
 	// ExcludeInvalidAPI determines whether invalid items are excluded when
 	// encoding or decoding. An invalid item is an instance or property that
 	// does not exist or has incorrect information, according to a provided
-	// rbxdump.API.
+	// rbxapi.API.
 	//
 	// If true, then warnings will be emitted for invalid items, and the items
 	// will not be included in the output. If false, then warnings are still
@@ -48,7 +48,7 @@ type propRef struct {
 	ref  string
 }
 
-func (c RobloxCodec) Decode(document *Document, api *rbxdump.API) (root *rbxfile.Root, err error) {
+func (c RobloxCodec) Decode(document *Document, api *rbxapi.API) (root *rbxfile.Root, err error) {
 	if document == nil {
 		return nil, fmt.Errorf("document is nil")
 	}
@@ -67,7 +67,7 @@ func (c RobloxCodec) Decode(document *Document, api *rbxdump.API) (root *rbxfile
 
 type rdecoder struct {
 	document   *Document
-	api        *rbxdump.API
+	api        *rbxapi.API
 	root       *rbxfile.Root
 	err        error
 	instLookup map[string]*rbxfile.Instance
@@ -92,7 +92,7 @@ func (dec *rdecoder) decode() error {
 	return nil
 }
 
-func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMembers map[string]*rbxdump.Property) (instances []*rbxfile.Instance, properties map[string]rbxfile.Value) {
+func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMembers map[string]*rbxapi.Property) (instances []*rbxfile.Instance, properties map[string]rbxfile.Value) {
 	properties = make(map[string]rbxfile.Value)
 	hasProps := false
 
@@ -105,7 +105,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 				continue
 			}
 
-			var classMemb map[string]*rbxdump.Property
+			var classMemb map[string]*rbxapi.Property
 			if dec.api != nil {
 				class := dec.api.Classes[className]
 				if class == nil {
@@ -115,8 +115,8 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 					}
 				} else {
 					for _, member := range class.Members {
-						if member, ok := member.(*rbxdump.Property); ok {
-							classMemb[member.Name] = member
+						if member, ok := member.(*rbxapi.Property); ok {
+							classMemb[member.MemberName] = member
 						}
 					}
 				}
@@ -157,14 +157,14 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 	return instances, properties
 }
 
-func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMembers map[string]*rbxdump.Property) (name string, value rbxfile.Value, ok bool) {
+func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMembers map[string]*rbxapi.Property) (name string, value rbxfile.Value, ok bool) {
 	name, ok = tag.AttrValue("name")
 	if !ok {
 		return "", nil, false
 	}
 
 	var valueType string
-	var enum *rbxdump.Enum
+	var enum *rbxapi.Enum
 	if dec.api != nil && classMembers != nil {
 		// Determine property type from API.
 		propAPI, ok := classMembers[name]
@@ -268,7 +268,7 @@ func (dec *rdecoder) getCanonType(valueType string) string {
 // the tag is interpreted. valueType must be an existing type as it appears in
 // the API dump. If guessing the type, it should be converted to one of these
 // first.
-func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (value rbxfile.Value, ok bool) {
+func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxapi.Enum) (value rbxfile.Value, ok bool) {
 	switch valueType {
 	case "Axes":
 		var bits int32
@@ -452,14 +452,14 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxdump.Enum) (v
 		return rbxfile.ValueString(getContent(tag)), true
 
 	case "token":
-		v, err := strconv.ParseUint(getContent(tag), 10, 32)
+		v, err := strconv.ParseInt(getContent(tag), 10, 32)
 		if err != nil {
 			return nil, false
 		}
 		if enum != nil {
 			// Verify that value is a valid enum item
 			for _, item := range enum.Items {
-				if uint32(v) == item.Value {
+				if int(v) == item.Value {
 					return rbxfile.ValueToken(v), true
 				}
 			}
@@ -672,7 +672,7 @@ func getContent(tag *Tag) string {
 
 type rencoder struct {
 	root      *rbxfile.Root
-	api       *rbxdump.API
+	api       *rbxapi.API
 	document  *Document
 	refs      map[string]*rbxfile.Instance
 	err       error
@@ -681,7 +681,7 @@ type rencoder struct {
 	noinvalid bool
 }
 
-func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (document *Document, err error) {
+func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (document *Document, err error) {
 	enc := &rencoder{
 		root:      root,
 		api:       api,
@@ -740,14 +740,14 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 }
 
 func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []*Tag) {
-	var apiMembers map[string]*rbxdump.Property
+	var apiMembers map[string]*rbxapi.Property
 	if enc.api != nil {
 		apiClass, ok := enc.api.Classes[instance.ClassName]
 		if ok {
-			apiMembers = make(map[string]*rbxdump.Property, len(apiClass.Members))
+			apiMembers = make(map[string]*rbxapi.Property, len(apiClass.Members))
 			for _, member := range apiClass.Members {
-				if member, ok := member.(*rbxdump.Property); ok {
-					apiMembers[member.Name] = member
+				if member, ok := member.(*rbxapi.Property); ok {
+					apiMembers[member.MemberName] = member
 				}
 			}
 		}
@@ -777,7 +777,7 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 					}
 				} else if istoken && enum != nil {
 					for _, item := range enum.Items {
-						if uint32(token) == item.Value {
+						if int(token) == item.Value {
 							goto finishToken
 						}
 					}

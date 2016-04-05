@@ -3,7 +3,7 @@ package bin
 import (
 	"bytes"
 	"errors"
-	"github.com/robloxapi/rbxdump"
+	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
 	"testing"
 )
@@ -21,7 +21,7 @@ var goodroot = &rbxfile.Root{
 
 type testDecoder struct{}
 
-func (testDecoder) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile.Root, err error) {
+func (testDecoder) Decode(model *FormatModel, api *rbxapi.API) (root *rbxfile.Root, err error) {
 	if model.TypeCount == 0 {
 		return nil, errors.New("decode fail")
 	}
@@ -37,7 +37,7 @@ func (testDecoder) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile.R
 
 type testEncoder struct{}
 
-func (testEncoder) Encode(root *rbxfile.Root, api *rbxdump.API) (model *FormatModel, err error) {
+func (testEncoder) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatModel, err error) {
 	if len(root.Instances) == 0 {
 		return nil, errors.New("encode fail")
 	}

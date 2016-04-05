@@ -3,7 +3,7 @@ package bin
 import (
 	"errors"
 	"fmt"
-	"github.com/robloxapi/rbxdump"
+	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
 	"sort"
 )
@@ -24,7 +24,7 @@ type RobloxCodec struct {
 	// ExcludeInvalidAPI determines whether invalid items are excluded when
 	// encoding or decoding. An invalid item is an instance or property that
 	// does not exist or has incorrect information, according to a provided
-	// rbxdump.API.
+	// rbxapi.API.
 	//
 	// If true, then warnings will be emitted for invalid items, and the items
 	// will not be included in the output. If false, then warnings are still
@@ -40,7 +40,7 @@ type RobloxCodec struct {
 
 //go:generate rbxpipe -i=cframegen.lua -o=cframe.go -place=cframe.rbxl -filter=o
 
-func (c RobloxCodec) Decode(model *FormatModel, api *rbxdump.API) (root *rbxfile.Root, err error) {
+func (c RobloxCodec) Decode(model *FormatModel, api *rbxapi.API) (root *rbxfile.Root, err error) {
 	if model == nil {
 		return nil, fmt.Errorf("FormatModel is nil")
 	}
@@ -94,8 +94,8 @@ loop:
 				if _, ok := propTypes[chunk.ClassName]; !ok {
 					props := map[string]string{}
 					for _, member := range class.Members {
-						if member, ok := member.(*rbxdump.Property); ok {
-							props[member.Name] = member.ValueType
+						if member, ok := member.(*rbxapi.Property); ok {
+							props[member.MemberName] = member.ValueType
 
 							// Check if property type is an enum.
 							enum, ok := api.Enums[member.ValueType]
@@ -108,7 +108,7 @@ loop:
 							if !ok {
 								items = enumItems{
 									first:  enum.Items[0].Value,
-									values: make(map[uint32]bool, len(enum.Items)),
+									values: make(map[int]bool, len(enum.Items)),
 								}
 								for _, item := range enum.Items {
 									items.values[item.Value] = true
@@ -188,7 +188,7 @@ loop:
 				if api != nil && bvalue.Type() == TypeToken {
 					if items, ok := enumCache[propType]; ok {
 						token := bvalue.(*ValueToken)
-						if !items.values[uint32(*token)] {
+						if !items.values[int(*token)] {
 							// If it isn't valid, then use the first value of
 							// the enum instead.
 							v := items.first
@@ -435,7 +435,7 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 	return
 }
 
-func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *FormatModel, err error) {
+func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatModel, err error) {
 	if root == nil {
 		return nil, errors.New("Root is nil")
 	}
@@ -541,19 +541,19 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 
 		propChunkMap := map[string]*ChunkProperty{}
 
-		var propAPI map[string]*rbxdump.Property
+		var propAPI map[string]*rbxapi.Property
 		if api != nil {
-			propAPI = make(map[string]*rbxdump.Property)
+			propAPI = make(map[string]*rbxapi.Property)
 
 			// Should exist due to previous checks.
 			class := api.Classes[instChunk.ClassName]
 
 			for _, member := range class.Members {
-				member, ok := member.(*rbxdump.Property)
+				member, ok := member.(*rbxapi.Property)
 				if !ok {
 					continue
 				}
-				propAPI[member.Name] = member
+				propAPI[member.MemberName] = member
 			}
 		}
 
@@ -600,14 +600,14 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 							items = enumItems{
 								name:   enum.Name,
 								first:  enum.Items[0].Value,
-								values: make(map[uint32]bool, len(enum.Items)),
+								values: make(map[int]bool, len(enum.Items)),
 							}
 							for _, item := range enum.Items {
 								items.values[item.Value] = true
 							}
 							enumCache[enum.Name] = items
 						}
-						propEnums[member.Name] = items
+						propEnums[member.MemberName] = items
 					}
 
 					bval := encodeValue(refs, rbxfile.NewValue(typ))
@@ -703,7 +703,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxdump.API) (model *Format
 				if api != nil && bvalue.Type() == TypeToken {
 					if items, ok := propEnums[name]; ok {
 						token := bvalue.(*ValueToken)
-						if !items.values[uint32(*token)] {
+						if !items.values[int(*token)] {
 							addWarn("invalid value `%d` for enum %s in instance #%d (%s.%s)", token, items.name, ref, inst.ClassName, name)
 							if c.ExcludeInvalidAPI {
 								// If it isn't valid, then use the first value of
@@ -821,8 +821,8 @@ func (c sortPropChunks) Swap(i, j int) {
 
 type enumItems struct {
 	name   string
-	first  uint32
-	values map[uint32]bool
+	first  int
+	values map[int]bool
 }
 
 func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Value) {

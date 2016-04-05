@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"github.com/robloxapi/rbxdump"
+	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
 	"io"
 	"regexp"
@@ -397,8 +397,8 @@ func TestInstance_GetSet(t *testing.T) {
 type format struct {
 	name   string
 	magic  string
-	decode func(io.Reader, *rbxdump.API) (*rbxfile.Root, error)
-	encode func(io.Writer, *rbxdump.API, *rbxfile.Root) error
+	decode func(io.Reader, *rbxapi.API) (*rbxfile.Root, error)
+	encode func(io.Writer, *rbxapi.API, *rbxfile.Root) error
 }
 
 func (f format) Name() string {
@@ -409,11 +409,11 @@ func (f format) Magic() string {
 	return f.magic
 }
 
-func (f format) Decode(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
+func (f format) Decode(r io.Reader, api *rbxapi.API) (root *rbxfile.Root, err error) {
 	return f.decode(r, api)
 }
 
-func (f format) Encode(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
+func (f format) Encode(w io.Writer, api *rbxapi.API, root *rbxfile.Root) (err error) {
 	return f.encode(w, api, root)
 }
 
@@ -423,10 +423,10 @@ func TestFormat(t *testing.T) {
 	rbxfile.RegisterFormat(format{
 		name:  "test",
 		magic: "test????signature",
-		decode: func(r io.Reader, api *rbxdump.API) (root *rbxfile.Root, err error) {
+		decode: func(r io.Reader, api *rbxapi.API) (root *rbxfile.Root, err error) {
 			return nil, errors.New("decode success")
 		},
-		encode: func(w io.Writer, api *rbxdump.API, root *rbxfile.Root) (err error) {
+		encode: func(w io.Writer, api *rbxapi.API, root *rbxfile.Root) (err error) {
 			return errors.New("encode success")
 		},
 	})
