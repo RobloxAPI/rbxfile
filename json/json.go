@@ -1,31 +1,34 @@
-package rbxfile
+// The json package is used to encode and decode rbxfile objects to the JSON
+// format.
+package json
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/robloxapi/rbxfile"
 	"io/ioutil"
 )
 
-func (root *Root) MarshalJSON() (b []byte, err error) {
-	return json.Marshal(rootToJSONInterface(root))
+func Encode(root *rbxfile.Root) (b []byte, err error) {
+	return json.Marshal(RootToJSONInterface(root))
 }
 
-func (root *Root) UnmarshalJSON(b []byte) (err error) {
+func Decode(b []byte) (root *rbxfile.Root, err error) {
 	var v interface{}
 	err = json.Unmarshal(b, &v)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	r, ok := rootFromJSONInterface(v)
+	root, ok := RootFromJSONInterface(v)
 	if !ok {
-		return errors.New("invalid JSON Root object")
+		return nil, errors.New("invalid JSON Root object")
 	}
-	*root = *r
-	return nil
+	return root, nil
 }
 
+// The current version of the schema.
 const jsonVersion = 0
 
 func indexJSON(v, i, p interface{}) bool {
@@ -95,51 +98,57 @@ func indexJSON(v, i, p interface{}) bool {
 	return true
 }
 
-func rootToJSONInterface(root *Root) interface{} {
-	refs := map[string]*Instance{}
+// RootToJSONInterface converts a rbxfile.Root to a generic interface that can
+// be read by json.Marshal.
+func RootToJSONInterface(root *rbxfile.Root) interface{} {
+	refs := map[string]*rbxfile.Instance{}
 	iroot := make(map[string]interface{}, 2)
 	iroot["rbxfile_version"] = float64(jsonVersion)
 	instances := make([]interface{}, len(root.Instances))
 	for i, inst := range root.Instances {
-		instances[i] = instanceToJSONInterface(inst, refs)
+		instances[i] = InstanceToJSONInterface(inst, refs)
 	}
 	iroot["instances"] = instances
 	return iroot
 }
 
-type propRef struct {
-	inst *Instance
-	prop string
-	ref  string
+// ProfRef specifies the property of an instance that is a reference, which is
+// to be resolved into its referent at a later time.
+type PropRef struct {
+	Instance  *rbxfile.Instance
+	Property  string
+	Reference string
 }
 
-func rootFromJSONInterface(iroot interface{}) (root *Root, ok bool) {
+// RootToJSONInterface converts a generic interface produced json.Unmarshal to
+// a rbxfile.Root.
+func RootFromJSONInterface(iroot interface{}) (root *rbxfile.Root, ok bool) {
 	var version float64
 	if !indexJSON(iroot, "rbxfile_version", &version) {
 		return nil, false
 	}
 
-	root = new(Root)
+	root = new(rbxfile.Root)
 
 	switch int(version) {
 	case 0:
-		refs := map[string]*Instance{}
-		propRefs := []propRef{}
-		root.Instances = make([]*Instance, 0, 8)
+		refs := map[string]*rbxfile.Instance{}
+		propRefs := []PropRef{}
+		root.Instances = make([]*rbxfile.Instance, 0, 8)
 		var instances []interface{}
 		if !indexJSON(iroot, "instances", &instances) {
 			return nil, false
 		}
 		for _, iinst := range instances {
-			inst, ok := instanceFromJSONInterface(iinst, refs, &propRefs)
+			inst, ok := InstanceFromJSONInterface(iinst, refs, &propRefs)
 			if !ok {
 				continue
 			}
 			root.Instances = append(root.Instances, inst)
 		}
-		for _, propRef := range propRefs {
-			propRef.inst.Properties[propRef.prop] = ValueReference{
-				Instance: refs[propRef.ref],
+		for _, PropRef := range propRefs {
+			PropRef.Instance.Properties[PropRef.Property] = rbxfile.ValueReference{
+				Instance: refs[PropRef.Reference],
 			}
 		}
 	default:
@@ -150,29 +159,43 @@ func rootFromJSONInterface(iroot interface{}) (root *Root, ok bool) {
 
 ////////////////////////////////////////////////////////////////
 
-func instanceToJSONInterface(inst *Instance, refs map[string]*Instance) interface{} {
+// InstanceToJSONInterface converts a rbxfile.Instance to a generic interface
+// that can be read by json.Marshal.
+//
+// The refs argument is used by rbxfile.GetReference to keep track of instance
+// references.
+func InstanceToJSONInterface(inst *rbxfile.Instance, refs map[string]*rbxfile.Instance) interface{} {
 	iinst := make(map[string]interface{}, 5)
 	iinst["class_name"] = inst.ClassName
-	iinst["reference"] = GetReference(inst, refs)
+	iinst["reference"] = rbxfile.GetReference(inst, refs)
 	iinst["is_service"] = inst.IsService
 	properties := make(map[string]interface{}, len(inst.Properties))
 	for name, prop := range inst.Properties {
 		iprop := make(map[string]interface{}, 2)
 		iprop["type"] = prop.Type().String()
-		iprop["value"] = valueToJSONInterface(prop, refs)
+		iprop["value"] = ValueToJSONInterface(prop, refs)
 		properties[name] = iprop
 	}
 	iinst["properties"] = properties
 	children := make([]interface{}, len(inst.Children))
 	for i, child := range inst.Children {
-		children[i] = instanceToJSONInterface(child, refs)
+		children[i] = InstanceToJSONInterface(child, refs)
 	}
 	iinst["children"] = children
 	return iinst
 }
 
-func instanceFromJSONInterface(iinst interface{}, refs map[string]*Instance, propRefs *[]propRef) (inst *Instance, ok bool) {
-	inst = new(Instance)
+// InstanceFromJSONInterface converts a generic interface produced by
+// json.Unmarshal into a rbxfile.Instance.
+//
+// The refs argument is used to keep track of instance references.
+//
+// The propRefs argument is populated with a list of PropRefs, specifying
+// properties of descendant instances that are references. This should be used
+// in combination with refs to set each property after all instance have been
+// processed.
+func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Instance, propRefs *[]PropRef) (inst *rbxfile.Instance, ok bool) {
+	inst = new(rbxfile.Instance)
 
 	if !indexJSON(iinst, "class_name", &inst.ClassName) {
 		return nil, false
@@ -203,16 +226,16 @@ func instanceFromJSONInterface(iinst interface{}, refs map[string]*Instance, pro
 			continue
 		}
 
-		t := TypeFromString(typ)
-		value := valueFromJSONInterface(t, ivalue)
+		t := rbxfile.TypeFromString(typ)
+		value := ValueFromJSONInterface(t, ivalue)
 		if value == nil {
 			continue
 		}
-		if t == TypeReference {
-			*propRefs = append(*propRefs, propRef{
-				inst: inst,
-				prop: name,
-				ref:  string(value.(ValueString)),
+		if t == rbxfile.TypeReference {
+			*propRefs = append(*propRefs, PropRef{
+				Instance:  inst,
+				Property:  name,
+				Reference: string(value.(rbxfile.ValueString)),
 			})
 		} else {
 			inst.Properties[name] = value
@@ -224,60 +247,64 @@ func instanceFromJSONInterface(iinst interface{}, refs map[string]*Instance, pro
 		return inst, true
 	}
 
-	inst.Children = make([]*Instance, 0, len(children))
+	inst.Children = make([]*rbxfile.Instance, 0, len(children))
 	for _, ichild := range children {
-		child, ok := instanceFromJSONInterface(ichild, refs, propRefs)
+		child, ok := InstanceFromJSONInterface(ichild, refs, propRefs)
 		if !ok {
 			continue
 		}
-		inst.Children = append(inst.Children, child)
-		child.parent = inst
+		child.SetParent(inst)
 	}
 	return inst, true
 }
 
 ////////////////////////////////////////////////////////////////
 
-func valueToJSONInterface(value Value, refs map[string]*Instance) interface{} {
+// ValueToJSONInterface converts a value to a generic interface that can be
+// read by json.Marshal.
+//
+// The refs argument is used when converting a rbxfile.ValueReference to a
+// string.
+func ValueToJSONInterface(value rbxfile.Value, refs map[string]*rbxfile.Instance) interface{} {
 	switch value := value.(type) {
-	case ValueString:
+	case rbxfile.ValueString:
 		return string(value)
-	case ValueBinaryString:
+	case rbxfile.ValueBinaryString:
 		var buf bytes.Buffer
 		bw := base64.NewEncoder(base64.StdEncoding, &buf)
 		bw.Write([]byte(value))
 		return buf.String()
-	case ValueProtectedString:
+	case rbxfile.ValueProtectedString:
 		return string(value)
-	case ValueContent:
+	case rbxfile.ValueContent:
 		if len(value) == 0 {
 			return nil
 		}
 		return string(value)
-	case ValueBool:
+	case rbxfile.ValueBool:
 		return bool(value)
-	case ValueInt:
+	case rbxfile.ValueInt:
 		return float64(value)
-	case ValueFloat:
+	case rbxfile.ValueFloat:
 		return float64(value)
-	case ValueDouble:
+	case rbxfile.ValueDouble:
 		return float64(value)
-	case ValueUDim:
+	case rbxfile.ValueUDim:
 		return map[string]interface{}{
 			"scale":  float64(value.Scale),
 			"offset": float64(value.Offset),
 		}
-	case ValueUDim2:
+	case rbxfile.ValueUDim2:
 		return map[string]interface{}{
-			"x": valueToJSONInterface(value.X, refs),
-			"y": valueToJSONInterface(value.Y, refs),
+			"x": ValueToJSONInterface(value.X, refs),
+			"y": ValueToJSONInterface(value.Y, refs),
 		}
-	case ValueRay:
+	case rbxfile.ValueRay:
 		return map[string]interface{}{
-			"origin":    valueToJSONInterface(value.Origin, refs),
-			"direction": valueToJSONInterface(value.Direction, refs),
+			"origin":    ValueToJSONInterface(value.Origin, refs),
+			"direction": ValueToJSONInterface(value.Direction, refs),
 		}
-	case ValueFaces:
+	case rbxfile.ValueFaces:
 		return map[string]interface{}{
 			"right":  value.Right,
 			"top":    value.Top,
@@ -286,56 +313,56 @@ func valueToJSONInterface(value Value, refs map[string]*Instance) interface{} {
 			"bottom": value.Bottom,
 			"front":  value.Front,
 		}
-	case ValueAxes:
+	case rbxfile.ValueAxes:
 		return map[string]interface{}{
 			"x": value.X,
 			"y": value.Y,
 			"z": value.Z,
 		}
-	case ValueBrickColor:
+	case rbxfile.ValueBrickColor:
 		return float64(value)
-	case ValueColor3:
+	case rbxfile.ValueColor3:
 		return map[string]interface{}{
 			"r": float64(value.R),
 			"g": float64(value.G),
 			"b": float64(value.B),
 		}
-	case ValueVector2:
+	case rbxfile.ValueVector2:
 		return map[string]interface{}{
 			"x": float64(value.X),
 			"y": float64(value.Y),
 		}
-	case ValueVector3:
+	case rbxfile.ValueVector3:
 		return map[string]interface{}{
 			"x": float64(value.X),
 			"y": float64(value.Y),
 			"z": float64(value.Z),
 		}
-	case ValueCFrame:
+	case rbxfile.ValueCFrame:
 		ivalue := make(map[string]interface{}, 2)
-		ivalue["position"] = valueToJSONInterface(value.Position, refs)
+		ivalue["position"] = ValueToJSONInterface(value.Position, refs)
 		rotation := make([]interface{}, len(value.Rotation))
 		for i, r := range value.Rotation {
 			rotation[i] = float64(r)
 		}
 		ivalue["rotation"] = rotation
 		return ivalue
-	case ValueToken:
+	case rbxfile.ValueToken:
 		return float64(value)
-	case ValueReference:
-		return GetReference(value.Instance, refs)
-	case ValueVector3int16:
+	case rbxfile.ValueReference:
+		return rbxfile.GetReference(value.Instance, refs)
+	case rbxfile.ValueVector3int16:
 		return map[string]interface{}{
 			"x": float64(value.X),
 			"y": float64(value.Y),
 			"z": float64(value.Z),
 		}
-	case ValueVector2int16:
+	case rbxfile.ValueVector2int16:
 		return map[string]interface{}{
 			"x": float64(value.X),
 			"y": float64(value.Y),
 		}
-	case ValueNumberSequence:
+	case rbxfile.ValueNumberSequence:
 		ivalue := make([]interface{}, len(value))
 		for i, nsk := range value {
 			ivalue[i] = map[string]interface{}{
@@ -345,39 +372,45 @@ func valueToJSONInterface(value Value, refs map[string]*Instance) interface{} {
 			}
 		}
 		return ivalue
-	case ValueColorSequence:
+	case rbxfile.ValueColorSequence:
 		ivalue := make([]interface{}, len(value))
 		for i, csk := range value {
 			ivalue[i] = map[string]interface{}{
 				"time":     float64(csk.Time),
-				"value":    valueToJSONInterface(csk.Value, refs),
+				"value":    ValueToJSONInterface(csk.Value, refs),
 				"envelope": float64(csk.Envelope),
 			}
 		}
 		return ivalue
-	case ValueNumberRange:
+	case rbxfile.ValueNumberRange:
 		return map[string]interface{}{
 			"min": float64(value.Min),
 			"max": float64(value.Max),
 		}
-	case ValueRect2D:
+	case rbxfile.ValueRect2D:
 		return map[string]interface{}{
-			"min": valueToJSONInterface(value.Min, refs),
-			"max": valueToJSONInterface(value.Max, refs),
+			"min": ValueToJSONInterface(value.Min, refs),
+			"max": ValueToJSONInterface(value.Max, refs),
 		}
 	}
 	return nil
 }
 
-func valueFromJSONInterface(typ Type, ivalue interface{}) (value Value) {
+// ValueFromJSONInterface converts a generic interface produced by
+// json.Unmarshal to a rbxfile.Value.
+//
+// When the value is rbxfile.TypeReference, the result is a
+// rbxfile.ValueString containing the raw reference string, expected to be
+// dereferenced at a later time.
+func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile.Value) {
 	switch typ {
-	case TypeString:
+	case rbxfile.TypeString:
 		v, ok := ivalue.(string)
 		if !ok {
 			return nil
 		}
-		return ValueString(v)
-	case TypeBinaryString:
+		return rbxfile.ValueString(v)
+	case rbxfile.TypeBinaryString:
 		v, ok := ivalue.(string)
 		if !ok {
 			return nil
@@ -385,81 +418,81 @@ func valueFromJSONInterface(typ Type, ivalue interface{}) (value Value) {
 		buf := bytes.NewReader([]byte(v))
 		b, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, buf))
 		if err != nil {
-			return ValueBinaryString(v)
+			return rbxfile.ValueBinaryString(v)
 		}
-		return ValueBinaryString(b)
-	case TypeProtectedString:
+		return rbxfile.ValueBinaryString(b)
+	case rbxfile.TypeProtectedString:
 		v, ok := ivalue.(string)
 		if !ok {
 			return nil
 		}
-		return ValueProtectedString(v)
-	case TypeContent:
+		return rbxfile.ValueProtectedString(v)
+	case rbxfile.TypeContent:
 		if ivalue == nil {
-			return ValueContent(nil)
+			return rbxfile.ValueContent(nil)
 		}
 		v, ok := ivalue.(string)
 		if !ok {
 			return nil
 		}
-		return ValueContent(v)
-	case TypeBool:
+		return rbxfile.ValueContent(v)
+	case rbxfile.TypeBool:
 		v, ok := ivalue.(bool)
 		if !ok {
 			return nil
 		}
-		return ValueBool(v)
-	case TypeInt:
+		return rbxfile.ValueBool(v)
+	case rbxfile.TypeInt:
 		v, ok := ivalue.(float64)
 		if !ok {
 			return nil
 		}
-		return ValueInt(int32(v))
-	case TypeFloat:
+		return rbxfile.ValueInt(int32(v))
+	case rbxfile.TypeFloat:
 		v, ok := ivalue.(float64)
 		if !ok {
 			return nil
 		}
-		return ValueInt(float32(v))
-	case TypeDouble:
+		return rbxfile.ValueInt(float32(v))
+	case rbxfile.TypeDouble:
 		v, ok := ivalue.(float64)
 		if !ok {
 			return nil
 		}
-		return ValueInt(v)
-	case TypeUDim:
+		return rbxfile.ValueInt(v)
+	case rbxfile.TypeUDim:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueUDim{
+		return rbxfile.ValueUDim{
 			Scale:  v["scale"].(float32),
 			Offset: v["offset"].(int16),
 		}
-	case TypeUDim2:
+	case rbxfile.TypeUDim2:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueUDim2{
-			X: valueFromJSONInterface(TypeUDim, v["x"]).(ValueUDim),
-			Y: valueFromJSONInterface(TypeUDim, v["y"]).(ValueUDim),
+		return rbxfile.ValueUDim2{
+			X: ValueFromJSONInterface(rbxfile.TypeUDim, v["x"]).(rbxfile.ValueUDim),
+			Y: ValueFromJSONInterface(rbxfile.TypeUDim, v["y"]).(rbxfile.ValueUDim),
 		}
-	case TypeRay:
+	case rbxfile.TypeRay:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueRay{
-			Origin:    valueFromJSONInterface(TypeVector3, v["origin"]).(ValueVector3),
-			Direction: valueFromJSONInterface(TypeVector3, v["direction"]).(ValueVector3),
+		return rbxfile.ValueRay{
+			Origin:    ValueFromJSONInterface(rbxfile.TypeVector3, v["origin"]).(rbxfile.ValueVector3),
+			Direction: ValueFromJSONInterface(rbxfile.TypeVector3, v["direction"]).(rbxfile.ValueVector3),
 		}
-	case TypeFaces:
+	case rbxfile.TypeFaces:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueFaces{
+		return rbxfile.ValueFaces{
 			Right:  v["right"].(bool),
 			Top:    v["top"].(bool),
 			Back:   v["back"].(bool),
@@ -467,58 +500,58 @@ func valueFromJSONInterface(typ Type, ivalue interface{}) (value Value) {
 			Bottom: v["bottom"].(bool),
 			Front:  v["front"].(bool),
 		}
-	case TypeAxes:
+	case rbxfile.TypeAxes:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueAxes{
+		return rbxfile.ValueAxes{
 			X: v["x"].(bool),
 			Y: v["y"].(bool),
 			Z: v["z"].(bool),
 		}
-	case TypeBrickColor:
+	case rbxfile.TypeBrickColor:
 		v, ok := ivalue.(float64)
 		if !ok {
 			return nil
 		}
-		return ValueInt(uint32(v))
-	case TypeColor3:
+		return rbxfile.ValueInt(uint32(v))
+	case rbxfile.TypeColor3:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueColor3{
+		return rbxfile.ValueColor3{
 			R: float32(v["r"].(float64)),
 			G: float32(v["g"].(float64)),
 			B: float32(v["b"].(float64)),
 		}
-	case TypeVector2:
+	case rbxfile.TypeVector2:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueVector2{
+		return rbxfile.ValueVector2{
 			X: float32(v["x"].(float64)),
 			Y: float32(v["y"].(float64)),
 		}
-	case TypeVector3:
+	case rbxfile.TypeVector3:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueVector3{
+		return rbxfile.ValueVector3{
 			X: float32(v["x"].(float64)),
 			Y: float32(v["y"].(float64)),
 			Z: float32(v["z"].(float64)),
 		}
-	case TypeCFrame:
+	case rbxfile.TypeCFrame:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		value := ValueCFrame{
-			Position: valueFromJSONInterface(TypeVector3, v["position"]).(ValueVector3),
+		value := rbxfile.ValueCFrame{
+			Position: ValueFromJSONInterface(rbxfile.TypeVector3, v["position"]).(rbxfile.ValueVector3),
 		}
 		irotation, ok := v["rotation"].([]interface{})
 		if !ok {
@@ -531,92 +564,92 @@ func valueFromJSONInterface(typ Type, ivalue interface{}) (value Value) {
 			value.Rotation[i] = float32(irot.(float64))
 		}
 		return value
-	case TypeToken:
+	case rbxfile.TypeToken:
 		v, ok := ivalue.(float64)
 		if !ok {
 			return nil
 		}
-		return ValueInt(uint32(v))
-	case TypeReference:
+		return rbxfile.ValueInt(uint32(v))
+	case rbxfile.TypeReference:
 		v, ok := ivalue.(string)
 		if !ok {
 			return nil
 		}
 		// ValueReference is handled as a special case, so return as a
 		// ValueString.
-		return ValueString(v)
-	case TypeVector3int16:
+		return rbxfile.ValueString(v)
+	case rbxfile.TypeVector3int16:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueVector3int16{
+		return rbxfile.ValueVector3int16{
 			X: int16(v["x"].(float64)),
 			Y: int16(v["y"].(float64)),
 			Z: int16(v["z"].(float64)),
 		}
-	case TypeVector2int16:
+	case rbxfile.TypeVector2int16:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueVector2int16{
+		return rbxfile.ValueVector2int16{
 			X: int16(v["x"].(float64)),
 			Y: int16(v["y"].(float64)),
 		}
-	case TypeNumberSequence:
+	case rbxfile.TypeNumberSequence:
 		v, ok := ivalue.([]interface{})
 		if !ok {
 			return nil
 		}
-		value := make(ValueNumberSequence, len(v))
+		value := make(rbxfile.ValueNumberSequence, len(v))
 		for i, insk := range v {
 			insk, ok := insk.(map[string]interface{})
 			if !ok {
 				continue
 			}
-			value[i] = ValueNumberSequenceKeypoint{
+			value[i] = rbxfile.ValueNumberSequenceKeypoint{
 				Time:     float32(insk["time"].(float64)),
 				Value:    float32(insk["value"].(float64)),
 				Envelope: float32(insk["envelope"].(float64)),
 			}
 		}
 		return value
-	case TypeColorSequence:
+	case rbxfile.TypeColorSequence:
 		v, ok := ivalue.([]interface{})
 		if !ok {
 			return nil
 		}
-		value := make(ValueColorSequence, len(v))
+		value := make(rbxfile.ValueColorSequence, len(v))
 		for i, icsk := range v {
 			icsk, ok := icsk.(map[string]interface{})
 			if !ok {
 				continue
 			}
-			value[i] = ValueColorSequenceKeypoint{
+			value[i] = rbxfile.ValueColorSequenceKeypoint{
 				Time:     float32(icsk["time"].(float64)),
-				Value:    valueFromJSONInterface(TypeColor3, icsk["value"]).(ValueColor3),
+				Value:    ValueFromJSONInterface(rbxfile.TypeColor3, icsk["value"]).(rbxfile.ValueColor3),
 				Envelope: float32(icsk["envelope"].(float64)),
 			}
 		}
 		return value
-	case TypeNumberRange:
+	case rbxfile.TypeNumberRange:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueNumberRange{
+		return rbxfile.ValueNumberRange{
 			Min: float32(v["min"].(float64)),
 			Max: float32(v["max"].(float64)),
 		}
-	case TypeRect2D:
+	case rbxfile.TypeRect2D:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return ValueRect2D{
-			Min: valueFromJSONInterface(TypeVector2, v["min"]).(ValueVector2),
-			Max: valueFromJSONInterface(TypeVector2, v["max"]).(ValueVector2),
+		return rbxfile.ValueRect2D{
+			Min: ValueFromJSONInterface(rbxfile.TypeVector2, v["min"]).(rbxfile.ValueVector2),
+			Max: ValueFromJSONInterface(rbxfile.TypeVector2, v["max"]).(rbxfile.ValueVector2),
 		}
 	}
 	return nil
