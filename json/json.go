@@ -195,7 +195,7 @@ func InstanceToJSONInterface(inst *rbxfile.Instance, refs map[string]*rbxfile.In
 // in combination with refs to set each property after all instance have been
 // processed.
 func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Instance, propRefs *[]PropRef) (inst *rbxfile.Instance, ok bool) {
-	inst = new(rbxfile.Instance)
+	inst = rbxfile.NewInstance("", nil)
 
 	if !indexJSON(iinst, "class_name", &inst.ClassName) {
 		return nil, false
