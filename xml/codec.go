@@ -105,7 +105,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 				continue
 			}
 
-			var classMemb map[string]*rbxapi.Property
+			classMemb := map[string]*rbxapi.Property{}
 			if dec.api != nil {
 				class := dec.api.Classes[className]
 				if class == nil {
