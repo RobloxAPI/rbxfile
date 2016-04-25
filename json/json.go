@@ -200,21 +200,16 @@ func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Insta
 	if !indexJSON(iinst, "class_name", &inst.ClassName) {
 		return nil, false
 	}
+
 	var ref string
-	if !indexJSON(iinst, "reference", &ref) {
-		return inst, true
-	}
+	indexJSON(iinst, "reference", &ref)
 	inst.Reference = []byte(ref)
 	refs[ref] = inst
-	if !indexJSON(iinst, "is_service", &inst.IsService) {
-		return inst, true
-	}
+
+	indexJSON(iinst, "is_service", &inst.IsService)
 
 	var properties map[string]interface{}
-	if !indexJSON(iinst, "properies", &properties) {
-		return inst, true
-	}
-
+	indexJSON(iinst, "properties", &properties)
 	for name, iprop := range properties {
 		var typ string
 		if !indexJSON(iprop, "type", &typ) {
@@ -243,10 +238,7 @@ func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Insta
 	}
 
 	var children []interface{}
-	if !indexJSON(iinst, "children", &children) {
-		return inst, true
-	}
-
+	indexJSON(iinst, "children", &children)
 	inst.Children = make([]*rbxfile.Instance, 0, len(children))
 	for _, ichild := range children {
 		child, ok := InstanceFromJSONInterface(ichild, refs, propRefs)
@@ -255,6 +247,7 @@ func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Insta
 		}
 		child.SetParent(inst)
 	}
+
 	return inst, true
 }
 
