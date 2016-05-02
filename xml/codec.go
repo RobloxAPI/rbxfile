@@ -65,6 +65,28 @@ func (c RobloxCodec) Decode(document *Document, api *rbxapi.API) (root *rbxfile.
 	return dec.root, dec.err
 }
 
+func generateClassMembers(api *rbxapi.API, className string) map[string]*rbxapi.Property {
+	if api == nil {
+		return nil
+	}
+
+	props := map[string]*rbxapi.Property{}
+	class, ok := api.Classes[className]
+	for ok {
+		for _, member := range class.MemberList() {
+			prop, ok := member.(*rbxapi.Property)
+			if !ok {
+				continue
+			}
+			if _, ok := props[prop.MemberName]; !ok {
+				props[prop.MemberName] = prop
+			}
+		}
+		class, ok = api.Classes[class.Superclass]
+	}
+	return props
+}
+
 type rdecoder struct {
 	document   *Document
 	api        *rbxapi.API
@@ -105,19 +127,12 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 				continue
 			}
 
-			classMemb := map[string]*rbxapi.Property{}
+			classMemb := generateClassMembers(dec.api, className)
 			if dec.api != nil {
-				class := dec.api.Classes[className]
-				if class == nil {
+				if dec.api.Classes[className] == nil {
 					dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid class name `%s`", className))
 					if dec.noinvalid {
 						continue
-					}
-				} else {
-					for _, member := range class.Members {
-						if member, ok := member.(*rbxapi.Property); ok {
-							classMemb[member.MemberName] = member
-						}
 					}
 				}
 			}
