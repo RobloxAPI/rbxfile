@@ -26,7 +26,7 @@ func build(dinst instance, refs map[string]*rbxfile.Instance, props map[*rbxfile
 
 	if dinst.reference != "" {
 		refs[dinst.reference] = inst
-		inst.Reference = []byte(dinst.reference)
+		inst.Reference = dinst.reference
 	}
 
 	inst.Properties = make(map[string]rbxfile.Value, len(dinst.properties))
@@ -87,7 +87,7 @@ func (dinst instance) Declare() *rbxfile.Instance {
 
 	if dinst.reference != "" {
 		refs[dinst.reference] = inst
-		inst.Reference = []byte(dinst.reference)
+		inst.Reference = dinst.reference
 	}
 
 	inst.Properties = make(map[string]rbxfile.Value, len(dinst.properties))

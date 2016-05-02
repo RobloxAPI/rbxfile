@@ -42,7 +42,7 @@ type Instance struct {
 
 	// Reference is a unique string used to refer to the instance from
 	// elsewhere in the tree.
-	Reference []byte
+	Reference string
 
 	// IsService indicates whether the instance should be treated as a
 	// service.
@@ -65,7 +65,7 @@ type Instance struct {
 func NewInstance(className string, parent *Instance) *Instance {
 	inst := &Instance{
 		ClassName:  className,
-		Reference:  []byte(GenerateReference()),
+		Reference:  GenerateReference(),
 		Properties: make(map[string]Value, 0),
 	}
 	if parent != nil {

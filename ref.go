@@ -15,7 +15,7 @@ func GetReference(instance *Instance, refs map[string]*Instance) (ref string) {
 		return ""
 	}
 
-	ref = string(instance.Reference)
+	ref = instance.Reference
 	// If the reference is not empty, or if the reference is not marked, or
 	// the marked reference already refers to the current instance, then do
 	// nothing.
@@ -29,7 +29,7 @@ func GetReference(instance *Instance, refs map[string]*Instance) (ref string) {
 			// unlikely that a duplicate will be generated.
 			ref = GenerateReference()
 			if _, ok := refs[ref]; !ok {
-				instance.Reference = []byte(ref)
+				instance.Reference = ref
 				break
 			}
 		}

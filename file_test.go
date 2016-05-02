@@ -18,7 +18,7 @@ func TestNewInstance(t *testing.T) {
 	if inst.ClassName != "Part" {
 		t.Errorf("got ClassName %q, expected %q", inst.ClassName, "Part")
 	}
-	if ok, _ := regexp.Match("^RBX[0-9A-F]{32}$", inst.Reference); !ok {
+	if ok, _ := regexp.MatchString("^RBX[0-9A-F]{32}$", inst.Reference); !ok {
 		t.Errorf("unexpected value for generated reference")
 	}
 
@@ -26,7 +26,7 @@ func TestNewInstance(t *testing.T) {
 	if child.ClassName != "IntValue" {
 		t.Errorf("got ClassName %q, expected %q", child.ClassName, "IntValue")
 	}
-	if ok, _ := regexp.Match("^RBX[0-9A-F]{32}$", child.Reference); !ok {
+	if ok, _ := regexp.MatchString("^RBX[0-9A-F]{32}$", child.Reference); !ok {
 		t.Errorf("unexpected value for generated reference")
 	}
 	if child.Parent() != inst {

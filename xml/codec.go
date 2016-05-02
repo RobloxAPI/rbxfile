@@ -125,7 +125,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 			instance := rbxfile.NewInstance(className, nil)
 			referent, ok := tag.AttrValue("referent")
 			if ok && len(referent) > 0 {
-				instance.Reference = []byte(referent)
+				instance.Reference = referent
 				if !rbxfile.IsEmptyReference(referent) {
 					dec.instLookup[referent] = instance
 				}
