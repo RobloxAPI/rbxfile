@@ -448,13 +448,13 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 		if !ok {
 			return nil
 		}
-		return rbxfile.ValueInt(float32(v))
+		return rbxfile.ValueFloat(float32(v))
 	case rbxfile.TypeDouble:
 		v, ok := ivalue.(float64)
 		if !ok {
 			return nil
 		}
-		return rbxfile.ValueInt(v)
+		return rbxfile.ValueDouble(v)
 	case rbxfile.TypeUDim:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
@@ -510,7 +510,7 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 		if !ok {
 			return nil
 		}
-		return rbxfile.ValueInt(uint32(v))
+		return rbxfile.ValueBrickColor(uint32(v))
 	case rbxfile.TypeColor3:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
@@ -564,7 +564,7 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 		if !ok {
 			return nil
 		}
-		return rbxfile.ValueInt(uint32(v))
+		return rbxfile.ValueToken(uint32(v))
 	case rbxfile.TypeReference:
 		v, ok := ivalue.(string)
 		if !ok {
