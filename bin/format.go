@@ -46,18 +46,13 @@ import (
 )
 
 // Decoder decodes a FormatModel to a generic rbxfile.Root structure.
-// Optionally, a rbxapi.API can be given to yield a more correct decoding.
-// Without it, the decoder should attempt to decode as best as it can with no
-// guarantees.
 type Decoder interface {
-	Decode(model *FormatModel, api *rbxapi.API) (root *rbxfile.Root, err error)
+	Decode(model *FormatModel) (root *rbxfile.Root, err error)
 }
 
-// Encoder encodes a rbxfile.Root structure to a FormatModel. Optionally, a
-// rbxapi.API can be given to yield a more correct encoding. Without it, the
-// encoder should attempt to encode as best as it can with no guarantees.
+// Encoder encodes a rbxfile.Root structure to a FormatModel.
 type Encoder interface {
-	Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatModel, err error)
+	Encode(root *rbxfile.Root) (model *FormatModel, err error)
 }
 
 // Serializer implements functions that decode and encode directly between
@@ -99,7 +94,7 @@ func NewSerializer(d Decoder, e Encoder) Serializer {
 
 // Deserialize decodes data from r into a Root structure using the specified
 // decoder. An optional API can be given to ensure more correct data.
-func (s Serializer) Deserialize(r io.Reader, api *rbxapi.API) (root *rbxfile.Root, err error) {
+func (s Serializer) Deserialize(r io.Reader) (root *rbxfile.Root, err error) {
 	if s.Decoder == nil {
 		return nil, errors.New("a decoder has not been not specified")
 	}
@@ -121,7 +116,7 @@ func (s Serializer) Deserialize(r io.Reader, api *rbxapi.API) (root *rbxfile.Roo
 		}
 
 		if !bytes.Equal(sig[len(RobloxSig):], []byte(BinaryMarker)) {
-			return xml.NewSerializer(s.DecoderXML, nil).Deserialize(buf, api)
+			return xml.NewSerializer(s.DecoderXML, nil).Deserialize(buf)
 		}
 		r = buf
 	}
@@ -132,7 +127,7 @@ func (s Serializer) Deserialize(r io.Reader, api *rbxapi.API) (root *rbxfile.Roo
 		return nil, errors.New("error parsing format: " + err.Error())
 	}
 
-	root, err = s.Decoder.Decode(model, api)
+	root, err = s.Decoder.Decode(model)
 	if err != nil {
 		return nil, errors.New("error decoding data: " + err.Error())
 	}
@@ -141,13 +136,13 @@ func (s Serializer) Deserialize(r io.Reader, api *rbxapi.API) (root *rbxfile.Roo
 }
 
 // Serialize encodes data from a Root structure to w using the specified
-// encoder. An optional API can be given to ensure more correct data.
-func (s Serializer) Serialize(w io.Writer, api *rbxapi.API, root *rbxfile.Root) (err error) {
+// encoder.
+func (s Serializer) Serialize(w io.Writer, root *rbxfile.Root) (err error) {
 	if s.Encoder == nil {
 		return errors.New("an encoder has not been not specified")
 	}
 
-	model, err := s.Encoder.Encode(root, api)
+	model, err := s.Encoder.Encode(root)
 	if err != nil {
 		return errors.New("error encoding data: " + err.Error())
 	}
@@ -163,30 +158,46 @@ func (s Serializer) Serialize(w io.Writer, api *rbxapi.API, root *rbxfile.Root) 
 // decoder. Data is interpreted as a Roblox place file. An optional API can be
 // given to ensure more correct data.
 func DeserializePlace(r io.Reader, api *rbxapi.API) (root *rbxfile.Root, err error) {
-	codec := RobloxCodec{Mode: ModePlace}
-	return NewSerializer(codec, codec).Deserialize(r, api)
+	codec := RobloxCodec{Mode: ModePlace, API: api}
+	return Serializer{
+		Encoder:    codec,
+		Decoder:    codec,
+		DecoderXML: xml.RobloxCodec{API: api},
+	}.Deserialize(r)
 }
 
 // Serialize encodes data from a Root structure to w using the default
 // encoder. Data is interpreted as a Roblox place file. An optional API can be
 // given to ensure more correct data.
 func SerializePlace(w io.Writer, api *rbxapi.API, root *rbxfile.Root) (err error) {
-	codec := RobloxCodec{Mode: ModePlace}
-	return NewSerializer(codec, codec).Serialize(w, api, root)
+	codec := RobloxCodec{Mode: ModePlace, API: api}
+	return Serializer{
+		Encoder:    codec,
+		Decoder:    codec,
+		DecoderXML: xml.RobloxCodec{API: api},
+	}.Serialize(w, root)
 }
 
 // Deserialize decodes data from r into a Root structure using the default
 // decoder. Data is interpreted as a Roblox model file. An optional API can be
 // given to ensure more correct data.
 func DeserializeModel(r io.Reader, api *rbxapi.API) (root *rbxfile.Root, err error) {
-	codec := RobloxCodec{Mode: ModeModel}
-	return NewSerializer(codec, codec).Deserialize(r, api)
+	codec := RobloxCodec{Mode: ModeModel, API: api}
+	return Serializer{
+		Encoder:    codec,
+		Decoder:    codec,
+		DecoderXML: xml.RobloxCodec{API: api},
+	}.Deserialize(r)
 }
 
 // Serialize encodes data from a Root structure to w using the default
 // encoder. Data is interpreted as a Roblox model file. An optional API can be
 // given to ensure more correct data.
 func SerializeModel(w io.Writer, api *rbxapi.API, root *rbxfile.Root) (err error) {
-	codec := RobloxCodec{Mode: ModeModel}
-	return NewSerializer(codec, codec).Serialize(w, api, root)
+	codec := RobloxCodec{Mode: ModeModel, API: api}
+	return Serializer{
+		Encoder:    codec,
+		Decoder:    codec,
+		DecoderXML: xml.RobloxCodec{API: api},
+	}.Serialize(w, root)
 }

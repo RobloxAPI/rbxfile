@@ -40,6 +40,11 @@ type RobloxCodec struct {
 	// generally preferred to set ExcludeInvalidAPI to false, so that false
 	// negatives do not lead to lost data.
 	ExcludeInvalidAPI bool
+
+	// API can be set to yield a more correct encoding or decoding by
+	// providing information about each class. If API is nil, the codec will
+	// try to use other available information, but may not be fully accurate.
+	API *rbxapi.API
 }
 
 type propRef struct {
@@ -48,14 +53,14 @@ type propRef struct {
 	ref  string
 }
 
-func (c RobloxCodec) Decode(document *Document, api *rbxapi.API) (root *rbxfile.Root, err error) {
+func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) {
 	if document == nil {
 		return nil, fmt.Errorf("document is nil")
 	}
 
 	dec := &rdecoder{
 		document:   document,
-		api:        api,
+		api:        c.API,
 		root:       new(rbxfile.Root),
 		instLookup: make(map[string]*rbxfile.Instance),
 		noinvalid:  c.ExcludeInvalidAPI,
@@ -696,10 +701,10 @@ type rencoder struct {
 	noinvalid bool
 }
 
-func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (document *Document, err error) {
+func (c RobloxCodec) Encode(root *rbxfile.Root) (document *Document, err error) {
 	enc := &rencoder{
 		root:      root,
-		api:       api,
+		api:       c.API,
 		refs:      make(map[string]*rbxfile.Instance),
 		norefs:    c.ExcludeReferent,
 		noext:     c.ExcludeExternal,

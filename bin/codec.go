@@ -36,11 +36,16 @@ type RobloxCodec struct {
 	// generally preferred to set ExcludeInvalidAPI to false, so that false
 	// negatives do not lead to lost data.
 	ExcludeInvalidAPI bool
+
+	// API can be set to yield a more correct encoding or decoding by
+	// providing information about each class. If API is nil, the codec will
+	// try to use other available information, but may not be fully accurate.
+	API *rbxapi.API
 }
 
 //go:generate rbxpipe -i=cframegen.lua -o=cframe.go -place=cframe.rbxl -filter=o
 
-func (c RobloxCodec) Decode(model *FormatModel, api *rbxapi.API) (root *rbxfile.Root, err error) {
+func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) {
 	if model == nil {
 		return nil, fmt.Errorf("FormatModel is nil")
 	}
@@ -80,8 +85,8 @@ loop:
 			}
 			// No error if TypeCount > actual count.
 
-			if api != nil {
-				class, ok := api.Classes[chunk.ClassName]
+			if c.API != nil {
+				class, ok := c.API.Classes[chunk.ClassName]
 				if !ok {
 					// Invalid ClassNames cause the chunk to be ignored.
 					addWarn("invalid ClassName `%s`", chunk.ClassName)
@@ -98,7 +103,7 @@ loop:
 							props[member.MemberName] = member.ValueType
 
 							// Check if property type is an enum.
-							enum, ok := api.Enums[member.ValueType]
+							enum, ok := c.API.Enums[member.ValueType]
 							if !ok {
 								continue
 							}
@@ -172,7 +177,7 @@ loop:
 			}
 
 			var propType string
-			if api != nil {
+			if c.API != nil {
 				var ok bool
 				if propType, ok = propTypes[instChunk.ClassName][chunk.PropertyName]; !ok {
 					addWarn("chunk name `%s` is not a valid property of the group class `%s`", chunk.PropertyName, instChunk.ClassName)
@@ -185,7 +190,7 @@ loop:
 			for i, bvalue := range chunk.Properties {
 				// If the value type is an enum, then verify that the value is
 				// correct for the enum.
-				if api != nil && bvalue.Type() == TypeToken {
+				if c.API != nil && bvalue.Type() == TypeToken {
 					if items, ok := enumCache[propType]; ok {
 						token := bvalue.(*ValueToken)
 						if !items.values[int(*token)] {
@@ -435,7 +440,7 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 	return
 }
 
-func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatModel, err error) {
+func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) {
 	if root == nil {
 		return nil, errors.New("Root is nil")
 	}
@@ -461,8 +466,8 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatM
 			return
 		}
 
-		if api != nil {
-			if _, ok := api.Classes[inst.ClassName]; !ok {
+		if c.API != nil {
+			if _, ok := c.API.Classes[inst.ClassName]; !ok {
 				model.Warnings = append(model.Warnings, fmt.Errorf("invalid ClassName `%s`", inst.ClassName))
 				if c.ExcludeInvalidAPI {
 					return
@@ -542,11 +547,11 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatM
 		propChunkMap := map[string]*ChunkProperty{}
 
 		var propAPI map[string]*rbxapi.Property
-		if api != nil {
+		if c.API != nil {
 			propAPI = make(map[string]*rbxapi.Property)
 
 			// Should exist due to previous checks.
-			class := api.Classes[instChunk.ClassName]
+			class := c.API.Classes[instChunk.ClassName]
 
 			for _, member := range class.Members {
 				member, ok := member.(*rbxapi.Property)
@@ -582,7 +587,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatM
 					typ := rbxfile.TypeFromString(member.ValueType)
 					if typ == rbxfile.TypeInvalid {
 						// Check if property type is an enum.
-						enum, ok := api.Enums[member.ValueType]
+						enum, ok := c.API.Enums[member.ValueType]
 						if !ok {
 							addWarn("encountered unknown data type `%s` in API", member.ValueType)
 							if c.ExcludeInvalidAPI {
@@ -700,7 +705,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatM
 
 				// If the value type is an enum, then verify that the value is
 				// correct for the enum.
-				if api != nil && bvalue.Type() == TypeToken {
+				if c.API != nil && bvalue.Type() == TypeToken {
 					if items, ok := propEnums[name]; ok {
 						token := bvalue.(*ValueToken)
 						if !items.values[int(*token)] {
