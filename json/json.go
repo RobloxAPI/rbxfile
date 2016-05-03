@@ -189,11 +189,15 @@ func InstanceToJSONInterface(inst *rbxfile.Instance, refs map[string]*rbxfile.In
 func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Instance, propRefs *[]rbxfile.PropRef) (inst *rbxfile.Instance, ok bool) {
 	var ref string
 	indexJSON(iinst, "reference", &ref)
-	inst, exists := refs[ref]
-	if !exists {
+	if rbxfile.IsEmptyReference(ref) {
 		inst = rbxfile.NewInstance("", nil)
-		inst.Reference = ref
-		refs[ref] = inst
+	} else {
+		var exists bool
+		if inst, exists = refs[ref]; !exists {
+			inst = rbxfile.NewInstance("", nil)
+			inst.Reference = ref
+			refs[ref] = inst
+		}
 	}
 
 	if !indexJSON(iinst, "class_name", &inst.ClassName) {
