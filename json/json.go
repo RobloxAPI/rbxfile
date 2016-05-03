@@ -112,14 +112,6 @@ func RootToJSONInterface(root *rbxfile.Root) interface{} {
 	return iroot
 }
 
-// ProfRef specifies the property of an instance that is a reference, which is
-// to be resolved into its referent at a later time.
-type PropRef struct {
-	Instance  *rbxfile.Instance
-	Property  string
-	Reference string
-}
-
 // RootToJSONInterface converts a generic interface produced json.Unmarshal to
 // a rbxfile.Root.
 func RootFromJSONInterface(iroot interface{}) (root *rbxfile.Root, ok bool) {
@@ -133,7 +125,7 @@ func RootFromJSONInterface(iroot interface{}) (root *rbxfile.Root, ok bool) {
 	switch int(version) {
 	case 0:
 		refs := map[string]*rbxfile.Instance{}
-		propRefs := []PropRef{}
+		propRefs := []rbxfile.PropRef{}
 		root.Instances = make([]*rbxfile.Instance, 0, 8)
 		var instances []interface{}
 		if !indexJSON(iroot, "instances", &instances) {
@@ -146,9 +138,9 @@ func RootFromJSONInterface(iroot interface{}) (root *rbxfile.Root, ok bool) {
 			}
 			root.Instances = append(root.Instances, inst)
 		}
-		for _, PropRef := range propRefs {
-			PropRef.Instance.Properties[PropRef.Property] = rbxfile.ValueReference{
-				Instance: refs[PropRef.Reference],
+		for _, pr := range propRefs {
+			pr.Instance.Properties[pr.Property] = rbxfile.ValueReference{
+				Instance: refs[pr.Reference],
 			}
 		}
 	default:
@@ -194,7 +186,7 @@ func InstanceToJSONInterface(inst *rbxfile.Instance, refs map[string]*rbxfile.In
 // properties of descendant instances that are references. This should be used
 // in combination with refs to set each property after all instance have been
 // processed.
-func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Instance, propRefs *[]PropRef) (inst *rbxfile.Instance, ok bool) {
+func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Instance, propRefs *[]rbxfile.PropRef) (inst *rbxfile.Instance, ok bool) {
 	var ref string
 	indexJSON(iinst, "reference", &ref)
 	inst, exists := refs[ref]
@@ -229,7 +221,7 @@ func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Insta
 			continue
 		}
 		if t == rbxfile.TypeReference {
-			*propRefs = append(*propRefs, PropRef{
+			*propRefs = append(*propRefs, rbxfile.PropRef{
 				Instance:  inst,
 				Property:  name,
 				Reference: string(value.(rbxfile.ValueString)),

@@ -6,6 +6,25 @@ import (
 	"strings"
 )
 
+// PropRef specifies the property of an instance that is a reference, which is
+// to be resolved into its referent at a later time.
+type PropRef struct {
+	Instance  *Instance
+	Property  string
+	Reference string
+}
+
+// ResolveReference resolves a PropRef and sets the value of the property,
+// using a given reference map. If the referent does not exist, and the
+// reference is not empty, then false is returned. True is returned otherwise.
+func ResolveReference(refs map[string]*Instance, propRef PropRef) bool {
+	referent := refs[propRef.Reference]
+	propRef.Instance.Properties[propRef.Property] = ValueReference{
+		Instance: referent,
+	}
+	return referent != nil && !IsEmptyReference(propRef.Reference)
+}
+
 // GetReference gets a reference from an Instance, using refs to check
 // for duplicates. If the instance's reference already exists in refs, then a
 // new reference is generated and applied to the instance. The instance's
