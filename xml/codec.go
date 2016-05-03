@@ -17,6 +17,11 @@ import (
 // RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
 // codec as closely as possible.
 type RobloxCodec struct {
+	// API can be set to yield a more correct encoding or decoding by
+	// providing information about each class. If API is nil, the codec will
+	// try to use other available information, but may not be fully accurate.
+	API *rbxapi.API
+
 	// ExcludeReferent determines whether the "referent" attribute should be
 	// added to Item tags when encoding.
 	ExcludeReferent bool
@@ -40,11 +45,6 @@ type RobloxCodec struct {
 	// generally preferred to set ExcludeInvalidAPI to false, so that false
 	// negatives do not lead to lost data.
 	ExcludeInvalidAPI bool
-
-	// API can be set to yield a more correct encoding or decoding by
-	// providing information about each class. If API is nil, the codec will
-	// try to use other available information, but may not be fully accurate.
-	API *rbxapi.API
 }
 
 type propRef struct {
