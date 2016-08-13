@@ -383,6 +383,15 @@ func ValueToJSONInterface(value rbxfile.Value, refs map[string]*rbxfile.Instance
 			"min": ValueToJSONInterface(value.Min, refs),
 			"max": ValueToJSONInterface(value.Max, refs),
 		}
+	case rbxfile.ValuePhysicalProperties:
+		return map[string]interface{}{
+			"custom_physics":    value.CustomPhysics,
+			"density":           float64(value.Density),
+			"friction":          float64(value.Friction),
+			"elasticity":        float64(value.Elasticity),
+			"friction_weight":   float64(value.FrictionWeight),
+			"elasticity_weight": float64(value.ElasticityWeight),
+		}
 	}
 	return nil
 }
@@ -641,6 +650,19 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 		return rbxfile.ValueRect2D{
 			Min: ValueFromJSONInterface(rbxfile.TypeVector2, v["min"]).(rbxfile.ValueVector2),
 			Max: ValueFromJSONInterface(rbxfile.TypeVector2, v["max"]).(rbxfile.ValueVector2),
+		}
+	case rbxfile.TypePhysicalProperties:
+		v, ok := ivalue.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		return rbxfile.ValuePhysicalProperties{
+			CustomPhysics:    v["custom_physics"].(bool),
+			Density:          float32(v["density"].(float64)),
+			Friction:         float32(v["friction"].(float64)),
+			Elasticity:       float32(v["elasticity"].(float64)),
+			FrictionWeight:   float32(v["friction_weight"].(float64)),
+			ElasticityWeight: float32(v["elasticity_weight"].(float64)),
 		}
 	}
 	return nil
