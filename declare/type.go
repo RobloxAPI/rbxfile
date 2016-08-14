@@ -35,6 +35,7 @@ const (
 	ColorSequence
 	NumberRange
 	Rect2D
+	PhysicalProperties
 )
 
 func normInt16(v interface{}) int16 {
@@ -251,6 +252,8 @@ func assertValue(t Type, v interface{}) (value rbxfile.Value, ok bool) {
 		value, ok = v.(rbxfile.ValueNumberRange)
 	case Rect2D:
 		value, ok = v.(rbxfile.ValueRect2D)
+	case PhysicalProperties:
+		value, ok = v.(rbxfile.ValuePhysicalProperties)
 	}
 	return
 }
@@ -549,6 +552,27 @@ func (t Type) value(refs map[string]*rbxfile.Instance, v []interface{}) rbxfile.
 					X: normFloat32(v[2]),
 					Y: normFloat32(v[3]),
 				},
+			}
+		}
+	case PhysicalProperties:
+		switch len(v) {
+		case 0:
+			return rbxfile.ValuePhysicalProperties{}
+		case 3:
+			return rbxfile.ValuePhysicalProperties{
+				CustomPhysics: true,
+				Density:       normFloat32(v[0]),
+				Friction:      normFloat32(v[1]),
+				Elasticity:    normFloat32(v[2]),
+			}
+		case 5:
+			return rbxfile.ValuePhysicalProperties{
+				CustomPhysics:    true,
+				Density:          normFloat32(v[0]),
+				Friction:         normFloat32(v[1]),
+				Elasticity:       normFloat32(v[2]),
+				FrictionWeight:   normFloat32(v[3]),
+				ElasticityWeight: normFloat32(v[4]),
 			}
 		}
 	}

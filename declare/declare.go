@@ -239,6 +239,15 @@ func (property) element() {}
 //            fields.
 //         2) 4 numbers, corresponding to the Min.X, Min.Y, Max.X, and Max.Y
 //            fields.
+//
+//     PhysicalProperties:
+//         1) No values, indicating PhysicalProperties with CustomPhysics set
+//            to false.
+//         2) 3 numbers, corresponding to the Density, Friction, and
+//            Elasticity fields (CustomPhysics is set to true).
+//         3) 5 numbers, corresponding to the Density, Friction, and
+//            Elasticity, FrictionWeight, and ElasticityWeight fields
+//            (CustomPhysics is set to true).
 func Property(name string, typ Type, value ...interface{}) property {
 	return property{name: name, typ: typ, value: value}
 }
