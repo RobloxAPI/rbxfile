@@ -131,33 +131,35 @@ func (inst *Instance) AddChildAt(index int, child *Instance) error {
 	return nil
 }
 
-func (inst *Instance) removeChildAt(index int) {
-	child := inst.Children[index]
+func (inst *Instance) removeChildAt(index int) (child *Instance) {
+	child = inst.Children[index]
 	child.parent = nil
 	copy(inst.Children[index:], inst.Children[index+1:])
 	inst.Children[len(inst.Children)-1] = nil
 	inst.Children = inst.Children[:len(inst.Children)-1]
+	return child
 }
 
 // RemoveChild removes a child instance from the instance's list of children.
-// The parent of the child is set to nil.
-func (inst *Instance) RemoveChild(child *Instance) {
+// The parent of the child is set to nil. Returns the removed child.
+func (inst *Instance) RemoveChild(child *Instance) *Instance {
 	for index, c := range inst.Children {
 		if c == child {
-			inst.removeChildAt(index)
-			return
+			return inst.removeChildAt(index)
 		}
 	}
+	return nil
 }
 
 // RemoveChildAt removes the child at a given position from the instance's
 // list of children. The parent of the child is set to nil. If the index is
-// outside the bounds of the list, then no children are removed.
-func (inst *Instance) RemoveChildAt(index int) {
+// outside the bounds of the list, then no children are removed. Returns the
+// removed child.
+func (inst *Instance) RemoveChildAt(index int) *Instance {
 	if index < 0 || index >= len(inst.Children) {
-		return
+		return nil
 	}
-	inst.removeChildAt(index)
+	return inst.removeChildAt(index)
 }
 
 // RemoveAll remove every child from the instance. The parent of each child is
