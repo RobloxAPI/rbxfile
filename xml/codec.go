@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
-	"github.com/robloxapi/rbxfile/xml/internal/strconvr"
 	"io"
 	"io/ioutil"
 	"sort"
+	"strconv"
 	"strings"
 )
 
