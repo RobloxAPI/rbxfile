@@ -35,6 +35,33 @@ type Root struct {
 	Instances []*Instance
 }
 
+// Copy creates a copy of the root and its contents.
+//
+// A copied reference within the tree is resolved so that it points to the
+// corresponding copy of the original referent. Copied references that point
+// to an instance which isn't being copied will still point to the same
+// instance.
+func (root *Root) Copy() *Root {
+	clone := &Root{
+		Instances: make([]*Instance, len(root.Instances)),
+	}
+
+	refs := make(map[string]*Instance)
+	crefs := make(map[string]*Instance)
+	propRefs := make([]PropRef, 0, 8)
+	for i, inst := range root.Instances {
+		clone.Instances[i] = inst.clone(refs, crefs, &propRefs)
+	}
+	for _, propRef := range propRefs {
+		if !ResolveReference(crefs, propRef) {
+			// Refers to an instance outside the tree, try getting the
+			// original referent.
+			ResolveReference(refs, propRef)
+		}
+	}
+	return clone
+}
+
 // Instance represents a single Roblox instance.
 type Instance struct {
 	// ClassName indicates the instance's type.
