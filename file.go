@@ -200,24 +200,54 @@ func (inst *Instance) SetParent(parent *Instance) error {
 	return nil
 }
 
-// Clone returns a copy of the instance. Each property and all descendants are
-// copied as well. Unlike Roblox's implementation, the Archivable property is
-// ignored.
-func (inst *Instance) Clone() *Instance {
-	clone := NewInstance(inst.ClassName, nil)
-
-	clone.Properties = make(map[string]Value, len(inst.Properties))
+func (inst *Instance) clone(refs, crefs map[string]*Instance, propRefs *[]PropRef) *Instance {
+	clone := &Instance{
+		ClassName:  inst.ClassName,
+		Reference:  GetReference(inst, refs),
+		IsService:  inst.IsService,
+		Children:   make([]*Instance, len(inst.Children)),
+		Properties: make(map[string]Value, len(inst.Properties)),
+	}
+	crefs[clone.Reference] = clone
 	for name, value := range inst.Properties {
+		if value, ok := value.(ValueReference); ok {
+			*propRefs = append(*propRefs, PropRef{
+				Instance:  clone,
+				Property:  name,
+				Reference: GetReference(value.Instance, refs),
+			})
+			continue
+		}
 		clone.Properties[name] = value.Copy()
 	}
-
-	clone.Children = make([]*Instance, len(inst.Children))
 	for i, child := range inst.Children {
-		c := child.Clone()
+		c := child.clone(refs, crefs, propRefs)
 		clone.Children[i] = c
 		c.parent = clone
 	}
+	return clone
+}
 
+// Clone returns a copy of the instance. Each property and all descendants are
+// copied as well. Unlike Roblox's implementation, the Archivable property is
+// ignored.
+//
+// A copied reference within the tree is resolved so that it points to the
+// corresponding copy of the original referent. Copied references that point
+// to an instance which isn't being copied will still point to the same
+// instance.
+func (inst *Instance) Clone() *Instance {
+	refs := make(map[string]*Instance)
+	crefs := make(map[string]*Instance)
+	propRefs := make([]PropRef, 0, 8)
+	clone := inst.clone(refs, crefs, &propRefs)
+	for _, propRef := range propRefs {
+		if !ResolveReference(crefs, propRef) {
+			// Refers to an instance outside the tree, try getting the
+			// original referent.
+			ResolveReference(refs, propRef)
+		}
+	}
 	return clone
 }
 
