@@ -47,12 +47,6 @@ type RobloxCodec struct {
 	ExcludeInvalidAPI bool
 }
 
-type propRef struct {
-	inst *rbxfile.Instance
-	prop string
-	ref  string
-}
-
 func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) {
 	if document == nil {
 		return nil, fmt.Errorf("document is nil")
@@ -97,7 +91,7 @@ type rdecoder struct {
 	root       *rbxfile.Root
 	err        error
 	instLookup rbxfile.References
-	propRefs   []propRef
+	propRefs   []rbxfile.PropRef
 }
 
 func (dec *rdecoder) decode() error {
@@ -109,9 +103,7 @@ func (dec *rdecoder) decode() error {
 	dec.root.Instances, _ = dec.getItems(nil, dec.document.Root.Tags, nil)
 
 	for _, propRef := range dec.propRefs {
-		propRef.inst.Properties[propRef.prop] = rbxfile.ValueReference{
-			Instance: dec.instLookup[propRef.ref],
-		}
+		dec.instLookup.Resolve(propRef)
 	}
 
 	return nil
@@ -210,10 +202,10 @@ processValue:
 
 	ref := getContent(tag)
 	if _, ok := value.(rbxfile.ValueReference); ok && !rbxfile.IsEmptyReference(ref) {
-		dec.propRefs = append(dec.propRefs, propRef{
-			inst: instance,
-			prop: name,
-			ref:  ref,
+		dec.propRefs = append(dec.propRefs, rbxfile.PropRef{
+			Instance:  instance,
+			Property:  name,
+			Reference: ref,
 		})
 		return "", nil, false
 	}
