@@ -200,7 +200,7 @@ func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMemb
 	}
 
 	// Guess property type from tag name
-	valueType = dec.getCanonType(tag.StartName)
+	valueType = dec.codec.GetCanonType(tag.StartName)
 
 processValue:
 	value, ok = dec.getValue(tag, valueType, enum)
@@ -221,8 +221,9 @@ processValue:
 	return name, value, ok
 }
 
-// Converts a string (usually from a tag name) to a decodable type.
-func (dec *rdecoder) getCanonType(valueType string) string {
+// GetCanonType converts a string (usually from a tag name) to a decodable
+// type.
+func (RobloxCodec) GetCanonType(valueType string) string {
 	switch strings.ToLower(valueType) {
 	case "axes":
 		return "Axes"
