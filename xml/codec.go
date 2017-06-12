@@ -167,6 +167,29 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 	return instances, properties
 }
 
+// DecodeProperties decodes a list of tags as properties to a given instance.
+// Returns a list of unresolved references.
+func (c RobloxCodec) DecodeProperties(tags []*Tag, inst *rbxfile.Instance, refs rbxfile.References) (propRefs []rbxfile.PropRef) {
+	dec := &rdecoder{
+		codec:      c,
+		instLookup: refs,
+	}
+
+	classMembers := generateClassMembers(dec.codec.API, inst.ClassName)
+	if dec.codec.API != nil && dec.codec.API.Classes[inst.ClassName] == nil && dec.codec.ExcludeInvalidAPI {
+		return nil
+	}
+
+	for _, property := range tags {
+		name, value, ok := dec.getProperty(property, inst, classMembers)
+		if ok {
+			inst.Properties[name] = value
+		}
+	}
+
+	return dec.propRefs
+}
+
 func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMembers map[string]*rbxapi.Property) (name string, value rbxfile.Value, ok bool) {
 	name, ok = tag.AttrValue("name")
 	if !ok {
@@ -742,6 +765,11 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 	for _, child := range instance.Children {
 		enc.encodeInstance(child, item)
 	}
+}
+
+func (c RobloxCodec) EncodeProperties(instance *rbxfile.Instance) (properties []*Tag) {
+	enc := &rencoder{codec: c}
+	return enc.encodeProperties(instance)
 }
 
 func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []*Tag) {
