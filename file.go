@@ -46,17 +46,17 @@ func (root *Root) Copy() *Root {
 		Instances: make([]*Instance, len(root.Instances)),
 	}
 
-	refs := make(map[string]*Instance)
-	crefs := make(map[string]*Instance)
+	refs := make(References)
+	crefs := make(References)
 	propRefs := make([]PropRef, 0, 8)
 	for i, inst := range root.Instances {
 		clone.Instances[i] = inst.clone(refs, crefs, &propRefs)
 	}
 	for _, propRef := range propRefs {
-		if !ResolveReference(crefs, propRef) {
+		if !crefs.Resolve(propRef) {
 			// Refers to an instance outside the tree, try getting the
 			// original referent.
-			ResolveReference(refs, propRef)
+			refs.Resolve(propRef)
 		}
 	}
 	return clone
@@ -227,10 +227,10 @@ func (inst *Instance) SetParent(parent *Instance) error {
 	return nil
 }
 
-func (inst *Instance) clone(refs, crefs map[string]*Instance, propRefs *[]PropRef) *Instance {
+func (inst *Instance) clone(refs, crefs References, propRefs *[]PropRef) *Instance {
 	clone := &Instance{
 		ClassName:  inst.ClassName,
-		Reference:  GetReference(inst, refs),
+		Reference:  refs.Get(inst),
 		IsService:  inst.IsService,
 		Children:   make([]*Instance, len(inst.Children)),
 		Properties: make(map[string]Value, len(inst.Properties)),
@@ -241,7 +241,7 @@ func (inst *Instance) clone(refs, crefs map[string]*Instance, propRefs *[]PropRe
 			*propRefs = append(*propRefs, PropRef{
 				Instance:  clone,
 				Property:  name,
-				Reference: GetReference(value.Instance, refs),
+				Reference: refs.Get(value.Instance),
 			})
 			continue
 		}
@@ -264,15 +264,15 @@ func (inst *Instance) clone(refs, crefs map[string]*Instance, propRefs *[]PropRe
 // to an instance which isn't being copied will still point to the same
 // instance.
 func (inst *Instance) Clone() *Instance {
-	refs := make(map[string]*Instance)
-	crefs := make(map[string]*Instance)
+	refs := make(References)
+	crefs := make(References)
 	propRefs := make([]PropRef, 0, 8)
 	clone := inst.clone(refs, crefs, &propRefs)
 	for _, propRef := range propRefs {
-		if !ResolveReference(crefs, propRef) {
+		if !crefs.Resolve(propRef) {
 			// Refers to an instance outside the tree, try getting the
 			// original referent.
-			ResolveReference(refs, propRef)
+			refs.Resolve(propRef)
 		}
 	}
 	return clone

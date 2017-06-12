@@ -14,10 +14,16 @@ type PropRef struct {
 	Reference string
 }
 
-// ResolveReference resolves a PropRef and sets the value of the property,
-// using a given reference map. If the referent does not exist, and the
-// reference is not empty, then false is returned. True is returned otherwise.
-func ResolveReference(refs map[string]*Instance, propRef PropRef) bool {
+// References is a mapping of reference strings to Instances.
+type References map[string]*Instance
+
+// Resolve resolves a PropRef and sets the value of the property using
+// References. If the referent does not exist, and the reference is not empty,
+// then false is returned. True is returned otherwise.
+func (refs References) Resolve(propRef PropRef) bool {
+	if refs == nil {
+		return false
+	}
 	referent := refs[propRef.Reference]
 	propRef.Instance.Properties[propRef.Property] = ValueReference{
 		Instance: referent,
@@ -25,16 +31,19 @@ func ResolveReference(refs map[string]*Instance, propRef PropRef) bool {
 	return referent != nil && !IsEmptyReference(propRef.Reference)
 }
 
-// GetReference gets a reference from an Instance, using refs to check
-// for duplicates. If the instance's reference already exists in refs, then a
-// new reference is generated and applied to the instance. The instance's
-// reference is then added to refs.
-func GetReference(instance *Instance, refs map[string]*Instance) (ref string) {
+// Get gets a reference from an Instance, using References to check for
+// duplicates. If the instance's reference already exists in References, then
+// a new reference is generated and applied to the instance. The instance's
+// reference is then added to References.
+func (refs References) Get(instance *Instance) (ref string) {
 	if instance == nil {
 		return ""
 	}
 
 	ref = instance.Reference
+	if refs == nil {
+		return ref
+	}
 	// If the reference is not empty, or if the reference is not marked, or
 	// the marked reference already refers to the current instance, then do
 	// nothing.

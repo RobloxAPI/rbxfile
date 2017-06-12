@@ -258,7 +258,7 @@ func assertValue(t Type, v interface{}) (value rbxfile.Value, ok bool) {
 	return
 }
 
-func (t Type) value(refs map[string]*rbxfile.Instance, v []interface{}) rbxfile.Value {
+func (t Type) value(refs rbxfile.References, v []interface{}) rbxfile.Value {
 	if len(v) == 0 {
 		goto zero
 	}

@@ -21,7 +21,7 @@ import (
 // declarations.
 type Root []instance
 
-func build(dinst instance, refs map[string]*rbxfile.Instance, props map[*rbxfile.Instance][]property) *rbxfile.Instance {
+func build(dinst instance, refs rbxfile.References, props map[*rbxfile.Instance][]property) *rbxfile.Instance {
 	inst := rbxfile.NewInstance(dinst.className, nil)
 
 	if dinst.reference != "" {
@@ -47,7 +47,7 @@ func (droot Root) Declare() *rbxfile.Root {
 		Instances: make([]*rbxfile.Instance, 0, len(droot)),
 	}
 
-	refs := map[string]*rbxfile.Instance{}
+	refs := rbxfile.References{}
 	props := map[*rbxfile.Instance][]property{}
 
 	for _, dinst := range droot {
@@ -82,7 +82,7 @@ func (instance) element() {}
 func (dinst instance) Declare() *rbxfile.Instance {
 	inst := rbxfile.NewInstance(dinst.className, nil)
 
-	refs := map[string]*rbxfile.Instance{}
+	refs := rbxfile.References{}
 	props := map[*rbxfile.Instance][]property{}
 
 	if dinst.reference != "" {
@@ -256,7 +256,7 @@ func Property(name string, typ Type, value ...interface{}) property {
 // belong to any instance, the name is ignored, and only the value is
 // generated.
 func (prop property) Declare() rbxfile.Value {
-	var refs map[string]*rbxfile.Instance
+	var refs rbxfile.References
 	return prop.typ.value(refs, prop.value)
 }
 

@@ -101,7 +101,7 @@ func indexJSON(v, i, p interface{}) bool {
 // RootToJSONInterface converts a rbxfile.Root to a generic interface that can
 // be read by json.Marshal.
 func RootToJSONInterface(root *rbxfile.Root) interface{} {
-	refs := map[string]*rbxfile.Instance{}
+	refs := rbxfile.References{}
 	iroot := make(map[string]interface{}, 2)
 	iroot["rbxfile_version"] = float64(jsonVersion)
 	instances := make([]interface{}, len(root.Instances))
@@ -124,7 +124,7 @@ func RootFromJSONInterface(iroot interface{}) (root *rbxfile.Root, ok bool) {
 
 	switch int(version) {
 	case 0:
-		refs := map[string]*rbxfile.Instance{}
+		refs := rbxfile.References{}
 		propRefs := []rbxfile.PropRef{}
 		root.Instances = make([]*rbxfile.Instance, 0, 8)
 		var instances []interface{}
@@ -154,12 +154,11 @@ func RootFromJSONInterface(iroot interface{}) (root *rbxfile.Root, ok bool) {
 // InstanceToJSONInterface converts a rbxfile.Instance to a generic interface
 // that can be read by json.Marshal.
 //
-// The refs argument is used by rbxfile.GetReference to keep track of instance
-// references.
-func InstanceToJSONInterface(inst *rbxfile.Instance, refs map[string]*rbxfile.Instance) interface{} {
+// The refs argument is used by to keep track of instance references.
+func InstanceToJSONInterface(inst *rbxfile.Instance, refs rbxfile.References) interface{} {
 	iinst := make(map[string]interface{}, 5)
 	iinst["class_name"] = inst.ClassName
-	iinst["reference"] = rbxfile.GetReference(inst, refs)
+	iinst["reference"] = refs.Get(inst)
 	iinst["is_service"] = inst.IsService
 	properties := make(map[string]interface{}, len(inst.Properties))
 	for name, prop := range inst.Properties {
@@ -186,7 +185,7 @@ func InstanceToJSONInterface(inst *rbxfile.Instance, refs map[string]*rbxfile.In
 // properties of descendant instances that are references. This should be used
 // in combination with refs to set each property after all instance have been
 // processed.
-func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Instance, propRefs *[]rbxfile.PropRef) (inst *rbxfile.Instance, ok bool) {
+func InstanceFromJSONInterface(iinst interface{}, refs rbxfile.References, propRefs *[]rbxfile.PropRef) (inst *rbxfile.Instance, ok bool) {
 	var ref string
 	indexJSON(iinst, "reference", &ref)
 	if rbxfile.IsEmptyReference(ref) {
@@ -256,7 +255,7 @@ func InstanceFromJSONInterface(iinst interface{}, refs map[string]*rbxfile.Insta
 //
 // The refs argument is used when converting a rbxfile.ValueReference to a
 // string.
-func ValueToJSONInterface(value rbxfile.Value, refs map[string]*rbxfile.Instance) interface{} {
+func ValueToJSONInterface(value rbxfile.Value, refs rbxfile.References) interface{} {
 	switch value := value.(type) {
 	case rbxfile.ValueString:
 		return string(value)
@@ -341,7 +340,7 @@ func ValueToJSONInterface(value rbxfile.Value, refs map[string]*rbxfile.Instance
 	case rbxfile.ValueToken:
 		return float64(value)
 	case rbxfile.ValueReference:
-		return rbxfile.GetReference(value.Instance, refs)
+		return refs.Get(value.Instance)
 	case rbxfile.ValueVector3int16:
 		return map[string]interface{}{
 			"x": float64(value.X),

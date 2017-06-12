@@ -62,7 +62,7 @@ func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) 
 		document:   document,
 		api:        c.API,
 		root:       new(rbxfile.Root),
-		instLookup: make(map[string]*rbxfile.Instance),
+		instLookup: make(rbxfile.References),
 		noinvalid:  c.ExcludeInvalidAPI,
 	}
 
@@ -97,7 +97,7 @@ type rdecoder struct {
 	api        *rbxapi.API
 	root       *rbxfile.Root
 	err        error
-	instLookup map[string]*rbxfile.Instance
+	instLookup rbxfile.References
 	propRefs   []propRef
 	noinvalid  bool
 }
@@ -694,7 +694,7 @@ type rencoder struct {
 	root      *rbxfile.Root
 	api       *rbxapi.API
 	document  *Document
-	refs      map[string]*rbxfile.Instance
+	refs      rbxfile.References
 	err       error
 	norefs    bool
 	noext     bool
@@ -705,7 +705,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (document *Document, err error) 
 	enc := &rencoder{
 		root:      root,
 		api:       c.API,
-		refs:      make(map[string]*rbxfile.Instance),
+		refs:      make(rbxfile.References),
 		norefs:    c.ExcludeReferent,
 		noext:     c.ExcludeExternal,
 		noinvalid: c.ExcludeInvalidAPI,
@@ -746,7 +746,7 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 		}
 	}
 
-	ref := rbxfile.GetReference(instance, enc.refs)
+	ref := enc.refs.Get(instance)
 	properties := enc.encodeProperties(instance)
 	item := NewItem(instance.ClassName, ref, properties...)
 	if enc.norefs {
@@ -1022,7 +1022,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 
 		referent := value.Instance
 		if referent != nil {
-			tag.Text = rbxfile.GetReference(referent, enc.refs)
+			tag.Text = enc.refs.Get(referent)
 		} else {
 			tag.Text = "null"
 		}
