@@ -60,10 +60,9 @@ func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) 
 
 	dec := &rdecoder{
 		document:   document,
-		api:        c.API,
+		codec:      c,
 		root:       new(rbxfile.Root),
 		instLookup: make(rbxfile.References),
-		noinvalid:  c.ExcludeInvalidAPI,
 	}
 
 	dec.decode()
@@ -94,12 +93,11 @@ func generateClassMembers(api *rbxapi.API, className string) map[string]*rbxapi.
 
 type rdecoder struct {
 	document   *Document
-	api        *rbxapi.API
+	codec      RobloxCodec
 	root       *rbxfile.Root
 	err        error
 	instLookup rbxfile.References
 	propRefs   []propRef
-	noinvalid  bool
 }
 
 func (dec *rdecoder) decode() error {
@@ -132,11 +130,11 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 				continue
 			}
 
-			classMemb := generateClassMembers(dec.api, className)
-			if dec.api != nil {
-				if dec.api.Classes[className] == nil {
+			classMemb := generateClassMembers(dec.codec.API, className)
+			if dec.codec.API != nil {
+				if dec.codec.API.Classes[className] == nil {
 					dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid class name `%s`", className))
-					if dec.noinvalid {
+					if dec.codec.ExcludeInvalidAPI {
 						continue
 					}
 				}
@@ -185,17 +183,17 @@ func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMemb
 
 	var valueType string
 	var enum *rbxapi.Enum
-	if dec.api != nil && classMembers != nil {
+	if dec.codec.API != nil && classMembers != nil {
 		// Determine property type from API.
 		propAPI, ok := classMembers[name]
 		if ok {
 			valueType = propAPI.ValueType
-			if e, ok := dec.api.Enums[valueType]; ok {
+			if e, ok := dec.codec.API.Enums[valueType]; ok {
 				valueType = "token"
 				enum = e
 			}
 			goto processValue
-		} else if dec.noinvalid {
+		} else if dec.codec.ExcludeInvalidAPI {
 			dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid property name %s.`%s`", instance.ClassName, name))
 			return "", nil, false
 		}
@@ -483,7 +481,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxapi.Enum) (va
 					return rbxfile.ValueToken(v), true
 				}
 			}
-			if dec.noinvalid {
+			if dec.codec.ExcludeInvalidAPI {
 				dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid item `%d` for enum %s", v, enum.Name))
 				return nil, false
 			}
@@ -691,24 +689,18 @@ func getContent(tag *Tag) string {
 }
 
 type rencoder struct {
-	root      *rbxfile.Root
-	api       *rbxapi.API
-	document  *Document
-	refs      rbxfile.References
-	err       error
-	norefs    bool
-	noext     bool
-	noinvalid bool
+	root     *rbxfile.Root
+	codec    RobloxCodec
+	document *Document
+	refs     rbxfile.References
+	err      error
 }
 
 func (c RobloxCodec) Encode(root *rbxfile.Root) (document *Document, err error) {
 	enc := &rencoder{
-		root:      root,
-		api:       c.API,
-		refs:      make(rbxfile.References),
-		norefs:    c.ExcludeReferent,
-		noext:     c.ExcludeExternal,
-		noinvalid: c.ExcludeInvalidAPI,
+		root:  root,
+		codec: c,
+		refs:  make(rbxfile.References),
 	}
 
 	enc.encode()
@@ -723,7 +715,7 @@ func (enc *rencoder) encode() {
 		Suffix: "",
 		Root:   NewRoot(),
 	}
-	if !enc.noext {
+	if !enc.codec.ExcludeExternal {
 		enc.document.Root.Tags = []*Tag{
 			&Tag{StartName: "External", Text: "null"},
 			&Tag{StartName: "External", Text: "nil"},
@@ -737,10 +729,10 @@ func (enc *rencoder) encode() {
 }
 
 func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
-	if enc.api != nil {
-		if _, ok := enc.api.Classes[instance.ClassName]; !ok {
+	if enc.codec.API != nil {
+		if _, ok := enc.codec.API.Classes[instance.ClassName]; !ok {
 			enc.document.Warnings = append(enc.document.Warnings, fmt.Errorf("invalid class `%s`", instance.ClassName))
-			if enc.noinvalid {
+			if enc.codec.ExcludeInvalidAPI {
 				return
 			}
 		}
@@ -749,7 +741,7 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 	ref := enc.refs.Get(instance)
 	properties := enc.encodeProperties(instance)
 	item := NewItem(instance.ClassName, ref, properties...)
-	if enc.norefs {
+	if enc.codec.ExcludeReferent {
 		item.SetAttrValue("referent", "")
 	}
 	parent.Tags = append(parent.Tags, item)
@@ -761,8 +753,8 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 
 func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []*Tag) {
 	var apiMembers map[string]*rbxapi.Property
-	if enc.api != nil {
-		apiClass, ok := enc.api.Classes[instance.ClassName]
+	if enc.codec.API != nil {
+		apiClass, ok := enc.codec.API.Classes[instance.ClassName]
 		if ok {
 			apiMembers = make(map[string]*rbxapi.Property, len(apiClass.Members))
 			for _, member := range apiClass.Members {
@@ -787,12 +779,12 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 			if ok {
 				typ := apiMember.ValueType
 				token, istoken := value.(rbxfile.ValueToken)
-				enum := enc.api.Enums[typ]
+				enum := enc.codec.API.Enums[typ]
 				if istoken && enum == nil || !isCanonType(typ, value) {
 					enc.document.Warnings = append(enc.document.Warnings,
 						fmt.Errorf("invalid value type `%s` for property %s.%s (%s)", value, instance.ClassName, name, typ),
 					)
-					if enc.noinvalid {
+					if enc.codec.ExcludeInvalidAPI {
 						continue
 					}
 				} else if istoken && enum != nil {
@@ -805,7 +797,7 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 					enc.document.Warnings = append(enc.document.Warnings,
 						fmt.Errorf("invalid enum value `%d` for property %s.%s (%s)", uint32(token), instance.ClassName, name, enum.Name),
 					)
-					if enc.noinvalid {
+					if enc.codec.ExcludeInvalidAPI {
 						continue
 					}
 
@@ -813,7 +805,7 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 				}
 			} else {
 				enc.document.Warnings = append(enc.document.Warnings, fmt.Errorf("invalid property %s.`%s`", instance.ClassName, name))
-				if enc.noinvalid {
+				if enc.codec.ExcludeInvalidAPI {
 					continue
 				}
 			}
