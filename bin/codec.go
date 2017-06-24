@@ -435,6 +435,13 @@ func decodeValue(valueType string, refs map[int32]*rbxfile.Instance, bvalue Valu
 			FrictionWeight:   bvalue.FrictionWeight,
 			ElasticityWeight: bvalue.ElasticityWeight,
 		}
+
+	case *ValueColor3uint8:
+		value = rbxfile.ValueColor3uint8{
+			R: bvalue.R,
+			G: bvalue.G,
+			B: bvalue.B,
+		}
 	}
 
 	return
@@ -1010,6 +1017,13 @@ func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Va
 			v.CustomPhysics = 0
 		}
 		bvalue = &v
+
+	case rbxfile.ValueColor3uint8:
+		bvalue = &ValueColor3uint8{
+			R: value.R,
+			G: value.G,
+			B: value.B,
+		}
 	}
 
 	return

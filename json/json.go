@@ -391,6 +391,12 @@ func ValueToJSONInterface(value rbxfile.Value, refs rbxfile.References) interfac
 			"friction_weight":   float64(value.FrictionWeight),
 			"elasticity_weight": float64(value.ElasticityWeight),
 		}
+	case rbxfile.ValueColor3uint8:
+		return map[string]interface{}{
+			"r": float64(value.R),
+			"g": float64(value.G),
+			"b": float64(value.B),
+		}
 	}
 	return nil
 }
@@ -662,6 +668,16 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			Elasticity:       float32(v["elasticity"].(float64)),
 			FrictionWeight:   float32(v["friction_weight"].(float64)),
 			ElasticityWeight: float32(v["elasticity_weight"].(float64)),
+		}
+	case rbxfile.TypeColor3uint8:
+		v, ok := ivalue.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		return rbxfile.ValueColor3uint8{
+			R: byte(v["r"].(float64)),
+			G: byte(v["g"].(float64)),
+			B: byte(v["b"].(float64)),
 		}
 	}
 	return nil

@@ -248,6 +248,9 @@ func (property) element() {}
 //         3) 5 numbers, corresponding to the Density, Friction, and
 //            Elasticity, FrictionWeight, and ElasticityWeight fields
 //            (CustomPhysics is set to true).
+//
+//     Color3uint8:
+//         3 numbers, corresponding to the R, G, and B fields.
 func Property(name string, typ Type, value ...interface{}) property {
 	return property{name: name, typ: typ, value: value}
 }

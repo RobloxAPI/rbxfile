@@ -47,6 +47,7 @@ const (
 	TypeNumberRange        Type = 0x17
 	TypeRect2D             Type = 0x18
 	TypePhysicalProperties Type = 0x19
+	TypeColor3uint8        Type = 0x1A
 )
 
 var typeStrings = map[Type]string{
@@ -75,6 +76,7 @@ var typeStrings = map[Type]string{
 	TypeNumberRange:        "NumberRange",
 	TypeRect2D:             "Rect2D",
 	TypePhysicalProperties: "PhysicalProperties",
+	TypeColor3uint8:        "Color3uint8",
 }
 
 // Value is a property value of a certain Type.
@@ -136,6 +138,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeNumberRange:        newValueNumberRange,
 	TypeRect2D:             newValueRect2D,
 	TypePhysicalProperties: newValuePhysicalProperties,
+	TypeColor3uint8:        newValueColor3uint8,
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1923,6 +1926,76 @@ func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
 	}
 
 	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValueColor3uint8 struct {
+	R, G, B byte
+}
+
+func newValueColor3uint8() Value {
+	return new(ValueColor3uint8)
+}
+
+func (ValueColor3uint8) Type() Type {
+	return TypeColor3uint8
+}
+
+func (v ValueColor3uint8) ArrayBytes(a []Value) (b []byte, err error) {
+	return interleaveFields(v.Type(), a)
+}
+
+func (v ValueColor3uint8) FromArrayBytes(b []byte) (a []Value, err error) {
+	return deinterleaveFields(v.Type(), b)
+}
+
+func (v ValueColor3uint8) Bytes() []byte {
+	b := make([]byte, 3)
+	b[0] = v.R
+	b[1] = v.G
+	b[2] = v.B
+	return b
+}
+
+func (v *ValueColor3uint8) FromBytes(b []byte) error {
+	if len(b) != 3 {
+		return errors.New("array length must be 3")
+	}
+
+	v.R = b[0]
+	v.G = b[1]
+	v.B = b[2]
+
+	return nil
+}
+
+func (ValueColor3uint8) fieldLen() []int {
+	return []int{1, 1, 1}
+}
+
+func (v *ValueColor3uint8) fieldSet(i int, b []byte) (err error) {
+	switch i {
+	case 0:
+		v.R = b[0]
+	case 1:
+		v.G = b[0]
+	case 2:
+		v.B = b[0]
+	}
+	return
+}
+
+func (v ValueColor3uint8) fieldGet(i int) (b []byte) {
+	switch i {
+	case 0:
+		return []byte{v.R}
+	case 1:
+		return []byte{v.G}
+	case 2:
+		return []byte{v.B}
+	}
+	return
 }
 
 ////////////////////////////////////////////////////////////////

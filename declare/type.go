@@ -36,7 +36,39 @@ const (
 	NumberRange
 	Rect2D
 	PhysicalProperties
+	Color3uint8
 )
+
+func normUint8(v interface{}) uint8 {
+	switch v := v.(type) {
+	case int:
+		return uint8(v)
+	case uint:
+		return uint8(v)
+	case uint8:
+		return uint8(v)
+	case uint16:
+		return uint8(v)
+	case uint32:
+		return uint8(v)
+	case uint64:
+		return uint8(v)
+	case int8:
+		return uint8(v)
+	case int16:
+		return uint8(v)
+	case int32:
+		return uint8(v)
+	case int64:
+		return uint8(v)
+	case float32:
+		return uint8(v)
+	case float64:
+		return uint8(v)
+	}
+
+	return 0
+}
 
 func normInt16(v interface{}) int16 {
 	switch v := v.(type) {
@@ -254,6 +286,8 @@ func assertValue(t Type, v interface{}) (value rbxfile.Value, ok bool) {
 		value, ok = v.(rbxfile.ValueRect2D)
 	case PhysicalProperties:
 		value, ok = v.(rbxfile.ValuePhysicalProperties)
+	case Color3uint8:
+		value, ok = v.(rbxfile.ValueColor3uint8)
 	}
 	return
 }
@@ -573,6 +607,14 @@ func (t Type) value(refs rbxfile.References, v []interface{}) rbxfile.Value {
 				Elasticity:       normFloat32(v[2]),
 				FrictionWeight:   normFloat32(v[3]),
 				ElasticityWeight: normFloat32(v[4]),
+			}
+		}
+	case Color3uint8:
+		if len(v) == 3 {
+			return rbxfile.ValueColor3uint8{
+				R: normUint8(v[0]),
+				G: normUint8(v[1]),
+				B: normUint8(v[2]),
 			}
 		}
 	}
