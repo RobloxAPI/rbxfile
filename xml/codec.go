@@ -637,6 +637,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum *rbxapi.Enum) (va
 		vb, _ := dec.getValue(cp, "bool", enum)
 		v.CustomPhysics = bool(vb.(rbxfile.ValueBool))
 		return v, true
+
 	case "Color3uint8":
 		v, err := strconv.ParseUint(getContent(tag), 10, 32)
 		if err != nil {
@@ -1352,6 +1353,8 @@ func isCanonType(t string, v rbxfile.Value) bool {
 		return t == "NumberRange"
 	case rbxfile.ValueRect2D:
 		return t == "Rect2D"
+	case rbxfile.ValuePhysicalProperties:
+		return t == "PhysicalProperties"
 	case rbxfile.ValueColor3uint8:
 		return t == "Color3uint8"
 	}
