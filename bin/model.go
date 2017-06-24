@@ -316,6 +316,10 @@ type FormatModel struct {
 	// Chunks is a list of Chunks present in the model.
 	Chunks []Chunk
 
+	// If Strict is true, certain errors normally emitted as warnings are
+	// instead emitted as errors.
+	Strict bool
+
 	// Warnings is a list of non-fatal problems that have occurred. This will
 	// be cleared and populated when calling either ReadFrom and WriteTo.
 	// Codecs may also clear and populate this when decoding or encoding.
@@ -323,6 +327,9 @@ type FormatModel struct {
 }
 
 // ReadFrom decodes data from r into the FormatModel.
+//
+// If an error occurs while reading a chunk, the error is emitted as a
+// ErrChunk to FormatModel.Warnings, unless FormatModel.Strict is true.
 func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 	if r == nil {
 		return 0, errors.New("reader is nil")
@@ -400,9 +407,14 @@ loop:
 		chunk := newChunk()
 		chunk.SetCompressed(rawChunk.compressed)
 
-		if _, fr.err = chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); fr.err != nil {
-			fr.err = ErrChunk{Sig: rawChunk.signature, Err: fr.err}
-			return fr.end()
+		if _, err := chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); err != nil {
+			err = ErrChunk{Sig: rawChunk.signature, Err: err}
+			if f.Strict {
+				fr.err = err
+				return fr.end()
+			}
+			f.Warnings = append(f.Warnings, err)
+			continue loop
 		}
 
 		f.Chunks = append(f.Chunks, chunk)
