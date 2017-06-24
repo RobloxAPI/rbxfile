@@ -43,10 +43,13 @@ func (err ErrChunk) Error() string {
 	return fmt.Sprintf("chunk %s: %s", err.Sig, err.Err.Error())
 }
 
-type ErrInvalidType byte
+type ErrInvalidType struct {
+	Chunk *ChunkProperty
+	Bytes []byte
+}
 
-func (err ErrInvalidType) Error() string {
-	return fmt.Sprintf("invalid data type 0x%X", byte(err))
+func (err *ErrInvalidType) Error() string {
+	return fmt.Sprintf("invalid data type 0x%X", byte(err.Chunk.DataType))
 }
 
 // ErrValue is an error that is produced by a Value of a certain Type.
@@ -1052,7 +1055,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 
 	newValue, ok := valueGenerators[c.DataType]
 	if !ok {
-		fr.err = ErrInvalidType(c.DataType)
+		fr.err = &ErrInvalidType{Chunk: c, Bytes: rawBytes}
 		return fr.end()
 	}
 
@@ -1084,7 +1087,7 @@ func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 
 	newValue, ok := valueGenerators[c.DataType]
 	if !ok {
-		fw.err = ErrInvalidType(c.DataType)
+		fw.err = &ErrInvalidType{Chunk: c}
 		return fw.end()
 	}
 
