@@ -747,7 +747,7 @@ func (t ValueColorSequenceKeypoint) String() string {
 type ValueColorSequence []ValueColorSequenceKeypoint
 
 func newValueColorSequence() Value {
-	return *new(ValueColorSequence)
+	return make(ValueColorSequence, 0, 8)
 }
 
 func (ValueColorSequence) Type() Type {
