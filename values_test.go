@@ -122,8 +122,8 @@ func TestValueString(t *testing.T) {
 
 		vtest{rbxfile.ValueUDim{
 			Scale:  math.Pi,
-			Offset: 12345678,
-		}, "3.1415927, 12345678"},
+			Offset: 12345,
+		}, "3.1415927, 12345"},
 
 		vtest{rbxfile.ValueUDim2{
 			X: rbxfile.ValueUDim{

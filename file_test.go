@@ -1,12 +1,7 @@
 package rbxfile_test
 
 import (
-	"bufio"
-	"bytes"
-	"errors"
-	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
-	"io"
 	"regexp"
 	"testing"
 )
@@ -145,19 +140,19 @@ func TestInstanceHierarchy(t *testing.T) {
 	}
 }
 
-func TestInstance_ClearAllChildren(t *testing.T) {
+func TestInstance_RemoveAll(t *testing.T) {
 	inst := rbxfile.NewInstance("Instance", nil)
 	for i := 0; i < 10; i++ {
 		rbxfile.NewInstance("Child", inst)
 	}
 
-	if n := len(inst.GetChildren()); n != 10 {
+	if n := len(inst.Children); n != 10 {
 		t.Fatalf("expected 10 children, got %d", n)
 	}
 
-	inst.ClearAllChildren()
+	inst.RemoveAll()
 
-	if n := len(inst.GetChildren()); n != 0 {
+	if n := len(inst.Children); n != 0 {
 		t.Fatalf("expected %d children, got %d", 0, n)
 	}
 }
@@ -188,7 +183,7 @@ func TestInstance_Clone(t *testing.T) {
 	}
 
 	var cchild *rbxfile.Instance
-	if cchildren := cinst.GetChildren(); len(cchildren) != 1 {
+	if cchildren := cinst.Children; len(cchildren) != 1 {
 		t.Fatalf("expected 1 child, got %d", len(cchildren))
 	} else {
 		cchild = cchildren[0]
@@ -255,12 +250,11 @@ func TestInstance_GetChildren(t *testing.T) {
 		children[i] = rbxfile.NewInstance("Child", inst)
 	}
 
-	ch := inst.GetChildren()
-	if len(ch) != len(children) {
-		t.Fatalf("expected %d children, got %d", len(children), len(ch))
+	if len(inst.Children) != len(children) {
+		t.Fatalf("expected %d children, got %d", len(children), len(inst.Children))
 	}
 
-	for i, child := range ch {
+	for i, child := range inst.Children {
 		if child != children[i] {
 			t.Errorf("unexpected child #%d from GetChildren", i)
 		}
@@ -279,7 +273,7 @@ func TestInstance_GetFullName(t *testing.T) {
 	}
 }
 
-func TestInstance_Remove(t *testing.T) {
+/*func TestInstance_Remove(t *testing.T) {
 	parent := rbxfile.NewInstance("Parent", nil)
 	inst := rbxfile.NewInstance("Instance", parent)
 	child := rbxfile.NewInstance("Child", inst)
@@ -296,7 +290,7 @@ func TestInstance_Remove(t *testing.T) {
 	if desc.Parent() != nil {
 		t.Error("expected descendant parent to be nil")
 	}
-}
+}*/
 
 func TestInstance_Name(t *testing.T) {
 	inst := rbxfile.NewInstance("Instance", nil)
@@ -390,68 +384,3 @@ func TestInstance_GetSet(t *testing.T) {
 	}
 }
 
-// Format Tests
-
-// Format implements rbxfile.Format so that this package can be registered
-// when it is imported.
-type format struct {
-	name   string
-	magic  string
-	decode func(io.Reader, *rbxapi.API) (*rbxfile.Root, error)
-	encode func(io.Writer, *rbxapi.API, *rbxfile.Root) error
-}
-
-func (f format) Name() string {
-	return f.name
-}
-
-func (f format) Magic() string {
-	return f.magic
-}
-
-func (f format) Decode(r io.Reader, api *rbxapi.API) (root *rbxfile.Root, err error) {
-	return f.decode(r, api)
-}
-
-func (f format) Encode(w io.Writer, api *rbxapi.API, root *rbxfile.Root) (err error) {
-	return f.encode(w, api, root)
-}
-
-func TestFormat(t *testing.T) {
-	rbxfile.RegisterAPI(nil)
-
-	rbxfile.RegisterFormat(format{
-		name:  "test",
-		magic: "test????signature",
-		decode: func(r io.Reader, api *rbxapi.API) (root *rbxfile.Root, err error) {
-			return nil, errors.New("decode success")
-		},
-		encode: func(w io.Writer, api *rbxapi.API, root *rbxfile.Root) (err error) {
-			return errors.New("encode success")
-		},
-	})
-
-	r := bytes.NewBufferString("testgoodsignature testcontent")
-	if _, err := rbxfile.Decode(r); err == nil || err.Error() != "decode success" {
-		t.Error("unexpected result from Decode:", err)
-	}
-
-	r = bytes.NewBufferString("testbadsig testcontent")
-	if _, err := rbxfile.Decode(r); err != rbxfile.ErrFormat {
-		t.Error("unexpected result from Decode:", err)
-	}
-
-	buf := bufio.NewReader(bytes.NewBufferString("testbuffsignature testcontent"))
-	if _, err := rbxfile.Decode(buf); err == nil || err.Error() != "decode success" {
-		t.Error("unexpected result from Decode:", err)
-	}
-
-	w := new(bytes.Buffer)
-	if err := rbxfile.Encode(w, "test", nil); err == nil || err.Error() != "encode success" {
-		t.Error("unexpected result from Encode:", err)
-	}
-
-	if err := rbxfile.Encode(w, "badformat", nil); err != rbxfile.ErrFormat {
-		t.Error("unexpected result from Encode:", err)
-	}
-}
