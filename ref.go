@@ -24,6 +24,9 @@ func (refs References) Resolve(propRef PropRef) bool {
 	if refs == nil {
 		return false
 	}
+	if propRef.Instance == nil {
+		return false
+	}
 	referent := refs[propRef.Reference]
 	propRef.Instance.Properties[propRef.Property] = ValueReference{
 		Instance: referent,
