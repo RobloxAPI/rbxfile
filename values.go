@@ -1,6 +1,7 @@
 package rbxfile
 
 import (
+	"github.com/robloxapi/rbxapi"
 	"strconv"
 	"strings"
 )
@@ -59,6 +60,29 @@ func TypeFromString(s string) Type {
 		}
 	}
 	return TypeInvalid
+}
+
+// TypeFromAPIString returns a Type from a string, using a rbxapi.API if
+// needed. Valid strings are compatible with type strings typically found in a
+// rbxapi.API.
+func TypeFromAPIString(api *rbxapi.API, s string) Type {
+	if api != nil && api.Enums[s] != nil {
+		return TypeToken
+	}
+	s = strings.ToLower(s)
+	switch s {
+	case "coordinateframe":
+		return TypeCFrame
+	case "object":
+		return TypeReference
+	}
+	for typ, str := range typeStrings {
+		if s == strings.ToLower(str) {
+			return typ
+		}
+	}
+	return TypeInvalid
+
 }
 
 var typeStrings = map[Type]string{
