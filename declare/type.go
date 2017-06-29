@@ -2,10 +2,21 @@ package declare
 
 import (
 	"github.com/robloxapi/rbxfile"
+	"strings"
 )
 
 // Type corresponds to a rbxfile.Type.
 type Type byte
+
+// String returns a string representation of the type. If the type is not
+// valid, then the returned value will be "Invalid".
+func (t Type) String() string {
+	s, ok := typeStrings[t]
+	if !ok {
+		return "Invalid"
+	}
+	return s
+}
 
 const (
 	_ Type = iota
@@ -38,6 +49,49 @@ const (
 	PhysicalProperties
 	Color3uint8
 )
+
+// TypeFromString returns a Type from its string representation. Type(0) is
+// returned if the string does not represent an existing Type.
+func TypeFromString(s string) Type {
+	s = strings.ToLower(s)
+	for typ, str := range typeStrings {
+		if s == strings.ToLower(str) {
+			return typ
+		}
+	}
+	return 0
+}
+
+var typeStrings = map[Type]string{
+	String:             "String",
+	BinaryString:       "BinaryString",
+	ProtectedString:    "ProtectedString",
+	Content:            "Content",
+	Bool:               "Bool",
+	Int:                "Int",
+	Float:              "Float",
+	Double:             "Double",
+	UDim:               "UDim",
+	UDim2:              "UDim2",
+	Ray:                "Ray",
+	Faces:              "Faces",
+	Axes:               "Axes",
+	BrickColor:         "BrickColor",
+	Color3:             "Color3",
+	Vector2:            "Vector2",
+	Vector3:            "Vector3",
+	CFrame:             "CFrame",
+	Token:              "Token",
+	Reference:          "Reference",
+	Vector3int16:       "Vector3int16",
+	Vector2int16:       "Vector2int16",
+	NumberSequence:     "NumberSequence",
+	ColorSequence:      "ColorSequence",
+	NumberRange:        "NumberRange",
+	Rect2D:             "Rect2D",
+	PhysicalProperties: "PhysicalProperties",
+	Color3uint8:        "Color3uint8",
+}
 
 func normUint8(v interface{}) uint8 {
 	switch v := v.(type) {
