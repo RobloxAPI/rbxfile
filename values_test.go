@@ -27,6 +27,12 @@ func TestType_String(t *testing.T) {
 }
 
 func TestTypeFromString(t *testing.T) {
+	for _, typ := range testTypes {
+		if st := TypeFromString(typ.String()); st != typ {
+			t.Errorf("expected type %s from TypeFromString (got %s)", typ, st)
+		}
+	}
+
 	if TypeFromString("String") != TypeString {
 		t.Error("unexpected result from TypeFromString")
 	}
