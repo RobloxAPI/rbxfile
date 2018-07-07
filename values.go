@@ -62,11 +62,11 @@ func TypeFromString(s string) Type {
 	return TypeInvalid
 }
 
-// TypeFromAPIString returns a Type from a string, using a rbxapi.API if
+// TypeFromAPIString returns a Type from a string, using a rbxapi.Root if
 // needed. Valid strings are compatible with type strings typically found in a
-// rbxapi.API.
-func TypeFromAPIString(api *rbxapi.API, s string) Type {
-	if api != nil && api.Enums[s] != nil {
+// rbxapi.Root.
+func TypeFromAPIString(api rbxapi.Root, s string) Type {
+	if api != nil && api.GetEnum(s) != nil {
 		return TypeToken
 	}
 	s = strings.ToLower(s)
