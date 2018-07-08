@@ -397,6 +397,8 @@ func ValueToJSONInterface(value rbxfile.Value, refs rbxfile.References) interfac
 			"g": float64(value.G),
 			"b": float64(value.B),
 		}
+	case rbxfile.ValueInt64:
+		return float64(value)
 	}
 	return nil
 }
@@ -679,6 +681,12 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			G: byte(v["g"].(float64)),
 			B: byte(v["b"].(float64)),
 		}
+	case rbxfile.TypeInt64:
+		v, ok := ivalue.(float64)
+		if !ok {
+			return nil
+		}
+		return rbxfile.ValueInt64(int64(v))
 	}
 	return nil
 }

@@ -443,6 +443,10 @@ func decodeValue(valueType rbxapi.Type, refs map[int32]*rbxfile.Instance, bvalue
 			G: bvalue.G,
 			B: bvalue.B,
 		}
+
+	case *ValueInt64:
+		value = rbxfile.ValueInt64(*bvalue)
+
 	}
 
 	return
@@ -1026,6 +1030,9 @@ func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Va
 			G: value.G,
 			B: value.B,
 		}
+
+	case rbxfile.ValueInt64:
+		bvalue = (*ValueInt64)(&value)
 	}
 
 	return

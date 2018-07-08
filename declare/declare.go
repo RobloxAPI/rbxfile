@@ -166,7 +166,7 @@ func (property) element() {}
 //     Bool:
 //         A single bool. Extra values are ignored.
 //
-//     Int, Float, Double, BrickColor, Token:
+//     Int, Float, Double, BrickColor, Token, Int64:
 //         A single number. Extra values are ignored.
 //
 //     UDim:

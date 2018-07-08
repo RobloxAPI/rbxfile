@@ -296,6 +296,8 @@ func (RobloxCodec) GetCanonType(valueType string) string {
 		return "PhysicalProperties"
 	case "color3uint8":
 		return "Color3uint8"
+	case "int64":
+		return "int64"
 	}
 	return ""
 }
@@ -648,6 +650,13 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 			G: byte(v & 0x0000FF00 >> 8),
 			B: byte(v & 0x000000FF),
 		}, true
+
+	case "int64":
+		v, err := strconv.ParseInt(getContent(tag), 10, 64)
+		if err != nil {
+			return nil, false
+		}
+		return rbxfile.ValueInt64(v), true
 	}
 
 	return nil, false
@@ -1232,6 +1241,14 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			NoIndent:  true,
 			Text:      strconv.FormatUint(0xFF<<24|r<<16|g<<8|b, 10),
 		}
+
+	case rbxfile.ValueInt64:
+		return &Tag{
+			StartName: "int64",
+			Attr:      attr,
+			NoIndent:  true,
+			Text:      strconv.FormatInt(int64(value), 10),
+		}
 	}
 
 	return nil
@@ -1358,6 +1375,8 @@ func isCanonType(t string, v rbxfile.Value) bool {
 		return t == "PhysicalProperties"
 	case rbxfile.ValueColor3uint8:
 		return t == "Color3uint8"
+	case rbxfile.ValueInt64:
+		return t == "int64"
 	}
 	return false
 }

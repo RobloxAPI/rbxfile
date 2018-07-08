@@ -49,6 +49,7 @@ const (
 	TypeRect2D
 	TypePhysicalProperties
 	TypeColor3uint8
+	TypeInt64
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -114,6 +115,7 @@ var typeStrings = map[Type]string{
 	TypeRect2D:             "Rect2D",
 	TypePhysicalProperties: "PhysicalProperties",
 	TypeColor3uint8:        "Color3uint8",
+	TypeInt64:              "Int64",
 }
 
 // Value holds a value of a particular Type.
@@ -170,6 +172,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeRect2D:             newValueRect2D,
 	TypePhysicalProperties: newValuePhysicalProperties,
 	TypeColor3uint8:        newValueColor3uint8,
+	TypeInt64:              newValueInt64,
 }
 
 func joinstr(a ...string) string {
@@ -904,3 +907,21 @@ func (t ValueColor3uint8) Copy() Value {
 }
 
 ////////////////
+
+type ValueInt64 int64
+
+func newValueInt64() Value {
+	return *new(ValueInt64)
+}
+
+func (ValueInt64) Type() Type {
+	return TypeInt64
+}
+
+func (t ValueInt64) String() string {
+	return strconv.FormatInt(int64(t), 10)
+}
+
+func (t ValueInt64) Copy() Value {
+	return t
+}

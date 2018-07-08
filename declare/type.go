@@ -48,6 +48,7 @@ const (
 	Rect2D
 	PhysicalProperties
 	Color3uint8
+	Int64
 )
 
 // TypeFromString returns a Type from its string representation. Type(0) is
@@ -91,6 +92,7 @@ var typeStrings = map[Type]string{
 	Rect2D:             "Rect2D",
 	PhysicalProperties: "PhysicalProperties",
 	Color3uint8:        "Color3uint8",
+	Int64:              "Int64",
 }
 
 func normUint8(v interface{}) uint8 {
@@ -181,6 +183,37 @@ func normInt32(v interface{}) int32 {
 		return int32(v)
 	case float64:
 		return int32(v)
+	}
+
+	return 0
+}
+
+func normInt64(v interface{}) int64 {
+	switch v := v.(type) {
+	case int:
+		return int64(v)
+	case uint:
+		return int64(v)
+	case uint8:
+		return int64(v)
+	case uint16:
+		return int64(v)
+	case uint32:
+		return int64(v)
+	case uint64:
+		return int64(v)
+	case int8:
+		return int64(v)
+	case int16:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case int64:
+		return int64(v)
+	case float32:
+		return int64(v)
+	case float64:
+		return int64(v)
 	}
 
 	return 0
@@ -342,6 +375,8 @@ func assertValue(t Type, v interface{}) (value rbxfile.Value, ok bool) {
 		value, ok = v.(rbxfile.ValuePhysicalProperties)
 	case Color3uint8:
 		value, ok = v.(rbxfile.ValueColor3uint8)
+	case Int64:
+		value, ok = v.(rbxfile.ValueInt64)
 	}
 	return
 }
@@ -671,6 +706,8 @@ func (t Type) value(refs rbxfile.References, v []interface{}) rbxfile.Value {
 				B: normUint8(v[2]),
 			}
 		}
+	case Int64:
+		return rbxfile.ValueInt64(normInt64(v[0]))
 	}
 
 zero:
