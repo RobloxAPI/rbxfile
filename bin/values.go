@@ -334,11 +334,11 @@ func deinterleave(bytes []byte, size int) error {
 // similar to positive numbers, making them more compressible.
 //
 // https://developers.google.com/protocol-buffers/docs/encoding#types
-func encodeZigzag(n int32) uint32 {
+func encodeZigzag32(n int32) uint32 {
 	return uint32((n << 1) ^ (n >> 31))
 }
 
-func decodeZigzag(n uint32) int32 {
+func decodeZigzag32(n uint32) int32 {
 	return int32((n >> 1) ^ uint32((int32(n&1)<<31)>>31))
 }
 
@@ -528,7 +528,7 @@ func (v ValueInt) FromArrayBytes(b []byte) (a []Value, err error) {
 
 func (v ValueInt) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, encodeZigzag(int32(v)))
+	binary.BigEndian.PutUint32(b, encodeZigzag32(int32(v)))
 	return b
 }
 
@@ -537,7 +537,7 @@ func (v *ValueInt) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	*v = ValueInt(decodeZigzag(binary.BigEndian.Uint32(b)))
+	*v = ValueInt(decodeZigzag32(binary.BigEndian.Uint32(b)))
 
 	return nil
 }
@@ -1504,7 +1504,7 @@ func (v ValueReference) FromArrayBytes(b []byte) (a []Value, err error) {
 
 func (v ValueReference) Bytes() []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, encodeZigzag(int32(v)))
+	binary.BigEndian.PutUint32(b, encodeZigzag32(int32(v)))
 	return b
 }
 
@@ -1513,7 +1513,7 @@ func (v *ValueReference) FromBytes(b []byte) error {
 		return errors.New("array length must be 4")
 	}
 
-	*v = ValueReference(decodeZigzag(binary.BigEndian.Uint32(b)))
+	*v = ValueReference(decodeZigzag32(binary.BigEndian.Uint32(b)))
 
 	return nil
 }
