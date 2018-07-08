@@ -22,6 +22,7 @@ To add value type `Foobar`:
 	- `declare/type.go`
 		- [ ] Add `Foobar` to type constants.
 			- Ensure `Foobar` does not conflict with existing identifiers.
+		- [ ] In `typeStrings`, map `Foobar` to string `"Foobar"`.
 		- [ ] In function `assertValue`, add case `Foobar`.
 			- Assert `v` as `rbxfile.ValueFoobar`.
 		- [ ] In method `Type.value`, add case `Foobar`.
