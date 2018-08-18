@@ -80,30 +80,18 @@ func IsEmptyReference(ref string) bool {
 	}
 }
 
-func hexEncode(dst, src []byte) {
-	const hextable = "0123456789ABCDEF"
-	for i := len(src) - 1; i >= 0; i-- {
-		dst[i*2+1] = hextable[src[i]&0x0f]
-		dst[i*2] = hextable[src[i]>>4]
-	}
-}
-
 func generateUUID() string {
-	var buf [36]byte
+	var buf [32]byte
 	if _, err := io.ReadFull(rand.Reader, buf[:16]); err != nil {
 		panic(err)
 	}
 	buf[6] = (buf[6] & 0x0F) | 0x40 // Version 4       ; 0100XXXX
 	buf[8] = (buf[8] & 0x3F) | 0x80 // Variant RFC4122 ; 10XXXXXX
-	hexEncode(buf[24:36], buf[10:16])
-	buf[23] = '-'
-	hexEncode(buf[19:23], buf[8:10])
-	buf[18] = '-'
-	hexEncode(buf[14:18], buf[6:8])
-	buf[13] = '-'
-	hexEncode(buf[9:13], buf[4:6])
-	buf[8] = '-'
-	hexEncode(buf[0:8], buf[0:4])
+	const hextable = "0123456789ABCDEF"
+	for i := len(buf)/2 - 1; i >= 0; i-- {
+		buf[i*2+1] = hextable[buf[i]&0x0f]
+		buf[i*2] = hextable[buf[i]>>4]
+	}
 	return string(buf[:])
 }
 
