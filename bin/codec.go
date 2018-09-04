@@ -268,6 +268,10 @@ func decodeValue(valueType rbxapi.Type, refs map[int32]*rbxfile.Instance, bvalue
 		v := make([]byte, len(*bvalue))
 		copy(v, *bvalue)
 
+		if valueType == nil {
+			value = rbxfile.ValueString(v)
+			break
+		}
 		switch valueType.GetName() {
 		case rbxfile.TypeBinaryString.String():
 			value = rbxfile.ValueBinaryString(v)
