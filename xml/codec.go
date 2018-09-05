@@ -45,6 +45,10 @@ type RobloxCodec struct {
 	// generally preferred to set ExcludeInvalidAPI to false, so that false
 	// negatives do not lead to lost data.
 	ExcludeInvalidAPI bool
+
+	// ExcludeMetadata determines whether <Meta> tags should be included while
+	// encoding.
+	ExcludeMetadata bool
 }
 
 func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) {
@@ -101,6 +105,20 @@ func (dec *rdecoder) decode() error {
 
 	dec.root = new(rbxfile.Root)
 	dec.root.Instances, _ = dec.getItems(nil, dec.document.Root.Tags, nil)
+
+	for _, tag := range dec.document.Root.Tags {
+		if tag.StartName != "Meta" {
+			continue
+		}
+		key, ok := tag.AttrValue("name")
+		if !ok {
+			continue
+		}
+		if dec.root.Metadata == nil {
+			dec.root.Metadata = make(map[string]string)
+		}
+		dec.root.Metadata[key] = tag.Text
+	}
 
 	for _, propRef := range dec.propRefs {
 		dec.instLookup.Resolve(propRef)
@@ -746,6 +764,18 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (document *Document, err error) 
 
 }
 
+type sortTagsByNameAttr []*Tag
+
+func (t sortTagsByNameAttr) Len() int {
+	return len(t)
+}
+func (t sortTagsByNameAttr) Less(i, j int) bool {
+	return t[i].Attr[0].Value < t[j].Attr[0].Value
+}
+func (t sortTagsByNameAttr) Swap(i, j int) {
+	t[i], t[j] = t[j], t[i]
+}
+
 func (enc *rencoder) encode() {
 	enc.document = &Document{
 		Prefix: "",
@@ -753,11 +783,22 @@ func (enc *rencoder) encode() {
 		Suffix: "",
 		Root:   NewRoot(),
 	}
+	if !enc.codec.ExcludeMetadata {
+		enc.document.Root.Tags = make([]*Tag, 0, len(enc.root.Metadata))
+		for key, value := range enc.root.Metadata {
+			enc.document.Root.Tags = append(enc.document.Root.Tags, &Tag{
+				StartName: "Meta",
+				Attr:      []Attr{{Name: "name", Value: key}},
+				Text:      value,
+			})
+		}
+		sort.Sort(sortTagsByNameAttr(enc.document.Root.Tags))
+	}
 	if !enc.codec.ExcludeExternal {
-		enc.document.Root.Tags = []*Tag{
+		enc.document.Root.Tags = append(enc.document.Root.Tags,
 			&Tag{StartName: "External", Text: "null"},
 			&Tag{StartName: "External", Text: "nil"},
-		}
+		)
 	}
 
 	for _, instance := range enc.root.Instances {

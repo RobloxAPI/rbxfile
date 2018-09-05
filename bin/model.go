@@ -289,6 +289,8 @@ func chunkGenerators(version uint16, sig [4]byte) chunkGenerator {
 			return newChunkProperty
 		case newChunkParent().Signature():
 			return newChunkParent
+		case newChunkMeta().Signature():
+			return newChunkMeta
 		case newChunkEnd().Signature():
 			return newChunkEnd
 		default:
@@ -1097,6 +1099,81 @@ func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	fw.write(rawBytes)
+
+	return fw.end()
+}
+
+////////////////////////////////////////////////////////////////
+
+// ChunkMeta is a Chunk that contains file metadata.
+type ChunkMeta struct {
+	// Whether the chunk is compressed.
+	IsCompressed bool
+
+	Values [][2]string
+}
+
+func newChunkMeta() Chunk {
+	return new(ChunkMeta)
+}
+
+func (ChunkMeta) Signature() [4]byte {
+	return [4]byte{0x4D, 0x45, 0x54, 0x41} // META
+}
+
+func (c *ChunkMeta) Compressed() bool {
+	return c.IsCompressed
+}
+
+func (c *ChunkMeta) SetCompressed(b bool) {
+	c.IsCompressed = b
+}
+
+type errRawBytes struct {
+	Chunk Chunk
+	Bytes []byte
+}
+
+func (err errRawBytes) Error() string {
+	return "RAW BYTES"
+}
+
+func (c *ChunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
+	fr := &formatReader{r: r}
+
+	var size uint32
+	if fr.readNumber(binary.LittleEndian, &size) {
+		return fr.end()
+	}
+	c.Values = make([][2]string, int(size))
+
+	for i := range c.Values {
+		if fr.readString(&c.Values[i][0]) {
+			return fr.end()
+		}
+		if fr.readString(&c.Values[i][1]) {
+			return fr.end()
+		}
+	}
+
+	return fr.end()
+}
+
+func (c *ChunkMeta) WriteTo(w io.Writer) (n int64, err error) {
+	fw := &formatWriter{w: w}
+
+	if fw.writeNumber(binary.LittleEndian, uint32(len(c.Values))) {
+		return fw.end()
+	}
+
+	for _, pair := range c.Values {
+		if fw.writeString(pair[0]) {
+			return fw.end()
+		}
+		if fw.writeString(pair[1]) {
+			return fw.end()
+		}
+	}
 
 	return fw.end()
 }

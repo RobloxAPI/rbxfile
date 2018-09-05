@@ -33,6 +33,9 @@ import (
 type Root struct {
 	// Instances contains root instances contained in the tree.
 	Instances []*Instance
+
+	// Metadata contains metadata about the tree.
+	Metadata map[string]string
 }
 
 // Copy creates a copy of the root and its contents.
