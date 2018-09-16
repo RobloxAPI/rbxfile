@@ -514,7 +514,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 		}
 		if enum != nil {
 			// Verify that value is a valid enum item
-			for _, item := range enum.GetItems() {
+			for _, item := range enum.GetEnumItems() {
 				if int(v) == item.GetValue() {
 					return rbxfile.ValueToken(v), true
 				}
@@ -873,7 +873,7 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 						continue
 					}
 				} else if istoken && enum != nil {
-					for _, item := range enum.GetItems() {
+					for _, item := range enum.GetEnumItems() {
 						if int(token) == item.GetValue() {
 							goto finishToken
 						}

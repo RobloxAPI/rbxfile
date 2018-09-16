@@ -111,7 +111,7 @@ loop:
 							// Generate an enum items map to be used later.
 							items, ok := enumCache[member.GetValueType().GetName()]
 							if !ok {
-								itemList := enum.GetItems()
+								itemList := enum.GetEnumItems()
 								items = enumItems{
 									first:  itemList[0].GetValue(),
 									values: make(map[int]bool, len(itemList)),
@@ -627,7 +627,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 						// Generate an enum items map to be used later.
 						items, ok := enumCache[enum.GetName()]
 						if !ok {
-							itemList := enum.GetItems()
+							itemList := enum.GetEnumItems()
 							items = enumItems{
 								name:   enum.GetName(),
 								first:  itemList[0].GetValue(),
