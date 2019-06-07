@@ -37,6 +37,13 @@ type Root struct {
 	Metadata map[string]string
 }
 
+func NewRoot() *Root {
+	return &Root{
+		Instances: []*Instance{},
+		Metadata:  map[string]string{},
+	}
+}
+
 // Copy creates a copy of the root and its contents.
 //
 // A copied reference within the tree is resolved so that it points to the
