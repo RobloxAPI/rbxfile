@@ -17,9 +17,15 @@ import (
 	"github.com/robloxapi/rbxfile"
 )
 
-// Root declares a rbxfile.Root. It is a list that contains Instance
-// declarations.
-type Root []instance
+// primary is implemented by declarations that can be directly within a Root
+// declaration.
+type primary interface {
+	primary()
+}
+
+// Root declares a rbxfile.Root. It is a list that contains Instance and
+// Metadata declarations.
+type Root []primary
 
 func build(dinst instance, refs rbxfile.References, props map[*rbxfile.Instance][]property) *rbxfile.Instance {
 	inst := rbxfile.NewInstance(dinst.className, nil)
@@ -40,18 +46,38 @@ func build(dinst instance, refs rbxfile.References, props map[*rbxfile.Instance]
 	return inst
 }
 
-// Declare evaluates the Root declaration, generating instances and property
-// values, setting up the instance hierarchy, and resolving references.
+// Declare evaluates the Root declaration, generating instances, metadata, and
+// property values, setting up the instance hierarchy, and resolving references.
+//
+// Elements are evaluated in order; if two metadata declarations have the same
+// key, the latter takes precedence.
 func (droot Root) Declare() *rbxfile.Root {
-	root := &rbxfile.Root{
-		Instances: make([]*rbxfile.Instance, 0, len(droot)),
+	lenInst := 0
+	lenMeta := 0
+	for _, p := range droot {
+		switch p.(type) {
+		case instance:
+			lenInst++
+		case metadata:
+			lenMeta++
+		}
+	}
+
+	root := rbxfile.Root{
+		Instances: make([]*rbxfile.Instance, 0, lenInst),
+		Metadata:  make(map[string]string, lenMeta),
 	}
 
 	refs := rbxfile.References{}
 	props := map[*rbxfile.Instance][]property{}
 
-	for _, dinst := range droot {
-		root.Instances = append(root.Instances, build(dinst, refs, props))
+	for _, p := range droot {
+		switch p := p.(type) {
+		case instance:
+			root.Instances = append(root.Instances, build(p, refs, props))
+		case metadata:
+			root.Metadata[p[0]] = p[1]
+		}
 	}
 
 	for inst, properties := range props {
@@ -60,7 +86,17 @@ func (droot Root) Declare() *rbxfile.Root {
 		}
 	}
 
-	return root
+	return &root
+}
+
+// metadata represents the declaration of metadata.
+type metadata [2]string
+
+func (metadata) primary() {}
+
+// Metadata declares key-value pair to be applied to the root's Metadata field.
+func Metadata(key, value string) metadata {
+	return metadata{key, value}
 }
 
 type element interface {
@@ -74,6 +110,7 @@ type instance struct {
 	children   []instance
 }
 
+func (instance) primary() {}
 func (instance) element() {}
 
 // Declare evaluates the Instance declaration, generating the instance,
