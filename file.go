@@ -23,7 +23,6 @@ package rbxfile
 
 import (
 	"errors"
-	"fmt"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -107,7 +106,7 @@ func NewInstance(className string, parent *Instance) *Instance {
 
 func assertLoop(child, parent *Instance) error {
 	if parent == child {
-		return fmt.Errorf("attempt to set %s as its own parent", child.Name())
+		return errors.New("attempt to set instance as its own parent")
 	}
 	if parent != nil && parent.IsDescendantOf(child) {
 		return errors.New("attempt to set parent would result in circular reference")
