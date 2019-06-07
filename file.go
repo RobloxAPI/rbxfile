@@ -37,6 +37,7 @@ type Root struct {
 	Metadata map[string]string
 }
 
+// NewRoot returns a new initialized Root.
 func NewRoot() *Root {
 	return &Root{
 		Instances: []*Instance{},
@@ -111,6 +112,8 @@ func NewInstance(className string, parent *Instance) *Instance {
 	return inst
 }
 
+// assertLoop returns an error if an instance being the child of a parent would
+// create a circular reference.
 func assertLoop(child, parent *Instance) error {
 	if parent == child {
 		return errors.New("attempt to set instance as its own parent")
@@ -121,6 +124,8 @@ func assertLoop(child, parent *Instance) error {
 	return nil
 }
 
+// addChild appends a child to the instance, and sets its parent. If the child
+// is already the child of another instance, it is first removed.
 func (inst *Instance) addChild(child *Instance) {
 	if child.parent != nil {
 		child.parent.RemoveChild(child)
@@ -167,6 +172,8 @@ func (inst *Instance) AddChildAt(index int, child *Instance) error {
 	return nil
 }
 
+// removeChildAt removes the child at the given index, which is assumed to be
+// within bounds.
 func (inst *Instance) removeChildAt(index int) (child *Instance) {
 	child = inst.Children[index]
 	child.parent = nil
@@ -236,6 +243,7 @@ func (inst *Instance) SetParent(parent *Instance) error {
 	return nil
 }
 
+// clone returns a deep copy of the instance while managing references.
 func (inst *Instance) clone(refs, crefs References, propRefs *[]PropRef) *Instance {
 	clone := &Instance{
 		ClassName:  inst.ClassName,
