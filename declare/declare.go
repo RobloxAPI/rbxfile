@@ -27,6 +27,7 @@ type primary interface {
 // Metadata declarations.
 type Root []primary
 
+// build recursively resolves instance declarations.
 func build(dinst instance, refs rbxfile.References, props map[*rbxfile.Instance][]property) *rbxfile.Instance {
 	inst := rbxfile.NewInstance(dinst.className, nil)
 
@@ -99,10 +100,13 @@ func Metadata(key, value string) metadata {
 	return metadata{key, value}
 }
 
+// element is implemented by declarations that can be within an instance
+// declaration.
 type element interface {
 	element()
 }
 
+// instance represents the declaration of a rbxfile.Instance.
 type instance struct {
 	className  string
 	reference  string
