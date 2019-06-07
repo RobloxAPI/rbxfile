@@ -90,7 +90,8 @@ type Instance struct {
 	Properties map[string]Value
 
 	// Children contains instances that are the children of the current
-	// instance.
+	// instance. If this field is set directly, then FixTree should be called
+	// afterwards to ensure the correctness of the tree.
 	Children []*Instance
 
 	// The parent of the instance. Can be nil.
@@ -241,6 +242,22 @@ func (inst *Instance) SetParent(parent *Instance) error {
 		parent.addChild(inst)
 	}
 	return nil
+}
+
+// FixTree walks through the descendants of the instance tree top-down and
+// ensures that the parental references are correct. Any descendants that cause
+// a circular reference are removed and not traversed.
+func (inst *Instance) FixTree() {
+	for i := 0; i < len(inst.Children); {
+		child := inst.Children[i]
+		if err := assertLoop(child, inst); err != nil {
+			inst.removeChildAt(i)
+			continue
+		}
+		child.parent = inst
+		child.FixTree()
+		i++
+	}
 }
 
 // clone returns a deep copy of the instance while managing references.
