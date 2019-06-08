@@ -891,7 +891,7 @@ func newValueColor3uint8() Value {
 }
 
 func (ValueColor3uint8) Type() Type {
-	return TypeColor3
+	return TypeColor3uint8
 }
 func (t ValueColor3uint8) String() string {
 	return joinstr(
