@@ -70,10 +70,13 @@ var (
 	WarnEndChunkNotLast    = errors.New("end chunk is not the last chunk")
 )
 
-type WarnUnknownChunk [4]byte
+type WarnUnknownChunk struct {
+	Sig   [4]byte
+	Bytes []byte
+}
 
 func (w WarnUnknownChunk) Error() string {
-	return fmt.Sprintf("unknown chunk signature `%s`", [4]byte(w))
+	return fmt.Sprintf("unknown chunk signature `%s`", w.Sig)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -405,7 +408,10 @@ loop:
 
 		newChunk := chunkGenerators(f.Version, rawChunk.signature)
 		if newChunk == nil {
-			f.Warnings = append(f.Warnings, WarnUnknownChunk(rawChunk.signature))
+			f.Warnings = append(f.Warnings, WarnUnknownChunk{
+				Sig:   rawChunk.signature,
+				Bytes: rawChunk.payload,
+			})
 			continue loop
 		}
 
@@ -473,7 +479,9 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 
 	for i, chunk := range f.Chunks {
 		if !validChunk(f.Version, chunk.Signature()) {
-			f.Warnings = append(f.Warnings, WarnUnknownChunk(chunk.Signature()))
+			f.Warnings = append(f.Warnings, WarnUnknownChunk{
+				Sig: chunk.Signature(),
+			})
 			continue
 		}
 
