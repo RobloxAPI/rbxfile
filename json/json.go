@@ -399,6 +399,12 @@ func ValueToJSONInterface(value rbxfile.Value, refs rbxfile.References) interfac
 		}
 	case rbxfile.ValueInt64:
 		return float64(value)
+	case rbxfile.ValueSharedString:
+		// TODO: Implement as shared data.
+		var buf bytes.Buffer
+		bw := base64.NewEncoder(base64.StdEncoding, &buf)
+		bw.Write([]byte(value))
+		return buf.String()
 	}
 	return nil
 }
@@ -687,6 +693,18 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			return nil
 		}
 		return rbxfile.ValueInt64(int64(v))
+	case rbxfile.TypeSharedString:
+		// TODO: Implement as shared data.
+		v, ok := ivalue.(string)
+		if !ok {
+			return nil
+		}
+		buf := bytes.NewReader([]byte(v))
+		b, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, buf))
+		if err != nil {
+			return rbxfile.ValueSharedString(v)
+		}
+		return rbxfile.ValueSharedString(b)
 	}
 	return nil
 }

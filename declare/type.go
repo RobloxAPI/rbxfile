@@ -49,6 +49,7 @@ const (
 	PhysicalProperties
 	Color3uint8
 	Int64
+	SharedString
 )
 
 // TypeFromString returns a Type from its string representation. Type(0) is
@@ -93,6 +94,7 @@ var typeStrings = map[Type]string{
 	PhysicalProperties: "PhysicalProperties",
 	Color3uint8:        "Color3uint8",
 	Int64:              "Int64",
+	SharedString:       "SharedString",
 }
 
 func normUint8(v interface{}) uint8 {
@@ -377,6 +379,8 @@ func assertValue(t Type, v interface{}) (value rbxfile.Value, ok bool) {
 		value, ok = v.(rbxfile.ValueColor3uint8)
 	case Int64:
 		value, ok = v.(rbxfile.ValueInt64)
+	case SharedString:
+		value, ok = v.(rbxfile.ValueSharedString)
 	}
 	return
 }
@@ -708,6 +712,13 @@ func (t Type) value(refs rbxfile.References, v []interface{}) rbxfile.Value {
 		}
 	case Int64:
 		return rbxfile.ValueInt64(normInt64(v[0]))
+	case SharedString:
+		switch v := v[0].(type) {
+		case string:
+			return rbxfile.ValueSharedString(v)
+		case []byte:
+			return rbxfile.ValueSharedString(v)
+		}
 	}
 
 zero:

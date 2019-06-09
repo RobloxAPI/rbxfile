@@ -1,6 +1,8 @@
 package bin
 
 import (
+	"bytes"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"github.com/robloxapi/rbxapi"
@@ -58,6 +60,8 @@ func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) 
 	instLookup[-1] = nil
 
 	propTypes := map[string]map[string]rbxapi.Type{}
+
+	var sharedStrings []SharedString
 
 	// Caches an enum name to a set of enum item values.
 	enumCache := map[string]enumItems{}
@@ -204,7 +208,7 @@ loop:
 				}
 
 				inst := instLookup[instChunk.InstanceIDs[i]]
-				inst.Properties[chunk.PropertyName] = decodeValue(propType, instLookup, bvalue)
+				inst.Properties[chunk.PropertyName] = decodeValue(propType, instLookup, sharedStrings, bvalue)
 			}
 
 		case *ChunkParent:
@@ -257,6 +261,11 @@ loop:
 				root.Metadata[pair[0]] = pair[1]
 			}
 
+		case *ChunkSharedStrings:
+			chunkType = "sharedstring"
+			// TODO: How are multiple chunks handled (overwrite or append)?
+			sharedStrings = chunk.Values
+
 		case *ChunkEnd:
 			chunkType = "end"
 			break loop
@@ -271,7 +280,12 @@ chunkErr:
 }
 
 // Decode a bin.value to a rbxfile.Value based on a given value type.
-func decodeValue(valueType rbxapi.Type, refs map[int32]*rbxfile.Instance, bvalue Value) (value rbxfile.Value) {
+func decodeValue(
+	valueType rbxapi.Type,
+	refs map[int32]*rbxfile.Instance,
+	sharedStrings []SharedString,
+	bvalue Value,
+) (value rbxfile.Value) {
 	switch bvalue := bvalue.(type) {
 	case *ValueString:
 		v := make([]byte, len(*bvalue))
@@ -460,6 +474,14 @@ func decodeValue(valueType rbxapi.Type, refs map[int32]*rbxfile.Instance, bvalue
 	case *ValueInt64:
 		value = rbxfile.ValueInt64(*bvalue)
 
+	case *ValueSharedString:
+		i := int(*bvalue)
+		if i < 0 || i >= len(sharedStrings) {
+			// TODO: How are invalid indexes handled?
+			value = rbxfile.ValueSharedString("")
+			break
+		}
+		value = rbxfile.ValueSharedString(sharedStrings[i].Value)
 	}
 
 	return
@@ -482,6 +504,9 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 		// In general, -1 indicates a nil value.
 		nil: -1,
 	}
+
+	// Set of shared strings mapped to indexes.
+	sharedStrings := map[string]uint32{}
 
 	// Recursively finds and adds instances.
 	var addInstance func(inst *rbxfile.Instance)
@@ -641,7 +666,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 						propEnums[member.GetName()] = items
 					}
 
-					bval := encodeValue(refs, rbxfile.NewValue(typ))
+					bval := encodeValue(refs, sharedStrings, rbxfile.NewValue(typ))
 					if bval == nil {
 						addWarn("encountered unknown data type `%s` in API", member.GetValueType())
 						if c.ExcludeInvalidAPI {
@@ -657,7 +682,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 			useFirst:
 				// Use type from existing property in the first instance.
 				{
-					bval := encodeValue(refs, value)
+					bval := encodeValue(refs, sharedStrings, value)
 					if bval == nil {
 						addWarn("unknown property type (%d) in instance #%d (%s.%s)", byte(value.Type()), ref, inst.ClassName, name)
 						continue
@@ -704,7 +729,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 				}
 
 				if matches {
-					bval := encodeValue(refs, rbxfile.NewValue(dataType))
+					bval := encodeValue(refs, sharedStrings, rbxfile.NewValue(dataType))
 					if bval == nil {
 						addWarn("unknown property data type (%d) in instance #%d (%s.%s)", byte(dataType), instRef, instList[instRef].ClassName, name)
 						continue
@@ -721,7 +746,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 
 				var bvalue Value
 				if value, ok := inst.Properties[name]; ok {
-					bvalue = encodeValue(refs, value)
+					bvalue = encodeValue(refs, sharedStrings, value)
 				}
 
 				if bvalue == nil || bvalue.Type() != propChunk.DataType {
@@ -804,7 +829,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	// Make FormatModel.
 	model.TypeCount = uint32(len(instChunkList))
 	model.InstanceCount = uint32(len(instList))
-	model.Chunks = make([]Chunk, 1+len(instChunkList)+len(propChunkList)+1+1)
+	model.Chunks = make([]Chunk, 1+1+len(instChunkList)+len(propChunkList)+1+1)
 	chunks := model.Chunks[:0]
 
 	metaChunk := &ChunkMeta{
@@ -817,6 +842,26 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	sort.Sort(sortMetaData(metaChunk.Values))
 	chunks = chunks[len(chunks) : len(chunks)+1]
 	chunks[0] = metaChunk
+
+	if len(sharedStrings) > 0 {
+		chunk := &ChunkSharedStrings{
+			Version: 0,
+			Values:  make([]SharedString, len(sharedStrings)),
+		}
+		i := 0
+		for value := range sharedStrings {
+			chunk.Values[i].Hash = md5.Sum([]byte(value))
+			chunk.Values[i].Value = []byte(value)
+			i++
+		}
+		// TODO: Determine actual order; probably ordered by first appearance.
+		sort.Slice(chunk.Values, func(i, j int) bool {
+			return bytes.Compare(chunk.Values[i].Hash[:], chunk.Values[j].Hash[:]) < 0
+		})
+
+		chunks = chunks[len(chunks) : len(chunks)+1]
+		chunks[0] = chunk
+	}
 
 	chunks = chunks[len(chunks) : len(chunks)+len(instChunkList)]
 	for i, chunk := range instChunkList {
@@ -879,7 +924,11 @@ type enumItems struct {
 	values map[int]bool
 }
 
-func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Value) {
+func encodeValue(
+	refs map[*rbxfile.Instance]int,
+	sharedStrings map[string]uint32,
+	value rbxfile.Value,
+) (bvalue Value) {
 	switch value := value.(type) {
 	case rbxfile.ValueString:
 		v := make([]byte, len(value))
@@ -1069,6 +1118,16 @@ func encodeValue(refs map[*rbxfile.Instance]int, value rbxfile.Value) (bvalue Va
 
 	case rbxfile.ValueInt64:
 		bvalue = (*ValueInt64)(&value)
+
+	case rbxfile.ValueSharedString:
+		// TODO: Use MD5 hash instead.
+		s := string(value)
+		i, ok := sharedStrings[s]
+		if !ok {
+			i = uint32(len(sharedStrings))
+			sharedStrings[s] = i
+		}
+		bvalue = (*ValueSharedString)(&i)
 	}
 
 	return

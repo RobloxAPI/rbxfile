@@ -50,6 +50,7 @@ const (
 	TypePhysicalProperties
 	TypeColor3uint8
 	TypeInt64
+	TypeSharedString
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -116,6 +117,7 @@ var typeStrings = map[Type]string{
 	TypePhysicalProperties: "PhysicalProperties",
 	TypeColor3uint8:        "Color3uint8",
 	TypeInt64:              "Int64",
+	TypeSharedString:       "SharedString",
 }
 
 // Value holds a value of a particular Type.
@@ -173,6 +175,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypePhysicalProperties: newValuePhysicalProperties,
 	TypeColor3uint8:        newValueColor3uint8,
 	TypeInt64:              newValueInt64,
+	TypeSharedString:       newValueSharedString,
 }
 
 func joinstr(a ...string) string {
@@ -924,4 +927,24 @@ func (t ValueInt64) String() string {
 
 func (t ValueInt64) Copy() Value {
 	return t
+}
+
+////////////////
+
+type ValueSharedString []byte
+
+func newValueSharedString() Value {
+	return make(ValueSharedString, 0)
+}
+
+func (ValueSharedString) Type() Type {
+	return TypeSharedString
+}
+func (t ValueSharedString) String() string {
+	return string(t)
+}
+func (t ValueSharedString) Copy() Value {
+	c := make(ValueSharedString, len(t))
+	copy(c, t)
+	return c
 }

@@ -201,7 +201,7 @@ func (property) element() {}
 //
 // Otherwise, for a given type, values must be the following:
 //
-//     String, BinaryString, ProtectedString, Content:
+//     String, BinaryString, ProtectedString, Content, SharedString:
 //         A single string or []byte. Extra values are ignored.
 //
 //     Bool:

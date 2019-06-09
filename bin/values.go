@@ -49,6 +49,7 @@ const (
 	TypePhysicalProperties Type = 0x19
 	TypeColor3uint8        Type = 0x1A
 	TypeInt64              Type = 0x1B
+	TypeSharedString       Type = 0x1C
 )
 
 var typeStrings = map[Type]string{
@@ -79,6 +80,7 @@ var typeStrings = map[Type]string{
 	TypePhysicalProperties: "PhysicalProperties",
 	TypeColor3uint8:        "Color3uint8",
 	TypeInt64:              "Int64",
+	TypeSharedString:       "SharedString",
 }
 
 // Value is a property value of a certain Type.
@@ -142,6 +144,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypePhysicalProperties: newValuePhysicalProperties,
 	TypeColor3uint8:        newValueColor3uint8,
 	TypeInt64:              newValueInt64,
+	TypeSharedString:       newValueSharedString,
 }
 
 ////////////////////////////////////////////////////////////////
@@ -2061,6 +2064,55 @@ func (v *ValueInt64) FromBytes(b []byte) error {
 	}
 
 	*v = ValueInt64(decodeZigzag64(binary.BigEndian.Uint64(b)))
+
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValueSharedString uint32
+
+func newValueSharedString() Value {
+	return new(ValueSharedString)
+}
+
+func (ValueSharedString) Type() Type {
+	return TypeSharedString
+}
+
+func (v *ValueSharedString) ArrayBytes(a []Value) (b []byte, err error) {
+	b, err = appendValueBytes(v.Type(), a)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func (v ValueSharedString) FromArrayBytes(b []byte) (a []Value, err error) {
+	bc := make([]byte, len(b))
+	copy(bc, b)
+
+	a, err = appendByteValues(v.Type(), bc, 4, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (v ValueSharedString) Bytes() []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(v))
+	return b
+}
+
+func (v *ValueSharedString) FromBytes(b []byte) error {
+	if len(b) != 4 {
+		return errors.New("array length must be 4")
+	}
+
+	*v = ValueSharedString(binary.BigEndian.Uint32(b))
 
 	return nil
 }

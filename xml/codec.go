@@ -316,6 +316,8 @@ func (RobloxCodec) GetCanonType(valueType string) string {
 		return "Color3uint8"
 	case "int64":
 		return "int64"
+	case "sharedstring":
+		return "SharedString"
 	}
 	return ""
 }
@@ -675,6 +677,16 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 			return nil, false
 		}
 		return rbxfile.ValueInt64(v), true
+
+	case "SharedString":
+		// TODO: Implement as shared data.
+		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag)))
+		v, err := ioutil.ReadAll(dec)
+		if err != nil {
+			return nil, false
+		}
+		return rbxfile.ValueSharedString(v), true
+
 	}
 
 	return nil, false
@@ -1290,6 +1302,20 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			NoIndent:  true,
 			Text:      strconv.FormatInt(int64(value), 10),
 		}
+
+	case rbxfile.ValueSharedString:
+		buf := new(bytes.Buffer)
+		sw := &lineSplit{w: buf, s: 72, n: 72}
+		bw := base64.NewEncoder(base64.StdEncoding, sw)
+		bw.Write([]byte(value))
+		bw.Close()
+		tag := &Tag{
+			StartName: "SharedString",
+			Attr:      attr,
+			NoIndent:  true,
+		}
+		encodeContent(tag, buf.String())
+		return tag
 	}
 
 	return nil
@@ -1418,6 +1444,8 @@ func isCanonType(t string, v rbxfile.Value) bool {
 		return t == "Color3uint8"
 	case rbxfile.ValueInt64:
 		return t == "int64"
+	case rbxfile.ValueSharedString:
+		return t == "SharedString"
 	}
 	return false
 }

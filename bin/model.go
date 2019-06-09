@@ -294,6 +294,8 @@ func chunkGenerators(version uint16, sig [4]byte) chunkGenerator {
 			return newChunkParent
 		case newChunkMeta().Signature():
 			return newChunkMeta
+		case newChunkSharedStrings().Signature():
+			return newChunkSharedStrings
 		case newChunkEnd().Signature():
 			return newChunkEnd
 		default:
@@ -526,7 +528,7 @@ type Chunk interface {
 	Signature() [4]byte
 
 	// Compressed returns whether the chunk was compressed when decoding, or
-	// whether the chunk should be compressed when encoding.
+	// whether thed chunk should be compressed when encoding.
 	Compressed() bool
 
 	// SetCompressed sets whether the chunk should be compressed when
@@ -1180,6 +1182,90 @@ func (c *ChunkMeta) WriteTo(w io.Writer) (n int64, err error) {
 		}
 		if fw.writeString(pair[1]) {
 			return fw.end()
+		}
+	}
+
+	return fw.end()
+}
+
+////////////////////////////////////////////////////////////////
+
+// ChunkSharedStrings is a Chunk that contains shared strings.
+type ChunkSharedStrings struct {
+	// Whether the chunk is compressed.
+	IsCompressed bool
+
+	Version uint32
+	Values  []SharedString
+}
+
+type SharedString struct {
+	Hash  [16]byte
+	Value []byte
+}
+
+func newChunkSharedStrings() Chunk {
+	return new(ChunkSharedStrings)
+}
+
+func (ChunkSharedStrings) Signature() [4]byte {
+	return [4]byte{0x53, 0x53, 0x54, 0x52} // SSTR
+}
+
+func (c *ChunkSharedStrings) Compressed() bool {
+	return c.IsCompressed
+}
+
+func (c *ChunkSharedStrings) SetCompressed(b bool) {
+	c.IsCompressed = b
+}
+
+func (c *ChunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {
+	fr := &formatReader{r: r}
+
+	if fr.readNumber(binary.LittleEndian, &c.Version) {
+		return fr.end()
+	}
+	// TODO: validate version?
+
+	var length uint32
+	if fr.readNumber(binary.LittleEndian, &length) {
+		return fr.end()
+	}
+	c.Values = make([]SharedString, int(length))
+
+	for i := range c.Values {
+		if fr.read(c.Values[i].Hash[:]) {
+			fr.end()
+		}
+		var value string
+		if fr.readString(&value) {
+			return fr.end()
+		}
+		c.Values[i].Value = []byte(value)
+		// TODO: validate hash?
+	}
+
+	return fr.end()
+}
+
+func (c *ChunkSharedStrings) WriteTo(w io.Writer) (n int64, err error) {
+	fw := &formatWriter{w: w}
+
+	if fw.writeNumber(binary.LittleEndian, c.Version) {
+		return fw.end()
+	}
+
+	if fw.writeNumber(binary.LittleEndian, uint32(len(c.Values))) {
+		return fw.end()
+	}
+
+	for _, ss := range c.Values {
+		if fw.write(ss.Hash[:]) {
+			fw.end()
+		}
+		if fw.writeString(string(ss.Value)) {
+			fw.end()
 		}
 	}
 
