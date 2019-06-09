@@ -1,7 +1,6 @@
 package bin
 
 import (
-	"bytes"
 	"crypto/md5"
 	"errors"
 	"fmt"
@@ -487,6 +486,13 @@ func decodeValue(
 	return
 }
 
+type sharedEntry struct {
+	index int
+	value SharedString
+}
+
+type sharedMap map[[16]byte]sharedEntry
+
 func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) {
 	if root == nil {
 		return nil, errors.New("Root is nil")
@@ -506,7 +512,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	}
 
 	// Set of shared strings mapped to indexes.
-	sharedStrings := map[string]uint32{}
+	sharedStrings := sharedMap{}
 
 	// Recursively finds and adds instances.
 	var addInstance func(inst *rbxfile.Instance)
@@ -848,16 +854,9 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 			Version: 0,
 			Values:  make([]SharedString, len(sharedStrings)),
 		}
-		i := 0
-		for value := range sharedStrings {
-			chunk.Values[i].Hash = md5.Sum([]byte(value))
-			chunk.Values[i].Value = []byte(value)
-			i++
+		for _, entry := range sharedStrings {
+			chunk.Values[entry.index] = entry.value
 		}
-		// TODO: Determine actual order; probably ordered by first appearance.
-		sort.Slice(chunk.Values, func(i, j int) bool {
-			return bytes.Compare(chunk.Values[i].Hash[:], chunk.Values[j].Hash[:]) < 0
-		})
 
 		chunks = chunks[len(chunks) : len(chunks)+1]
 		chunks[0] = chunk
@@ -926,7 +925,7 @@ type enumItems struct {
 
 func encodeValue(
 	refs map[*rbxfile.Instance]int,
-	sharedStrings map[string]uint32,
+	sharedStrings sharedMap,
 	value rbxfile.Value,
 ) (bvalue Value) {
 	switch value := value.(type) {
@@ -1120,14 +1119,17 @@ func encodeValue(
 		bvalue = (*ValueInt64)(&value)
 
 	case rbxfile.ValueSharedString:
-		// TODO: Use MD5 hash instead.
-		s := string(value)
-		i, ok := sharedStrings[s]
+		// TODO: verify that strings are compared by MD5 hash.
+		hash := md5.Sum([]byte(value))
+		entry, ok := sharedStrings[hash]
 		if !ok {
-			i = uint32(len(sharedStrings))
-			sharedStrings[s] = i
+			entry.index = len(sharedStrings)
+			entry.value.Hash = hash
+			entry.value.Value = []byte(value)
+			sharedStrings[hash] = entry
 		}
-		bvalue = (*ValueSharedString)(&i)
+		index := uint32(entry.index)
+		bvalue = (*ValueSharedString)(&index)
 	}
 
 	return
