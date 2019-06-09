@@ -2086,12 +2086,19 @@ func (v *ValueSharedString) ArrayBytes(a []Value) (b []byte, err error) {
 		return nil, err
 	}
 
+	if err = interleave(b, 4); err != nil {
+		return nil, err
+	}
+
 	return b, nil
 }
 
 func (v ValueSharedString) FromArrayBytes(b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
+	if err = deinterleave(bc, 4); err != nil {
+		return nil, err
+	}
 
 	a, err = appendByteValues(v.Type(), bc, 4, 0)
 	if err != nil {
