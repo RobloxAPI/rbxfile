@@ -835,48 +835,49 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	// Make FormatModel.
 	model.TypeCount = uint32(len(instChunkList))
 	model.InstanceCount = uint32(len(instList))
-	model.Chunks = make([]Chunk, 1+1+len(instChunkList)+len(propChunkList)+1+1)
-	chunks := model.Chunks[:0]
 
-	metaChunk := &ChunkMeta{
-		IsCompressed: true,
-		Values:       make([][2]string, 0, len(root.Metadata)),
+	chunkLength := len(instChunkList) + len(propChunkList) + 1
+	if len(root.Metadata) > 0 {
+		chunkLength++
 	}
-	for key, value := range root.Metadata {
-		metaChunk.Values = append(metaChunk.Values, [2]string{key, value})
+	if len(sharedStrings) > 0 {
+		chunkLength++
 	}
-	sort.Sort(sortMetaData(metaChunk.Values))
-	chunks = chunks[len(chunks) : len(chunks)+1]
-	chunks[0] = metaChunk
+	model.Chunks = make([]Chunk, 0, chunkLength)
+
+	if len(root.Metadata) > 0 {
+		// TODO: verify that chunk is omitted when zero values are encoded, and
+		// is not based on format (RBXM vs RBXL).
+		chunk := ChunkMeta{
+			IsCompressed: true,
+			Values:       make([][2]string, 0, len(root.Metadata)),
+		}
+		for key, value := range root.Metadata {
+			chunk.Values = append(chunk.Values, [2]string{key, value})
+		}
+		sort.Sort(sortMetaData(chunk.Values))
+		model.Chunks = append(model.Chunks, &chunk)
+	}
 
 	if len(sharedStrings) > 0 {
-		chunk := &ChunkSharedStrings{
+		chunk := ChunkSharedStrings{
 			Version: 0,
 			Values:  make([]SharedString, len(sharedStrings)),
 		}
 		for _, entry := range sharedStrings {
 			chunk.Values[entry.index] = entry.value
 		}
-
-		chunks = chunks[len(chunks) : len(chunks)+1]
-		chunks[0] = chunk
+		model.Chunks = append(model.Chunks, &chunk)
 	}
 
-	chunks = chunks[len(chunks) : len(chunks)+len(instChunkList)]
-	for i, chunk := range instChunkList {
-		chunks[i] = chunk
+	for _, chunk := range instChunkList {
+		model.Chunks = append(model.Chunks, chunk)
 	}
-
-	chunks = chunks[len(chunks) : len(chunks)+len(propChunkList)]
-	for i, chunk := range propChunkList {
-		chunks[i] = chunk
+	for _, chunk := range propChunkList {
+		model.Chunks = append(model.Chunks, chunk)
 	}
-
-	chunks = chunks[len(chunks) : len(chunks)+1]
-	chunks[0] = parentChunk
-
-	chunks = chunks[len(chunks) : len(chunks)+1]
-	chunks[0] = endChunk
+	model.Chunks = append(model.Chunks, parentChunk)
+	model.Chunks = append(model.Chunks, endChunk)
 
 	return
 }
