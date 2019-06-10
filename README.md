@@ -32,3 +32,18 @@ provides an easy way to generate root structures.
 [xml]: https://godoc.org/github.com/robloxapi/rbxfile/xml
 [json]: https://godoc.org/encoding/json
 [declare]: https://godoc.org/github.com/robloxapi/rbxfile/declare
+
+## Related
+The implementation of the binary file format is based largely on the
+[RobloxFileSpec][spec] document, a reverse-engineered specification by Gregory
+Comer.
+
+Other projects that involve decoding and encoding Roblox files:
+
+- [rbx-fmt](https://github.com/stravant/rbx-fmt): An implementation in C.
+- [LibRbxl](https://github.com/GregoryComer/LibRbxl): An implementation in C#.
+- [rbx-dom](https://github.com/LPGhatguy/rbx-dom): An implementation in Rust.
+- [Roblox-File-Format](https://github.com/CloneTrooper1019/Roblox-File-Format):
+  An implementation in C#.
+
+[spec]: https://www.classy-studios.com/Downloads/RobloxFileSpec.pdf
