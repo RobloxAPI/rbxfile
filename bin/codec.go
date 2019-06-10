@@ -44,8 +44,6 @@ type RobloxCodec struct {
 	ExcludeInvalidAPI bool
 }
 
-//go:generate rbxpipe -i=cframegen.lua -o=cframe.go -place=cframe.rbxl -filter=o
-
 func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) {
 	if model == nil {
 		return nil, fmt.Errorf("FormatModel is nil")
