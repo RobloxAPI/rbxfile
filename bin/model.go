@@ -70,15 +70,6 @@ var (
 	WarnEndChunkNotLast    = errors.New("end chunk is not the last chunk")
 )
 
-type WarnUnknownChunk struct {
-	Sig   [4]byte
-	Bytes []byte
-}
-
-func (w WarnUnknownChunk) Error() string {
-	return fmt.Sprintf("unknown chunk signature `%s`", w.Sig)
-}
-
 ////////////////////////////////////////////////////////////////
 
 // Returns the size of an integer.
@@ -410,13 +401,8 @@ loop:
 
 		newChunk := chunkGenerators(f.Version, rawChunk.signature)
 		if newChunk == nil {
-			f.Warnings = append(f.Warnings, WarnUnknownChunk{
-				Sig:   rawChunk.signature,
-				Bytes: rawChunk.payload,
-			})
-			continue loop
+			newChunk = newChunkUnknown
 		}
-
 		chunk := newChunk()
 		chunk.SetCompressed(rawChunk.compressed)
 
@@ -432,12 +418,15 @@ loop:
 
 		f.Chunks = append(f.Chunks, chunk)
 
-		if endChunk, ok := chunk.(*ChunkEnd); ok {
-			if endChunk.Compressed() {
+		switch chunk := chunk.(type) {
+		case *ChunkUnknown:
+			f.Warnings = append(f.Warnings, chunk)
+		case *ChunkEnd:
+			if chunk.Compressed() {
 				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
 			}
 
-			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
+			if !bytes.Equal(chunk.Content, []byte("</roblox>")) {
 				f.Warnings = append(f.Warnings, WarnEndChunkContent)
 			}
 
@@ -481,10 +470,9 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 
 	for i, chunk := range f.Chunks {
 		if !validChunk(f.Version, chunk.Signature()) {
-			f.Warnings = append(f.Warnings, WarnUnknownChunk{
+			f.Warnings = append(f.Warnings, &ChunkUnknown{
 				Sig: chunk.Signature(),
 			})
-			continue
 		}
 
 		if endChunk, ok := chunk.(*ChunkEnd); ok {
@@ -665,6 +653,56 @@ func (c *rawChunk) WriteTo(fw *formatWriter) bool {
 	}
 
 	return false
+}
+
+////////////////////////////////////////////////////////////////
+
+// ChunkUnknown is a Chunk that is not known by the format.
+type ChunkUnknown struct {
+	// Whether the chunk is compressed.
+	IsCompressed bool
+
+	// The signature of the chunk.
+	Sig [4]byte
+
+	// The raw content of the chunk.
+	Bytes []byte
+}
+
+func newChunkUnknown() Chunk {
+	return new(ChunkUnknown)
+}
+
+func (c *ChunkUnknown) Signature() [4]byte {
+	return c.Sig
+}
+
+func (c *ChunkUnknown) Compressed() bool {
+	return c.IsCompressed
+}
+
+func (c *ChunkUnknown) SetCompressed(b bool) {
+	c.IsCompressed = b
+}
+
+func (c *ChunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
+	fr := &formatReader{r: r}
+
+	c.Bytes, _ = fr.readall()
+
+	return fr.end()
+}
+
+func (c *ChunkUnknown) WriteTo(w io.Writer) (n int64, err error) {
+	fw := &formatWriter{w: w}
+
+	fw.write(c.Bytes)
+
+	return fw.end()
+}
+
+func (c *ChunkUnknown) Error() string {
+	return fmt.Sprintf("unknown chunk signature `%s`", c.Sig)
 }
 
 ////////////////////////////////////////////////////////////////
