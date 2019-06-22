@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"github.com/anaminus/but"
 	"github.com/robloxapi/rbxfile/bin"
 	"github.com/robloxapi/rbxfile/xml"
@@ -94,13 +95,21 @@ func openInput(input string) {
 	}
 
 	current := g.Bytes()
-	if !bytes.Equal(current, spec) {
-		diffGolden(input, int(context), spec, current)
+	if bytes.Equal(current, spec) {
+		return
 	}
+	diffGolden(input, int(context), spec, current)
 
-	if update {
-		but.IfError(ioutil.WriteFile(gold, current, 0666))
+	if !update {
+		return
 	}
+	fmt.Fprintf(os.Stderr, "Update %s? (y/N): ", filepath.Base(input))
+	var s string
+	fmt.Scanln(&s)
+	if strings.ToLower(s) != "y" {
+		return
+	}
+	but.IfError(ioutil.WriteFile(gold, current, 0666))
 }
 
 func checkFile(inputs []string, dir string, info os.FileInfo, emit bool) []string {
