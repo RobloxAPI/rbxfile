@@ -230,6 +230,10 @@ func (g *Golden) bytes(f string, v []byte, width int) *Golden {
 
 func (g *Golden) string(f string, v string) *Golden {
 	for _, r := range []rune(v) {
+		switch r {
+		case '\t', '\n':
+			continue
+		}
 		if !unicode.IsGraphic(r) {
 			return g.bytes(f, []byte(v), 16)
 		}
