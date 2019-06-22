@@ -536,8 +536,12 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 		return rbxfile.ValueToken(v), true
 
 	case "UDim":
-		// Unknown
-		return nil, false
+		v := *new(rbxfile.ValueUDim)
+		components{
+			"S": &v.Scale,
+			"O": &v.Offset,
+		}.getFrom(tag)
+		return v, true
 
 	case "UDim2":
 		// DIFF: UDim2 is initialized with odd values
@@ -1142,7 +1146,14 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueUDim:
-		return nil
+		return &Tag{
+			StartName: "UDim",
+			Attr:      attr,
+			Tags: []*Tag{
+				&Tag{StartName: "S", NoIndent: true, Text: encodeFloat(value.Scale)},
+				&Tag{StartName: "O", NoIndent: true, Text: strconv.FormatInt(int64(value.Offset), 10)},
+			},
+		}
 
 	case rbxfile.ValueUDim2:
 		return &Tag{
