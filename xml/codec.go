@@ -471,7 +471,13 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 	case "int":
 		v, err := strconv.ParseInt(getContent(tag), 10, 32)
 		if err != nil {
-			return nil, false
+			// Allow constrained result, which matches Roblox behavior.
+			if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+				// In Roblox, invalid characters cause the property to be discarded
+				// (and therefore appear with the default value) rather than set to
+				// zero.
+				return nil, false
+			}
 		}
 		return rbxfile.ValueInt(v), true
 
@@ -674,7 +680,9 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 	case "int64":
 		v, err := strconv.ParseInt(getContent(tag), 10, 64)
 		if err != nil {
-			return nil, false
+			if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+				return nil, false
+			}
 		}
 		return rbxfile.ValueInt64(v), true
 
