@@ -473,6 +473,9 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 		return nil, false
 
 	case "double":
+		// TODO: check inf, nan, and overflow. ParseFloat reads special numbers
+		// in several forms. Depending on how Roblox parses such values, we may
+		// have to catch these forms early and treat them as invalid.
 		v, err := strconv.ParseFloat(getContent(tag), 64)
 		if err != nil {
 			return nil, false
