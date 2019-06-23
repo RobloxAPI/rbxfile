@@ -671,15 +671,27 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 		return v, true
 
 	case "Color3uint8":
-		v, err := strconv.ParseUint(getContent(tag), 10, 32)
-		if err != nil {
-			return nil, false
+		content := getContent(tag)
+		if len(content) > 0 {
+			v, err := strconv.ParseUint(content, 10, 32)
+			if err != nil {
+				return nil, false
+			}
+			return rbxfile.ValueColor3uint8{
+				R: byte(v & 0x00FF0000 >> 16),
+				G: byte(v & 0x0000FF00 >> 8),
+				B: byte(v & 0x000000FF),
+			}, true
+		} else {
+			//DIFF: If any tags are missing, entire value defaults.
+			v := *new(rbxfile.ValueColor3uint8)
+			components{
+				"R": &v.R,
+				"G": &v.G,
+				"B": &v.B,
+			}.getFrom(tag)
+			return v, true
 		}
-		return rbxfile.ValueColor3uint8{
-			R: byte(v & 0x00FF0000 >> 16),
-			G: byte(v & 0x0000FF00 >> 8),
-			B: byte(v & 0x000000FF),
-		}, true
 
 	case "int64":
 		v, err := strconv.ParseInt(getContent(tag), 10, 64)
@@ -740,6 +752,15 @@ func (c components) getFrom(tag *Tag) {
 		if p, ok := c[subtag.StartName]; ok && !d[subtag.StartName] {
 			d[subtag.StartName] = true
 			switch v := p.(type) {
+			case *uint8:
+				// Parsed as int32 % 256.
+				n, err := strconv.ParseInt(getContent(subtag), 10, 32)
+				if err != nil {
+					if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+						break
+					}
+				}
+				*v = uint8(n % 256)
 			case *int16:
 				n, err := strconv.ParseInt(getContent(subtag), 10, 16)
 				if err != nil {
