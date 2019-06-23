@@ -96,6 +96,7 @@ type rdecoder struct {
 	err        error
 	instLookup rbxfile.References
 	propRefs   []rbxfile.PropRef
+	stringRefs []rbxfile.PropRef
 }
 
 func (dec *rdecoder) decode() error {
@@ -107,17 +108,40 @@ func (dec *rdecoder) decode() error {
 	dec.root.Instances, _ = dec.getItems(nil, dec.document.Root.Tags, nil)
 
 	for _, tag := range dec.document.Root.Tags {
-		if tag.StartName != "Meta" {
-			continue
+		switch tag.StartName {
+		case "Meta":
+			key, ok := tag.AttrValue("name")
+			if !ok {
+				continue
+			}
+			if dec.root.Metadata == nil {
+				dec.root.Metadata = make(map[string]string)
+			}
+			dec.root.Metadata[key] = tag.Text
+		case "SharedStrings":
+			for _, tag := range tag.Tags {
+				if tag.StartName != "SharedString" {
+					continue
+				}
+				hash, ok := tag.AttrValue("md5")
+				if !ok {
+					continue
+				}
+				key, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(hash)))
+				if err != nil {
+					continue
+				}
+				value, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
+				if err != nil {
+					continue
+				}
+				for _, ref := range dec.stringRefs {
+					if ref.Reference == string(key) {
+						ref.Instance.Properties[ref.Property] = rbxfile.ValueSharedString(value)
+					}
+				}
+			}
 		}
-		key, ok := tag.AttrValue("name")
-		if !ok {
-			continue
-		}
-		if dec.root.Metadata == nil {
-			dec.root.Metadata = make(map[string]string)
-		}
-		dec.root.Metadata[key] = tag.Text
 	}
 
 	for _, propRef := range dec.propRefs {
@@ -241,12 +265,21 @@ processValue:
 		return "", nil, false
 	}
 
-	ref := getContent(tag)
-	if _, ok := value.(rbxfile.ValueReference); ok && !rbxfile.IsEmptyReference(ref) {
-		dec.propRefs = append(dec.propRefs, rbxfile.PropRef{
+	switch value := value.(type) {
+	case rbxfile.ValueReference:
+		if ref := getContent(tag); !rbxfile.IsEmptyReference(ref) {
+			dec.propRefs = append(dec.propRefs, rbxfile.PropRef{
+				Instance:  instance,
+				Property:  name,
+				Reference: ref,
+			})
+			return "", nil, false
+		}
+	case rbxfile.ValueSharedString:
+		dec.stringRefs = append(dec.stringRefs, rbxfile.PropRef{
 			Instance:  instance,
 			Property:  name,
-			Reference: ref,
+			Reference: string(value),
 		})
 		return "", nil, false
 	}
@@ -703,9 +736,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 		return rbxfile.ValueInt64(v), true
 
 	case "SharedString":
-		// TODO: Implement as shared data.
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag)))
-		v, err := ioutil.ReadAll(dec)
+		v, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
 		if err != nil {
 			return nil, false
 		}
@@ -798,18 +829,20 @@ func getContent(tag *Tag) string {
 }
 
 type rencoder struct {
-	root     *rbxfile.Root
-	codec    RobloxCodec
-	document *Document
-	refs     rbxfile.References
-	err      error
+	root          *rbxfile.Root
+	codec         RobloxCodec
+	document      *Document
+	refs          rbxfile.References
+	sharedStrings map[string][]byte
+	err           error
 }
 
 func (c RobloxCodec) Encode(root *rbxfile.Root) (document *Document, err error) {
 	enc := &rencoder{
-		root:  root,
-		codec: c,
-		refs:  make(rbxfile.References),
+		root:          root,
+		codec:         c,
+		refs:          make(rbxfile.References),
+		sharedStrings: map[string][]byte{},
 	}
 
 	enc.encode()
@@ -827,6 +860,34 @@ func (t sortTagsByNameAttr) Less(i, j int) bool {
 }
 func (t sortTagsByNameAttr) Swap(i, j int) {
 	t[i], t[j] = t[j], t[i]
+}
+
+type wrapWriter struct {
+	l  int
+	n  int
+	w  io.Writer
+	nl []byte
+}
+
+func newWrapWriter(length int, w io.Writer) *wrapWriter {
+	return &wrapWriter{l: length, w: w, nl: []byte{'\n'}}
+}
+
+func (w *wrapWriter) Write(p []byte) (n int, err error) {
+	i := 0
+	if w.n+len(p) >= w.l {
+		i = w.l - w.n
+		if n, err = w.w.Write(p[:i]); err != nil {
+			return n, err
+		}
+		if n, err = w.w.Write(w.nl); err != nil {
+			return n, err
+		}
+		w.n = 0
+	}
+	n, err = w.w.Write(p[i:])
+	w.n += n
+	return n, err
 }
 
 func (enc *rencoder) encode() {
@@ -858,6 +919,31 @@ func (enc *rencoder) encode() {
 		enc.encodeInstance(instance, enc.document.Root)
 	}
 
+	if len(enc.sharedStrings) > 0 {
+		//TODO: Tags are sorted by hash. Check if they're sorted pre- or
+		//post-base64 encoding.
+		keys := make([]string, 0, len(enc.sharedStrings))
+		for key := range enc.sharedStrings {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		tag := &Tag{StartName: "SharedStrings", Tags: make([]*Tag, len(keys))}
+		var s strings.Builder
+		for i, key := range keys {
+			b64 := base64.NewEncoder(base64.StdEncoding, newWrapWriter(72, &s))
+			b64.Write(enc.sharedStrings[key])
+			b64.Close()
+			tag.Tags[i] = &Tag{
+				StartName: "SharedString",
+				Attr: []Attr{{
+					Name:  "md5",
+					Value: base64.StdEncoding.EncodeToString([]byte(key)),
+				}},
+				Text: s.String(),
+			}
+			s.Reset()
+		}
+	}
 }
 
 func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
