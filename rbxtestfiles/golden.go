@@ -396,7 +396,7 @@ func (g *Golden) Field(name string, v interface{}) *Golden {
 		g.popf(name)
 
 	case rbxfile.ValueBrickColor:
-		g.uint(name, v)
+		g.uint(name, uint32(v))
 
 	case rbxfile.ValueColor3:
 		g.pushf(name)
