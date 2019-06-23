@@ -741,13 +741,21 @@ func (c components) getFrom(tag *Tag) {
 			d[subtag.StartName] = true
 			switch v := p.(type) {
 			case *int16:
-				if n, err := strconv.ParseInt(getContent(subtag), 10, 16); err == nil {
-					*v = int16(n)
+				n, err := strconv.ParseInt(getContent(subtag), 10, 16)
+				if err != nil {
+					if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+						break
+					}
 				}
+				*v = int16(n)
 			case *int32:
-				if n, err := strconv.ParseInt(getContent(subtag), 10, 32); err == nil {
-					*v = int32(n)
+				n, err := strconv.ParseInt(getContent(subtag), 10, 32)
+				if err != nil {
+					if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+						break
+					}
 				}
+				*v = int32(n)
 			case *float32:
 				if n, err := strconv.ParseFloat(getContent(subtag), 32); err == nil {
 					*v = float32(n)
