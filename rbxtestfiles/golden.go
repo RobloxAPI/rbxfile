@@ -492,11 +492,13 @@ func (g *Golden) Field(name string, v interface{}) *Golden {
 	case rbxfile.ValuePhysicalProperties:
 		g.pushf(name)
 		g.bool("CustomPhysics", v.CustomPhysics)
-		g.float("Density", v.Density)
-		g.float("Friction", v.Friction)
-		g.float("Elasticity", v.Elasticity)
-		g.float("FrictionWeight", v.FrictionWeight)
-		g.float("ElasticityWeight", v.ElasticityWeight)
+		if v.CustomPhysics {
+			g.float("Density", v.Density)
+			g.float("Friction", v.Friction)
+			g.float("Elasticity", v.Elasticity)
+			g.float("FrictionWeight", v.FrictionWeight)
+			g.float("ElasticityWeight", v.ElasticityWeight)
+		}
 		g.popf(name)
 
 	case rbxfile.ValueColor3uint8:
