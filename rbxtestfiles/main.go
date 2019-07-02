@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
 	"github.com/anaminus/but"
 	"github.com/robloxapi/rbxfile/bin"
 	"github.com/robloxapi/rbxfile/xml"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,19 +19,58 @@ var update bool
 var context uint
 var color bool
 
-type directives map[string]bool
+type directives struct {
+	pairs map[string]string
+	flags map[string]bool
+}
 
-func parseDirectives(input string) directives {
-	d := directives{}
-	for {
-		ext := filepath.Ext(input)
-		if ext == "" {
-			break
-		}
-		d[ext[1:]] = true
-		input = input[:len(input)-len(ext)]
+func parseDirectives(input string, r *bufio.Reader) *directives {
+	d := directives{
+		pairs: map[string]string{
+			"format": strings.TrimPrefix(filepath.Ext(input), "."),
+		},
+		flags: map[string]bool{},
 	}
-	return d
+
+loop:
+	for {
+		c, _, err := r.ReadRune()
+		if err != nil {
+			r.UnreadRune()
+			break loop
+		}
+		switch c {
+		case '#':
+			dir, err := r.ReadString('\n')
+			if err != nil && err != io.EOF {
+				break loop
+			}
+			switch {
+			case strings.HasSuffix(dir, "\r\n"):
+				dir = dir[:len(dir)-2]
+			case strings.HasSuffix(dir, "\n"):
+				dir = dir[:len(dir)-1]
+			}
+			if i := strings.IndexByte(dir, ':'); i < 0 {
+				flag := strings.TrimSpace(dir)
+				if flag == "begin-content" {
+					break loop
+				}
+				d.flags[flag] = true
+			} else {
+				key := strings.TrimSpace(dir[:i])
+				val := strings.TrimSpace(dir[i+1:])
+				d.pairs[key] = val
+			}
+			if err == io.EOF {
+				break loop
+			}
+		default:
+			r.UnreadRune()
+			break loop
+		}
+	}
+	return &d
 }
 
 func openInput(input string) {
@@ -39,43 +80,44 @@ func openInput(input string) {
 	}
 	defer file.Close()
 
-	format := strings.TrimPrefix(filepath.Ext(input), ".")
-	directives := parseDirectives(input)
+	r := bufio.NewReader(file)
+	directives := parseDirectives(input, r)
+	format := directives.pairs["format"]
 
 	var data interface{}
 	switch format {
 	case "rbxl":
-		switch {
-		case directives["format"]:
+		switch directives.pairs["output"] {
+		case "format":
 			doc := bin.FormatModel{}
-			_, err = doc.ReadFrom(file)
+			_, err = doc.ReadFrom(r)
 			data = &doc
-		case directives["model"]:
+		case "model":
 			fallthrough
 		default:
-			data, err = bin.DeserializePlace(file, nil)
+			data, err = bin.DeserializePlace(r, nil)
 		}
 	case "rbxm":
-		switch {
-		case directives["format"]:
+		switch directives.pairs["output"] {
+		case "format":
 			doc := bin.FormatModel{}
-			_, err = doc.ReadFrom(file)
+			_, err = doc.ReadFrom(r)
 			data = &doc
-		case directives["model"]:
+		case "model":
 			fallthrough
 		default:
-			data, err = bin.DeserializeModel(file, nil)
+			data, err = bin.DeserializeModel(r, nil)
 		}
 	case "rbxlx", "rbxmx":
-		switch {
-		case directives["format"]:
+		switch directives.pairs["output"] {
+		case "format":
 			doc := xml.Document{}
-			_, err = doc.ReadFrom(file)
+			_, err = doc.ReadFrom(r)
 			data = &doc
-		case directives["model"]:
+		case "model":
 			fallthrough
 		default:
-			data, err = xml.Deserialize(file, nil)
+			data, err = xml.Deserialize(r, nil)
 		}
 	default:
 		return

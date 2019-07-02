@@ -635,7 +635,7 @@ func (g *Golden) Format(format string, v interface{}) *Golden {
 		g.structure = "xml"
 	}
 	g.field("Format", g.format)
-	g.field("Struct", g.structure)
+	g.field("Output", g.structure)
 	g.Field("Data", v)
 	return g
 }
