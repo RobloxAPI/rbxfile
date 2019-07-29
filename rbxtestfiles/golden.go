@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/robloxapi/rbxfile"
 	"github.com/robloxapi/rbxfile/bin"
+	"github.com/robloxapi/rbxfile/rbxtestfiles/internal/ftoa"
 	"github.com/robloxapi/rbxfile/xml"
 	"math"
 	"reflect"
@@ -118,9 +119,9 @@ func (g *Golden) float(f string, v interface{}) *Golden {
 	var s string
 	switch v := v.(type) {
 	case float32:
-		s = strconv.FormatFloat(float64(v), 'g', 9, 32)
+		s = ftoa.FormatFloat(float64(v), 'g', 9, 32)
 	case float64:
-		s = strconv.FormatFloat(float64(v), 'g', 17, 64)
+		s = ftoa.FormatFloat(float64(v), 'g', 17, 64)
 	default:
 		panic("expected float (got " + reflect.TypeOf(v).String() + ")")
 	}
