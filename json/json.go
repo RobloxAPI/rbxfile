@@ -479,8 +479,8 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			return nil
 		}
 		return rbxfile.ValueUDim{
-			Scale:  v["scale"].(float32),
-			Offset: v["offset"].(int32),
+			Scale:  float32(v["scale"].(float64)),
+			Offset: int32(v["offset"].(float64)),
 		}
 	case rbxfile.TypeUDim2:
 		v, ok := ivalue.(map[string]interface{})
