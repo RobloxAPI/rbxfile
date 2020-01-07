@@ -245,6 +245,17 @@ func (d *decoder) ignoreStartTag(err error) int {
 	return 0
 }
 
+func (d *decoder) decodeComment() int {
+	for {
+		if b, ok := d.mustgetc(); !ok {
+			return -1
+		} else if b == '-' && d.match("->") {
+			break
+		}
+	}
+	return 2
+}
+
 //DIFF: Start tag parser has unexpected behavior that is difficult to
 //pin-point.
 func (d *decoder) decodeStartTag(tag *Tag) int {
@@ -265,6 +276,9 @@ func (d *decoder) decodeStartTag(tag *Tag) int {
 		// </: End element; invalid
 		d.err = d.syntaxError("unexpected end tag")
 		return -1
+	}
+	if b == '!' && d.match("--") {
+		return d.decodeComment()
 	}
 
 	// Must be an open element like <a href="foo">
@@ -419,6 +433,9 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 	startTagState := d.decodeStartTag(tag)
 	if startTagState < 0 {
 		return nil, d.err
+	}
+	if startTagState == 2 {
+		return nil, nil
 	}
 
 	if root {
@@ -648,6 +665,21 @@ func (d *decoder) ungetc(b byte) {
 		d.line--
 	}
 	d.nextByte = append(d.nextByte, b)
+}
+
+func (d *decoder) match(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if b, ok := d.getc(); !ok {
+			return false
+		} else if b != s[i] {
+			d.ungetc(b)
+			for j := i - 1; j >= 0; j-- {
+				d.ungetc(s[j])
+			}
+			return false
+		}
+	}
+	return true
 }
 
 var entity = map[string]int{
