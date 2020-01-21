@@ -21,16 +21,19 @@ type Golden struct {
 	refs      map[*rbxfile.Instance]int
 }
 
+// push increases the indentation by one.
 func (g *Golden) push() *Golden {
 	g.lead = append(g.lead, '\t')
 	return g
 }
 
+// push decreases the indentation by one.
 func (g *Golden) pop() *Golden {
 	g.lead = g.lead[:len(g.lead)-1]
 	return g
 }
 
+// newline writes a newline character followed by the current indentation.
 func (g *Golden) newline() *Golden {
 	g.s.WriteByte('\n')
 	g.s.Write(g.lead)
@@ -91,6 +94,7 @@ func (g *Golden) object(v object) *Golden {
 	return g
 }
 
+// string writes a JSON string.
 func (g *Golden) string(s string) *Golden {
 	// From encoding/json
 	const hex = "0123456789abcdef"
