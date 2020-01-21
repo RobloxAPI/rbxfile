@@ -508,6 +508,11 @@ func (g *Golden) value(v interface{}) *Golden {
 		} else {
 			g.object(object{
 				field{name: "CustomPhysics", value: v.CustomPhysics},
+				field{name: "Density", value: nil},
+				field{name: "Friction", value: nil},
+				field{name: "Elasticity", value: nil},
+				field{name: "FrictionWeight", value: nil},
+				field{name: "ElasticityWeight", value: nil},
 			})
 		}
 
