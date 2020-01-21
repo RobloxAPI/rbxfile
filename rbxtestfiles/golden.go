@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -211,9 +212,27 @@ func (g *Golden) value(v interface{}) *Golden {
 	case int64:
 		g.s.WriteString(strconv.FormatInt(int64(v), 10))
 	case float32:
-		g.s.WriteString(strconv.FormatFloat(float64(v), 'g', 9, 32))
+		switch {
+		case math.IsInf(float64(v), 1):
+			g.s.WriteString(`"Infinity"`)
+		case math.IsInf(float64(v), -1):
+			g.s.WriteString(`"-Infinity"`)
+		case math.IsNaN(float64(v)):
+			g.s.WriteString(`"NaN"`)
+		default:
+			g.s.WriteString(strconv.FormatFloat(float64(v), 'g', 9, 32))
+		}
 	case float64:
-		g.s.WriteString(strconv.FormatFloat(v, 'g', 17, 64))
+		switch {
+		case math.IsInf(v, 1):
+			g.s.WriteString(`"Infinity"`)
+		case math.IsInf(v, -1):
+			g.s.WriteString(`"-Infinity"`)
+		case math.IsNaN(v):
+			g.s.WriteString(`"NaN"`)
+		default:
+			g.s.WriteString(strconv.FormatFloat(v, 'g', 17, 64))
+		}
 
 	case []byte:
 		if len(v) == 0 {
