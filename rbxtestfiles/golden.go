@@ -157,13 +157,6 @@ func (g *Golden) string(s string) *Golden {
 	return g
 }
 
-func (g *Golden) ref(v *rbxfile.Instance) *Golden {
-	if i, ok := g.refs[v]; ok {
-		return g.value(i)
-	}
-	return g.value(nil)
-}
-
 func recurseRefs(refs map[*rbxfile.Instance]int, instances []*rbxfile.Instance) {
 	for _, inst := range instances {
 		if _, ok := refs[inst]; !ok {
@@ -424,7 +417,11 @@ func (g *Golden) value(v interface{}) *Golden {
 		g.value(uint32(v))
 
 	case rbxfile.ValueReference:
-		g.ref(v.Instance)
+		if i, ok := g.refs[v.Instance]; ok {
+			g.value(i)
+		} else {
+			g.value(nil)
+		}
 
 	case rbxfile.ValueVector3int16:
 		g.object(object{
