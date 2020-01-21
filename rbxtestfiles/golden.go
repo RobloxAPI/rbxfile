@@ -37,64 +37,57 @@ func (g *Golden) newline() *Golden {
 	return g
 }
 
-func (g *Golden) pushObject() *Golden {
+type array []interface{}
+
+// array writes v as a JSON array.
+func (g *Golden) array(v array) *Golden {
+	g.s.WriteByte('[')
+	if len(v) == 0 {
+		g.s.WriteByte(']')
+		return g
+	}
+	g.push()
+	g.newline()
+	g.value(v[0])
+	for i := 1; i < len(v); i++ {
+		g.s.WriteByte(',')
+		g.newline()
+		g.value(v[i])
+	}
+	g.pop()
+	g.newline()
+	g.s.WriteByte(']')
+	return g
+}
+
+type object []field
+type field struct {
+	name  string
+	value interface{}
+}
+
+// object writes v as a JSON object.
+func (g *Golden) object(v object) *Golden {
 	g.s.WriteByte('{')
+	if len(v) == 0 {
+		g.s.WriteByte('}')
+		return g
+	}
 	g.push()
-	return g
-}
-
-func (g *Golden) pushObjectf(field string) *Golden {
-	g.string(field)
-	g.s.WriteString(": {")
-	g.push()
-	return g
-}
-
-func (g *Golden) popObject(sep bool) *Golden {
+	g.newline()
+	g.string(v[0].name)
+	g.s.WriteString(": ")
+	g.value(v[0].value)
+	for i := 1; i < len(v); i++ {
+		g.s.WriteByte(',')
+		g.newline()
+		g.string(v[i].name)
+		g.s.WriteString(": ")
+		g.value(v[i].value)
+	}
 	g.pop()
 	g.newline()
 	g.s.WriteByte('}')
-	if sep {
-		g.s.WriteByte(',')
-	}
-	return g
-}
-
-func (g *Golden) pushArray() *Golden {
-	g.s.WriteByte('[')
-	g.push()
-	return g
-}
-
-func (g *Golden) pushArrayf(field string) *Golden {
-	g.string(field)
-	g.s.WriteString(": [")
-	g.push()
-	return g
-}
-
-func (g *Golden) popArray(newline, sep bool) *Golden {
-	g.pop()
-	if newline {
-		g.newline()
-	}
-	g.s.WriteByte(']')
-	if sep {
-		g.s.WriteByte(',')
-	}
-	return g
-}
-
-func (g *Golden) field(f string, v interface{}, sep bool) *Golden {
-	g.newline()
-	if f != "" {
-		g.string(f)
-		g.s.WriteString(": ")
-	}
-	g.value(v)
-	if sep {
-		g.s.WriteByte(',')
-	}
 	return g
 }
 
@@ -230,7 +223,8 @@ func (g *Golden) value(v interface{}) *Golden {
 			g.s.WriteString("[]")
 			break
 		}
-		g.pushArray()
+		g.s.WriteByte('[')
+		g.push()
 		for i, c := range v {
 			if i%16 == 0 {
 				g.s.WriteByte('\n')
@@ -247,10 +241,18 @@ func (g *Golden) value(v interface{}) *Golden {
 				g.s.WriteByte(',')
 			}
 		}
-		g.popArray(len(v) > 0, false)
+		g.pop()
+		g.newline()
+		g.s.WriteByte(']')
 
 	case error:
 		g.value(v.Error())
+
+	case array:
+		g.array(v)
+
+	case object:
+		g.object(v)
 
 	case map[string]string:
 		keys := make([]string, 0, len(v))
@@ -259,25 +261,24 @@ func (g *Golden) value(v interface{}) *Golden {
 		}
 		sort.Strings(keys)
 
-		g.pushArray()
+		a := make(array, len(keys))
 		for i, k := range keys {
-			g.newline()
-			g.pushObject()
-			g.field("Key", k, true)
-			g.field("Value", v[k], false)
-			g.popObject(i < len(keys)-1)
+			a[i] = object{
+				{name: "Key", value: k},
+				{name: "Value", value: v[k]},
+			}
 		}
-		g.popArray(len(v) > 0, false)
+		g.array(a)
 
 	case *rbxfile.Root:
 		// Prepopulate ref table.
 		g.refs = map[*rbxfile.Instance]int{}
 		recurseRefs(g.refs, v.Instances)
 
-		g.pushObject()
-		g.field("Metadata", v.Metadata, true)
-		g.field("Instances", v.Instances, false)
-		g.popObject(false)
+		g.object(object{
+			{name: "Metadata", value: v.Metadata},
+			{name: "Instances", value: v.Instances},
+		})
 
 	case map[string]rbxfile.Value:
 		props := make([]string, 0, len(v))
@@ -285,37 +286,37 @@ func (g *Golden) value(v interface{}) *Golden {
 			props = append(props, name)
 		}
 		sort.Strings(props)
-		g.pushArray()
+
+		a := make(array, len(props))
 		for i, name := range props {
 			value := v[name]
-			g.newline()
-			g.pushObject()
-			g.field("Name", name, true)
-			g.field("Type", value.Type().String(), true)
-			g.field("Value", value, false)
-			g.popObject(i < len(props)-1)
+			a[i] = object{
+				{name: "Name", value: name},
+				{name: "Type", value: value.Type().String()},
+				{name: "Value", value: value},
+			}
 		}
-		g.popArray(len(props) > 0, false)
+		g.array(a)
 
 	case []*rbxfile.Instance:
-		g.pushArray()
+		a := make(array, len(v))
 		for i, inst := range v {
-			g.field("", inst, i < len(v)-1)
+			a[i] = inst
 		}
-		g.popArray(len(v) > 0, false)
+		g.array(a)
 
 	case *rbxfile.Instance:
-		g.pushObject()
-		g.field("ClassName", v.ClassName, true)
-		g.field("IsService", v.IsService, true)
-		if ref, ok := g.refs[v]; ok {
-			g.field("Reference", ref, true)
-		} else {
-			g.field("Reference", nil, true)
+		var ref interface{}
+		if r, ok := g.refs[v]; ok {
+			ref = r
 		}
-		g.field("Properties", v.Properties, true)
-		g.field("Children", v.Children, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "ClassName", value: v.ClassName},
+			field{name: "IsService", value: v.IsService},
+			field{name: "Reference", value: ref},
+			field{name: "Properties", value: v.Properties},
+			field{name: "Children", value: v.Children},
+		})
 
 	case rbxfile.ValueString:
 		g.value(string(v))
@@ -342,78 +343,78 @@ func (g *Golden) value(v interface{}) *Golden {
 		g.value(float64(v))
 
 	case rbxfile.ValueUDim:
-		g.pushObject()
-		g.field("Scale", v.Scale, true)
-		g.field("Offset", v.Offset, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Scale", value: v.Scale},
+			field{name: "Offset", value: v.Offset},
+		})
 
 	case rbxfile.ValueUDim2:
-		g.pushObject()
-		g.field("X", v.X, true)
-		g.field("Y", v.Y, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "X", value: v.X},
+			field{name: "Y", value: v.Y},
+		})
 
 	case rbxfile.ValueRay:
-		g.pushObject()
-		g.field("Origin", v.Origin, true)
-		g.field("Direction", v.Direction, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Origin", value: v.Origin},
+			field{name: "Direction", value: v.Direction},
+		})
 
 	case rbxfile.ValueFaces:
-		g.pushObject()
-		g.field("Right", v.Right, true)
-		g.field("Top", v.Top, true)
-		g.field("Back", v.Back, true)
-		g.field("Left", v.Left, true)
-		g.field("Bottom", v.Bottom, true)
-		g.field("Front", v.Front, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Right", value: v.Right},
+			field{name: "Top", value: v.Top},
+			field{name: "Back", value: v.Back},
+			field{name: "Left", value: v.Left},
+			field{name: "Bottom", value: v.Bottom},
+			field{name: "Front", value: v.Front},
+		})
 
 	case rbxfile.ValueAxes:
-		g.pushObject()
-		g.field("X", v.X, true)
-		g.field("Y", v.Y, true)
-		g.field("Z", v.Z, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "X", value: v.X},
+			field{name: "Y", value: v.Y},
+			field{name: "Z", value: v.Z},
+		})
 
 	case rbxfile.ValueBrickColor:
 		g.value(uint32(v))
 
 	case rbxfile.ValueColor3:
-		g.pushObject()
-		g.field("R", v.R, true)
-		g.field("G", v.G, true)
-		g.field("B", v.B, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "R", value: v.R},
+			field{name: "G", value: v.G},
+			field{name: "B", value: v.B},
+		})
 
 	case rbxfile.ValueVector2:
-		g.pushObject()
-		g.field("X", v.X, true)
-		g.field("Y", v.Y, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "X", value: v.X},
+			field{name: "Y", value: v.Y},
+		})
 
 	case rbxfile.ValueVector3:
-		g.pushObject()
-		g.field("X", v.X, true)
-		g.field("Y", v.Y, true)
-		g.field("Z", v.Z, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "X", value: v.X},
+			field{name: "Y", value: v.Y},
+			field{name: "Z", value: v.Z},
+		})
 
 	case rbxfile.ValueCFrame:
-		g.pushObject()
-		g.field("Position", v.Position, true)
-		g.pushObjectf("Rotation")
-		g.field("R00", v.Rotation[0], true)
-		g.field("R01", v.Rotation[1], true)
-		g.field("R02", v.Rotation[2], true)
-		g.field("R10", v.Rotation[3], true)
-		g.field("R11", v.Rotation[4], true)
-		g.field("R12", v.Rotation[5], true)
-		g.field("R20", v.Rotation[6], true)
-		g.field("R21", v.Rotation[7], true)
-		g.field("R22", v.Rotation[8], false)
-		g.popObject(false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Position", value: v.Position},
+			field{name: "Rotation", value: object{
+				field{name: "R00", value: v.Rotation[0]},
+				field{name: "R01", value: v.Rotation[1]},
+				field{name: "R02", value: v.Rotation[2]},
+				field{name: "R10", value: v.Rotation[3]},
+				field{name: "R11", value: v.Rotation[4]},
+				field{name: "R12", value: v.Rotation[5]},
+				field{name: "R20", value: v.Rotation[6]},
+				field{name: "R21", value: v.Rotation[7]},
+				field{name: "R22", value: v.Rotation[8]},
+			}},
+		})
 
 	case rbxfile.ValueToken:
 		g.value(uint32(v))
@@ -422,76 +423,80 @@ func (g *Golden) value(v interface{}) *Golden {
 		g.ref(v.Instance)
 
 	case rbxfile.ValueVector3int16:
-		g.pushObject()
-		g.field("X", v.X, true)
-		g.field("Y", v.Y, true)
-		g.field("Z", v.Z, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "X", value: v.X},
+			field{name: "Y", value: v.Y},
+			field{name: "Z", value: v.Z},
+		})
 
 	case rbxfile.ValueVector2int16:
-		g.pushObject()
-		g.field("X", v.X, true)
-		g.field("Y", v.Y, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "X", value: v.X},
+			field{name: "Y", value: v.Y},
+		})
 
 	case rbxfile.ValueNumberSequenceKeypoint:
-		g.pushObject()
-		g.field("Time", v.Time, true)
-		g.field("Value", v.Value, true)
-		g.field("Envelope", v.Envelope, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Time", value: v.Time},
+			field{name: "Value", value: v.Value},
+			field{name: "Envelope", value: v.Envelope},
+		})
 
 	case rbxfile.ValueNumberSequence:
-		g.pushArray()
+		a := make(array, len(v))
 		for i, k := range v {
-			g.field("", k, i < len(v)-1)
+			a[i] = k
 		}
-		g.popArray(len(v) > 0, false)
+		g.array(a)
 
 	case rbxfile.ValueColorSequenceKeypoint:
-		g.pushObject()
-		g.field("Time", v.Time, true)
-		g.field("Value", v.Value, true)
-		g.field("Envelope", v.Envelope, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Time", value: v.Time},
+			field{name: "Value", value: v.Value},
+			field{name: "Envelope", value: v.Envelope},
+		})
 
 	case rbxfile.ValueColorSequence:
-		g.pushArray()
+		a := make(array, len(v))
 		for i, k := range v {
-			g.field("", k, i < len(v)-1)
+			a[i] = k
 		}
-		g.popArray(len(v) > 0, false)
+		g.array(a)
 
 	case rbxfile.ValueNumberRange:
-		g.pushObject()
-		g.field("Min", v.Min, true)
-		g.field("Max", v.Max, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Min", value: v.Min},
+			field{name: "Max", value: v.Max},
+		})
 
 	case rbxfile.ValueRect2D:
-		g.pushObject()
-		g.field("Min", v.Min, true)
-		g.field("Max", v.Max, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Min", value: v.Min},
+			field{name: "Max", value: v.Max},
+		})
 
 	case rbxfile.ValuePhysicalProperties:
-		g.pushObject()
-		g.field("CustomPhysics", v.CustomPhysics, v.CustomPhysics)
 		if v.CustomPhysics {
-			g.field("Density", v.Density, true)
-			g.field("Friction", v.Friction, true)
-			g.field("Elasticity", v.Elasticity, true)
-			g.field("FrictionWeight", v.FrictionWeight, true)
-			g.field("ElasticityWeight", v.ElasticityWeight, false)
+			g.object(object{
+				field{name: "CustomPhysics", value: v.CustomPhysics},
+				field{name: "Density", value: v.Density},
+				field{name: "Friction", value: v.Friction},
+				field{name: "Elasticity", value: v.Elasticity},
+				field{name: "FrictionWeight", value: v.FrictionWeight},
+				field{name: "ElasticityWeight", value: v.ElasticityWeight},
+			})
+		} else {
+			g.object(object{
+				field{name: "CustomPhysics", value: v.CustomPhysics},
+			})
 		}
-		g.popObject(false)
 
 	case rbxfile.ValueColor3uint8:
-		g.pushObject()
-		g.field("R", v.R, true)
-		g.field("G", v.G, true)
-		g.field("B", v.B, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "R", value: v.R},
+			field{name: "G", value: v.G},
+			field{name: "B", value: v.B},
+		})
 
 	case rbxfile.ValueInt64:
 		g.value(int64(v))
@@ -500,110 +505,109 @@ func (g *Golden) value(v interface{}) *Golden {
 		g.value(string(v))
 
 	case *bin.FormatModel:
-		g.pushObject()
-		g.field("Version", v.Version, true)
-		g.field("Types", v.TypeCount, true)
-		g.field("Instances", v.InstanceCount, true)
-		g.pushArrayf("Chunks")
+		chunks := make(array, len(v.Chunks))
 		for i, chunk := range v.Chunks {
-			g.field("", chunk, i < len(v.Chunks)-1)
+			chunks[i] = chunk
 		}
-		g.popArray(len(v.Chunks) > 0, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Version", value: v.Version},
+			field{name: "Types", value: v.TypeCount},
+			field{name: "Instances", value: v.InstanceCount},
+			field{name: "Chunks", value: chunks},
+		})
 
 	case *bin.ChunkMeta:
 		sig := v.Signature()
-		g.pushObject()
-		g.field("Signature", sig[:], true)
-		g.field("Compressed", v.IsCompressed, true)
-		g.pushArrayf("Value")
+		values := make(array, len(v.Values))
 		for i, s := range v.Values {
-			g.newline()
-			g.pushObject()
-			g.field("Key", s[0], true)
-			g.field("Value", s[1], false)
-			g.popObject(i < len(v.Values)-1)
+			values[i] = object{
+				field{name: "Key", value: s[0]},
+				field{name: "Value", value: s[1]},
+			}
 		}
-		g.popArray(len(v.Values) > 0, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Signature", value: sig[:]},
+			field{name: "Compressed", value: v.IsCompressed},
+			field{name: "Values", value: values},
+		})
 
 	case *bin.ChunkSharedStrings:
 		sig := v.Signature()
-		g.pushObject()
-		g.field("Signature", sig[:], true)
-		g.field("Compressed", v.IsCompressed, true)
-		g.field("Version", v.Version, true)
-		g.pushArrayf("Values")
+		values := make(array, len(v.Values))
 		for i, s := range v.Values {
-			g.newline()
-			g.pushObject()
-			g.field("Hash", s.Hash[:], true)
-			g.field("Value", s.Value, false)
-			g.popObject(i < len(v.Values)-1)
+			values[i] = object{
+				field{name: "Hash", value: s.Hash[:]},
+				field{name: "Value", value: s.Value},
+			}
 		}
-		g.popArray(len(v.Values) > 0, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Signature", value: sig[:]},
+			field{name: "Compressed", value: v.IsCompressed},
+			field{name: "Version", value: v.Version},
+			field{name: "Values", value: values},
+		})
 
 	case *bin.ChunkInstance:
 		sig := v.Signature()
-		g.pushObject()
-		g.field("Signature", sig[:], true)
-		g.field("Compressed", v.IsCompressed, true)
-		g.field("TypeID", v.TypeID, true)
-		g.field("ClassName", v.ClassName, true)
-		g.pushArrayf("InstanceIDs")
+
+		instanceIDs := make(array, len(v.InstanceIDs))
 		for i, id := range v.InstanceIDs {
-			g.field("", id, i < len(v.InstanceIDs)-1)
+			instanceIDs[i] = id
 		}
-		g.popArray(len(v.InstanceIDs) > 0, true)
-		g.field("IsService", v.IsService, true)
-		g.pushArrayf("GetService")
+		getService := make(array, len(v.GetService))
 		for i, s := range v.GetService {
-			g.field("", s, i < len(v.GetService)-1)
+			getService[i] = s
 		}
-		g.popArray(len(v.GetService) > 0, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Signature", value: sig[:]},
+			field{name: "Compressed", value: v.IsCompressed},
+			field{name: "TypeID", value: v.TypeID},
+			field{name: "ClassName", value: v.ClassName},
+			field{name: "InstanceIDs", value: instanceIDs},
+			field{name: "IsService", value: v.IsService},
+			field{name: "GetService", value: getService},
+		})
 
 	case *bin.ChunkProperty:
 		sig := v.Signature()
-		g.pushObject()
-		g.field("Signature", sig[:], true)
-		g.field("Compressed", v.IsCompressed, true)
-		g.field("TypeID", v.TypeID, true)
-		g.field("PropertyName", v.PropertyName, true)
-		g.field("DataType", "0x"+strconv.FormatUint(uint64(v.DataType), 16)+" ("+v.DataType.String()+")", true)
-		g.pushArrayf("Values")
+		props := make(array, len(v.Properties))
 		for i, prop := range v.Properties {
-			g.field("", prop, i < len(v.Properties)-1)
+			props[i] = prop
 		}
-		g.popArray(len(v.Properties) > 0, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Signature", value: sig[:]},
+			field{name: "Compressed", value: v.IsCompressed},
+			field{name: "TypeID", value: v.TypeID},
+			field{name: "PropertyName", value: v.PropertyName},
+			field{name: "DataType", value: "0x" + strconv.FormatUint(uint64(v.DataType), 16) + " (" + v.DataType.String() + ")"},
+			field{name: "Values", value: props},
+		})
 
 	case *bin.ChunkParent:
 		sig := v.Signature()
-		g.pushObject()
-		g.field("Signature", sig[:], true)
-		g.field("Compressed", v.IsCompressed, true)
-		g.field("Version", v.Version, true)
-		g.pushArrayf("Children")
+		children := make(array, len(v.Children))
 		for i, child := range v.Children {
-			g.field("", child, i < len(v.Children)-1)
+			children[i] = child
 		}
-		g.popArray(len(v.Children) > 0, true)
-		g.pushArrayf("Parents")
+		parents := make(array, len(v.Parents))
 		for i, parent := range v.Parents {
-			g.field("", parent, i < len(v.Parents)-1)
+			parents[i] = parent
 		}
-		g.popArray(len(v.Parents) > 0, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Signature", value: sig[:]},
+			field{name: "Compressed", value: v.IsCompressed},
+			field{name: "Version", value: v.Version},
+			field{name: "Children", value: children},
+			field{name: "Parents", value: parents},
+		})
 
 	case *bin.ChunkEnd:
 		sig := v.Signature()
-		g.pushObject()
-		g.field("Signature", sig[:], true)
-		g.field("Compressed", v.IsCompressed, true)
-		g.field("Content", v.Content, false)
-		g.popObject(false)
+		g.object(object{
+			field{name: "Signature", value: sig[:]},
+			field{name: "Compressed", value: v.IsCompressed},
+			field{name: "Content", value: v.Content},
+		})
 	}
 	return g
 }
@@ -620,11 +624,11 @@ func (g *Golden) Format(format string, v interface{}) *Golden {
 	case *xml.Document:
 		g.structure = "xml"
 	}
-	g.pushObject()
-	g.field("Format", g.format, true)
-	g.field("Output", g.structure, true)
-	g.field("Data", v, false)
-	g.popObject(false)
+	g.object(object{
+		field{name: "Format", value: g.format},
+		field{name: "Output", value: g.structure},
+		field{name: "Data", value: v},
+	})
 	return g
 }
 
