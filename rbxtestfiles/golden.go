@@ -22,6 +22,16 @@ type Golden struct {
 	refs      map[*rbxfile.Instance]int
 }
 
+// writebyte writes the given byte.
+func (g *Golden) writebyte(c byte) {
+	g.s.WriteByte(c)
+}
+
+// write writes the given string.
+func (g *Golden) write(s string) {
+	g.s.WriteString(s)
+}
+
 // push increases the indentation by one.
 func (g *Golden) push() {
 	g.lead = append(g.lead, '\t')
@@ -34,7 +44,7 @@ func (g *Golden) pop() {
 
 // newline writes a newline character followed by the current indentation.
 func (g *Golden) newline() {
-	g.s.WriteByte('\n')
+	g.writebyte('\n')
 	g.s.Write(g.lead)
 }
 
@@ -42,22 +52,22 @@ type array []interface{}
 
 // array writes v as a JSON array.
 func (g *Golden) array(v array) {
-	g.s.WriteByte('[')
+	g.writebyte('[')
 	if len(v) == 0 {
-		g.s.WriteByte(']')
+		g.writebyte(']')
 		return
 	}
 	g.push()
 	g.newline()
 	g.value(v[0])
 	for i := 1; i < len(v); i++ {
-		g.s.WriteByte(',')
+		g.writebyte(',')
 		g.newline()
 		g.value(v[i])
 	}
 	g.pop()
 	g.newline()
-	g.s.WriteByte(']')
+	g.writebyte(']')
 }
 
 type object []field
@@ -68,33 +78,33 @@ type field struct {
 
 // object writes v as a JSON object.
 func (g *Golden) object(v object) {
-	g.s.WriteByte('{')
+	g.writebyte('{')
 	if len(v) == 0 {
-		g.s.WriteByte('}')
+		g.writebyte('}')
 		return
 	}
 	g.push()
 	g.newline()
 	g.string(v[0].name)
-	g.s.WriteString(": ")
+	g.write(": ")
 	g.value(v[0].value)
 	for i := 1; i < len(v); i++ {
-		g.s.WriteByte(',')
+		g.writebyte(',')
 		g.newline()
 		g.string(v[i].name)
-		g.s.WriteString(": ")
+		g.write(": ")
 		g.value(v[i].value)
 	}
 	g.pop()
 	g.newline()
-	g.s.WriteByte('}')
+	g.writebyte('}')
 }
 
 // string writes a JSON string.
 func (g *Golden) string(s string) {
 	// From encoding/json
 	const hex = "0123456789abcdef"
-	g.s.WriteByte('"')
+	g.writebyte('"')
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
@@ -103,22 +113,22 @@ func (g *Golden) string(s string) {
 				continue
 			}
 			if start < i {
-				g.s.WriteString(s[start:i])
+				g.write(s[start:i])
 			}
-			g.s.WriteByte('\\')
+			g.writebyte('\\')
 			switch b {
 			case '\\', '"':
-				g.s.WriteByte(b)
+				g.writebyte(b)
 			case '\n':
-				g.s.WriteByte('n')
+				g.writebyte('n')
 			case '\r':
-				g.s.WriteByte('r')
+				g.writebyte('r')
 			case '\t':
-				g.s.WriteByte('t')
+				g.writebyte('t')
 			default:
-				g.s.WriteString(`u00`)
-				g.s.WriteByte(hex[b>>4])
-				g.s.WriteByte(hex[b&0xF])
+				g.write(`u00`)
+				g.writebyte(hex[b>>4])
+				g.writebyte(hex[b&0xF])
 			}
 			i++
 			start = i
@@ -127,19 +137,19 @@ func (g *Golden) string(s string) {
 		c, size := utf8.DecodeRuneInString(s[i:])
 		if c == utf8.RuneError && size == 1 {
 			if start < i {
-				g.s.WriteString(s[start:i])
+				g.write(s[start:i])
 			}
-			g.s.WriteString(`\ufffd`)
+			g.write(`\ufffd`)
 			i += size
 			start = i
 			continue
 		}
 		if c == '\u2028' || c == '\u2029' {
 			if start < i {
-				g.s.WriteString(s[start:i])
+				g.write(s[start:i])
 			}
-			g.s.WriteString(`\u202`)
-			g.s.WriteByte(hex[c&0xF])
+			g.write(`\u202`)
+			g.writebyte(hex[c&0xF])
 			i += size
 			start = i
 			continue
@@ -147,9 +157,9 @@ func (g *Golden) string(s string) {
 		i += size
 	}
 	if start < len(s) {
-		g.s.WriteString(s[start:])
+		g.write(s[start:])
 	}
-	g.s.WriteByte('"')
+	g.writebyte('"')
 }
 
 func recurseRefs(refs map[*rbxfile.Instance]int, instances []*rbxfile.Instance) {
@@ -164,15 +174,15 @@ func recurseRefs(refs map[*rbxfile.Instance]int, instances []*rbxfile.Instance) 
 func (g *Golden) value(v interface{}) {
 	switch v := v.(type) {
 	default:
-		g.s.WriteString("<UNKNOWN:" + reflect.TypeOf(v).String() + ">")
+		g.write("<UNKNOWN:" + reflect.TypeOf(v).String() + ">")
 
 	case nil:
-		g.s.WriteString("null")
+		g.write("null")
 	case bool:
 		if v {
-			g.s.WriteString("true")
+			g.write("true")
 		} else {
-			g.s.WriteString("false")
+			g.write("false")
 		}
 	case string:
 		for _, r := range []rune(v) {
@@ -187,74 +197,73 @@ func (g *Golden) value(v interface{}) {
 		}
 		g.string(v)
 	case uint:
-		g.s.WriteString(strconv.FormatUint(uint64(v), 10))
+		g.write(strconv.FormatUint(uint64(v), 10))
 	case uint8:
-		g.s.WriteString(strconv.FormatUint(uint64(v), 10))
+		g.write(strconv.FormatUint(uint64(v), 10))
 	case uint16:
-		g.s.WriteString(strconv.FormatUint(uint64(v), 10))
+		g.write(strconv.FormatUint(uint64(v), 10))
 	case uint32:
-		g.s.WriteString(strconv.FormatUint(uint64(v), 10))
+		g.write(strconv.FormatUint(uint64(v), 10))
 	case uint64:
-		g.s.WriteString(strconv.FormatUint(v, 10))
+		g.write(strconv.FormatUint(v, 10))
 	case int:
-		g.s.WriteString(strconv.FormatInt(int64(v), 10))
+		g.write(strconv.FormatInt(int64(v), 10))
 	case int8:
-		g.s.WriteString(strconv.FormatInt(int64(v), 10))
+		g.write(strconv.FormatInt(int64(v), 10))
 	case int16:
-		g.s.WriteString(strconv.FormatInt(int64(v), 10))
+		g.write(strconv.FormatInt(int64(v), 10))
 	case int32:
-		g.s.WriteString(strconv.FormatInt(int64(v), 10))
+		g.write(strconv.FormatInt(int64(v), 10))
 	case int64:
-		g.s.WriteString(strconv.FormatInt(int64(v), 10))
+		g.write(strconv.FormatInt(int64(v), 10))
 	case float32:
 		switch {
 		case math.IsInf(float64(v), 1):
-			g.s.WriteString(`"Infinity"`)
+			g.write(`"Infinity"`)
 		case math.IsInf(float64(v), -1):
-			g.s.WriteString(`"-Infinity"`)
+			g.write(`"-Infinity"`)
 		case math.IsNaN(float64(v)):
-			g.s.WriteString(`"NaN"`)
+			g.write(`"NaN"`)
 		default:
-			g.s.WriteString(strconv.FormatFloat(float64(v), 'g', 9, 32))
+			g.write(strconv.FormatFloat(float64(v), 'g', 9, 32))
 		}
 	case float64:
 		switch {
 		case math.IsInf(v, 1):
-			g.s.WriteString(`"Infinity"`)
+			g.write(`"Infinity"`)
 		case math.IsInf(v, -1):
-			g.s.WriteString(`"-Infinity"`)
+			g.write(`"-Infinity"`)
 		case math.IsNaN(v):
-			g.s.WriteString(`"NaN"`)
+			g.write(`"NaN"`)
 		default:
-			g.s.WriteString(strconv.FormatFloat(v, 'g', 17, 64))
+			g.write(strconv.FormatFloat(v, 'g', 17, 64))
 		}
 
 	case []byte:
 		if len(v) == 0 {
-			g.s.WriteString("[]")
+			g.write("[]")
 			break
 		}
-		g.s.WriteByte('[')
+		g.writebyte('[')
 		g.push()
 		for i, c := range v {
 			if i%16 == 0 {
-				g.s.WriteByte('\n')
-				g.s.Write(g.lead)
+				g.newline()
 			}
 			if c < 100 {
-				g.s.WriteByte(' ')
+				g.writebyte(' ')
 				if c < 10 {
-					g.s.WriteByte(' ')
+					g.writebyte(' ')
 				}
 			}
-			g.s.WriteString(strconv.FormatUint(uint64(c), 10))
+			g.write(strconv.FormatUint(uint64(c), 10))
 			if i < len(v)-1 {
-				g.s.WriteByte(',')
+				g.writebyte(',')
 			}
 		}
 		g.pop()
 		g.newline()
-		g.s.WriteByte(']')
+		g.writebyte(']')
 
 	case error:
 		g.value(v.Error())
