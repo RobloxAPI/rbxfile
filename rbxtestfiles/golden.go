@@ -23,32 +23,29 @@ type Golden struct {
 }
 
 // push increases the indentation by one.
-func (g *Golden) push() *Golden {
+func (g *Golden) push() {
 	g.lead = append(g.lead, '\t')
-	return g
 }
 
 // push decreases the indentation by one.
-func (g *Golden) pop() *Golden {
+func (g *Golden) pop() {
 	g.lead = g.lead[:len(g.lead)-1]
-	return g
 }
 
 // newline writes a newline character followed by the current indentation.
-func (g *Golden) newline() *Golden {
+func (g *Golden) newline() {
 	g.s.WriteByte('\n')
 	g.s.Write(g.lead)
-	return g
 }
 
 type array []interface{}
 
 // array writes v as a JSON array.
-func (g *Golden) array(v array) *Golden {
+func (g *Golden) array(v array) {
 	g.s.WriteByte('[')
 	if len(v) == 0 {
 		g.s.WriteByte(']')
-		return g
+		return
 	}
 	g.push()
 	g.newline()
@@ -61,7 +58,6 @@ func (g *Golden) array(v array) *Golden {
 	g.pop()
 	g.newline()
 	g.s.WriteByte(']')
-	return g
 }
 
 type object []field
@@ -71,11 +67,11 @@ type field struct {
 }
 
 // object writes v as a JSON object.
-func (g *Golden) object(v object) *Golden {
+func (g *Golden) object(v object) {
 	g.s.WriteByte('{')
 	if len(v) == 0 {
 		g.s.WriteByte('}')
-		return g
+		return
 	}
 	g.push()
 	g.newline()
@@ -92,11 +88,10 @@ func (g *Golden) object(v object) *Golden {
 	g.pop()
 	g.newline()
 	g.s.WriteByte('}')
-	return g
 }
 
 // string writes a JSON string.
-func (g *Golden) string(s string) *Golden {
+func (g *Golden) string(s string) {
 	// From encoding/json
 	const hex = "0123456789abcdef"
 	g.s.WriteByte('"')
@@ -155,7 +150,6 @@ func (g *Golden) string(s string) *Golden {
 		g.s.WriteString(s[start:])
 	}
 	g.s.WriteByte('"')
-	return g
 }
 
 func recurseRefs(refs map[*rbxfile.Instance]int, instances []*rbxfile.Instance) {
@@ -167,7 +161,7 @@ func recurseRefs(refs map[*rbxfile.Instance]int, instances []*rbxfile.Instance) 
 	}
 }
 
-func (g *Golden) value(v interface{}) *Golden {
+func (g *Golden) value(v interface{}) {
 	switch v := v.(type) {
 	default:
 		g.s.WriteString("<UNKNOWN:" + reflect.TypeOf(v).String() + ">")
@@ -187,7 +181,8 @@ func (g *Golden) value(v interface{}) *Golden {
 				continue
 			}
 			if !unicode.IsGraphic(r) {
-				return g.value([]byte(v))
+				g.value([]byte(v))
+				return
 			}
 		}
 		g.string(v)
@@ -634,10 +629,9 @@ func (g *Golden) value(v interface{}) *Golden {
 			field{name: "Content", value: v.Content},
 		})
 	}
-	return g
 }
 
-func (g *Golden) Format(format string, v interface{}) *Golden {
+func (g *Golden) Format(format string, v interface{}) {
 	g.format = format
 	switch v.(type) {
 	case error:
@@ -654,7 +648,6 @@ func (g *Golden) Format(format string, v interface{}) *Golden {
 		field{name: "Output", value: g.structure},
 		field{name: "Data", value: v},
 	})
-	return g
 }
 
 func (g *Golden) Bytes() []byte {
