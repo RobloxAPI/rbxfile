@@ -140,7 +140,9 @@ func openInput(input string) {
 	if bytes.Equal(current, spec) {
 		return
 	}
-	diffGolden(input, int(context), spec, current)
+	if but.IfError(diffGolden(input, int(context), spec, current), "diff spec with current") {
+		return
+	}
 
 	if !update {
 		return
