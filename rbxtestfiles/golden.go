@@ -187,7 +187,7 @@ func (g *Golden) value(v interface{}) {
 	case string:
 		for _, r := range []rune(v) {
 			switch r {
-			case '\t', '\n':
+			case '\t', '\r', '\n', '\f', '\b':
 				continue
 			}
 			if !unicode.IsGraphic(r) {
