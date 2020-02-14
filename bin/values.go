@@ -1889,8 +1889,8 @@ func (v *ValuePhysicalProperties) ArrayBytes(a []Value) (b []byte, err error) {
 			return nil, fmt.Errorf("element %d is of type `%s` where `%s` is expected", i, pp.Type().String(), v.Type().String())
 		}
 
-		b = append(b, v.CustomPhysics)
-		if v.CustomPhysics != 0 {
+		b = append(b, pp.CustomPhysics)
+		if pp.CustomPhysics != 0 {
 			binary.LittleEndian.PutUint32(q[0*4:0*4+4], math.Float32bits(pp.Density))
 			binary.LittleEndian.PutUint32(q[1*4:1*4+4], math.Float32bits(pp.Friction))
 			binary.LittleEndian.PutUint32(q[2*4:2*4+4], math.Float32bits(pp.Elasticity))
