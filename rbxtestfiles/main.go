@@ -95,7 +95,7 @@ func openInput(input string) {
 		case "model":
 			fallthrough
 		default:
-			data, err = bin.DeserializePlace(r, nil)
+			data, err = bin.DeserializePlace(r)
 		}
 	case "rbxm":
 		switch directives.pairs["output"] {
@@ -106,7 +106,7 @@ func openInput(input string) {
 		case "model":
 			fallthrough
 		default:
-			data, err = bin.DeserializeModel(r, nil)
+			data, err = bin.DeserializeModel(r)
 		}
 	case "rbxlx", "rbxmx":
 		switch directives.pairs["output"] {
@@ -117,7 +117,7 @@ func openInput(input string) {
 		case "model":
 			fallthrough
 		default:
-			data, err = xml.Deserialize(r, nil)
+			data, err = xml.Deserialize(r)
 		}
 	default:
 		return

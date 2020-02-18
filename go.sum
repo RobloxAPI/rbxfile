@@ -2,5 +2,3 @@ github.com/anaminus/but v0.2.0 h1:UPKY6UtvTZH8seod0rfVRsQxP8qssz+P6VE9a2AYeNY=
 github.com/anaminus/but v0.2.0/go.mod h1:44z5qYo/3MWnZDi6ifH3IgrFWa1VFfdTttL3IYN/9R4=
 github.com/bkaradzic/go-lz4 v1.0.0 h1:RXc4wYsyz985CkXXeX04y4VnZFGG8Rd43pRaHsOXAKk=
 github.com/bkaradzic/go-lz4 v1.0.0/go.mod h1:0YdlkowM3VswSROI7qDxhRvJ3sLhlFrRRwjwegp5jy4=
-github.com/robloxapi/rbxapi v0.1.0 h1:xcve5EgsdXRBfRu6e5y03lHbcELkAjTuRCDw8OX060I=
-github.com/robloxapi/rbxapi v0.1.0/go.mod h1:YOxBbPE55ssodC1fGi8urHCDwntYrJg9FVjyY3sRX5o=

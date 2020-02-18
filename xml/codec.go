@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
 	"io"
 	"io/ioutil"
@@ -17,11 +16,6 @@ import (
 // RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
 // codec as closely as possible.
 type RobloxCodec struct {
-	// API can be set to yield a more correct encoding or decoding by
-	// providing information about each class. If API is nil, the codec will
-	// try to use other available information, but may not be fully accurate.
-	API rbxapi.Root
-
 	// ExcludeReferent determines whether the "referent" attribute should be
 	// added to Item tags when encoding.
 	ExcludeReferent bool
@@ -29,22 +23,6 @@ type RobloxCodec struct {
 	// ExcludeExternal determines whether standard <External> tags should be
 	// added to the root tag when encoding.
 	ExcludeExternal bool
-
-	// ExcludeInvalidAPI determines whether invalid items are excluded when
-	// encoding or decoding. An invalid item is an instance or property that
-	// does not exist or has incorrect information, according to a provided
-	// rbxapi.API.
-	//
-	// If true, then warnings will be emitted for invalid items, and the items
-	// will not be included in the output. If false, then warnings are still
-	// emitted, but invalid items are handled as if they were valid. This
-	// applies when decoding from a Document, and when encoding from a
-	// rbxfile.Root.
-	//
-	// Since an API may exclude some items even though they're correct, it is
-	// generally preferred to set ExcludeInvalidAPI to false, so that false
-	// negatives do not lead to lost data.
-	ExcludeInvalidAPI bool
 
 	// ExcludeMetadata determines whether <Meta> tags should be included while
 	// encoding.
@@ -67,28 +45,6 @@ func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) 
 	return dec.root, dec.err
 }
 
-func generateClassMembers(api rbxapi.Root, className string) map[string]rbxapi.Property {
-	if api == nil {
-		return nil
-	}
-
-	props := map[string]rbxapi.Property{}
-	class := api.GetClass(className)
-	for class != nil {
-		for _, member := range class.GetMembers() {
-			prop, ok := member.(rbxapi.Property)
-			if !ok {
-				continue
-			}
-			if _, ok := props[prop.GetName()]; !ok {
-				props[prop.GetName()] = prop
-			}
-		}
-		class = api.GetClass(class.GetSuperclass())
-	}
-	return props
-}
-
 type rdecoder struct {
 	document   *Document
 	codec      RobloxCodec
@@ -105,7 +61,7 @@ func (dec *rdecoder) decode() error {
 	}
 
 	dec.root = new(rbxfile.Root)
-	dec.root.Instances, _ = dec.getItems(nil, dec.document.Root.Tags, nil)
+	dec.root.Instances, _ = dec.getItems(nil, dec.document.Root.Tags)
 
 	for _, tag := range dec.document.Root.Tags {
 		switch tag.StartName {
@@ -151,7 +107,7 @@ func (dec *rdecoder) decode() error {
 	return nil
 }
 
-func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMembers map[string]rbxapi.Property) (instances []*rbxfile.Instance, properties map[string]rbxfile.Value) {
+func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag) (instances []*rbxfile.Instance, properties map[string]rbxfile.Value) {
 	properties = make(map[string]rbxfile.Value)
 	hasProps := false
 
@@ -164,16 +120,6 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 				continue
 			}
 
-			classMemb := generateClassMembers(dec.codec.API, className)
-			if dec.codec.API != nil {
-				if dec.codec.API.GetClass(className) == nil {
-					dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid class name `%s`", className))
-					if dec.codec.ExcludeInvalidAPI {
-						continue
-					}
-				}
-			}
-
 			instance := rbxfile.NewInstance(className, nil)
 			referent, ok := tag.AttrValue("referent")
 			if ok && len(referent) > 0 {
@@ -184,7 +130,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 			}
 
 			var children []*rbxfile.Instance
-			children, instance.Properties = dec.getItems(instance, tag.Tags, classMemb)
+			children, instance.Properties = dec.getItems(instance, tag.Tags)
 			for _, child := range children {
 				instance.AddChild(child)
 			}
@@ -198,7 +144,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag, classMember
 			hasProps = true
 
 			for _, property := range tag.Tags {
-				name, value, ok := dec.getProperty(property, parent, classMembers)
+				name, value, ok := dec.getProperty(property, parent)
 				if ok {
 					properties[name] = value
 				}
@@ -217,13 +163,8 @@ func (c RobloxCodec) DecodeProperties(tags []*Tag, inst *rbxfile.Instance, refs 
 		instLookup: refs,
 	}
 
-	classMembers := generateClassMembers(dec.codec.API, inst.ClassName)
-	if dec.codec.API != nil && dec.codec.API.GetClass(inst.ClassName) == nil && dec.codec.ExcludeInvalidAPI {
-		return nil
-	}
-
 	for _, property := range tags {
-		name, value, ok := dec.getProperty(property, inst, classMembers)
+		name, value, ok := dec.getProperty(property, inst)
 		if ok {
 			inst.Properties[name] = value
 		}
@@ -232,35 +173,15 @@ func (c RobloxCodec) DecodeProperties(tags []*Tag, inst *rbxfile.Instance, refs 
 	return dec.propRefs
 }
 
-func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance, classMembers map[string]rbxapi.Property) (name string, value rbxfile.Value, ok bool) {
+func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance) (name string, value rbxfile.Value, ok bool) {
 	name, ok = tag.AttrValue("name")
 	if !ok {
 		return "", nil, false
 	}
 
-	var valueType string
-	var enum rbxapi.Enum
-	if dec.codec.API != nil && classMembers != nil {
-		// Determine property type from API.
-		propAPI, ok := classMembers[name]
-		if ok {
-			valueType = propAPI.GetValueType().GetName()
-			if e := dec.codec.API.GetEnum(valueType); e != nil {
-				valueType = "token"
-				enum = e
-			}
-			goto processValue
-		} else if dec.codec.ExcludeInvalidAPI {
-			dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid property name %s.`%s`", instance.ClassName, name))
-			return "", nil, false
-		}
-	}
-
 	// Guess property type from tag name
-	valueType = dec.codec.GetCanonType(tag.StartName)
-
-processValue:
-	value, ok = dec.getValue(tag, valueType, enum)
+	valueType := dec.codec.GetCanonType(tag.StartName)
+	value, ok = dec.getValue(tag, valueType)
 	if !ok {
 		return "", nil, false
 	}
@@ -359,7 +280,7 @@ func (RobloxCodec) GetCanonType(valueType string) string {
 // the tag is interpreted. valueType must be an existing type as it appears in
 // the API dump. If guessing the type, it should be converted to one of these
 // first.
-func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (value rbxfile.Value, ok bool) {
+func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, ok bool) {
 	switch valueType {
 	case "Axes":
 		var bits int32
@@ -556,19 +477,6 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 		if err != nil {
 			return nil, false
 		}
-		if enum != nil {
-			// Verify that value is a valid enum item
-			for _, item := range enum.GetEnumItems() {
-				if int(v) == item.GetValue() {
-					return rbxfile.ValueToken(v), true
-				}
-			}
-			if dec.codec.ExcludeInvalidAPI {
-				dec.document.Warnings = append(dec.document.Warnings, fmt.Errorf("invalid item `%d` for enum %s", v, enum.GetName()))
-				return nil, false
-			}
-		}
-		// Assume that it is correct
 		return rbxfile.ValueToken(v), true
 
 	case "UDim":
@@ -702,7 +610,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string, enum rbxapi.Enum) (val
 			"FrictionWeight":   &v.FrictionWeight,
 			"ElasticityWeight": &v.ElasticityWeight,
 		}.getFrom(tag)
-		vb, _ := dec.getValue(cp, "bool", enum)
+		vb, _ := dec.getValue(cp, "bool")
 		v.CustomPhysics = bool(vb.(rbxfile.ValueBool))
 		return v, true
 
@@ -950,15 +858,6 @@ func (enc *rencoder) encode() {
 }
 
 func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
-	if enc.codec.API != nil {
-		if class := enc.codec.API.GetClass(instance.ClassName); class == nil {
-			enc.document.Warnings = append(enc.document.Warnings, fmt.Errorf("invalid class `%s`", instance.ClassName))
-			if enc.codec.ExcludeInvalidAPI {
-				return
-			}
-		}
-	}
-
 	ref := enc.refs.Get(instance)
 	properties := enc.encodeProperties(instance)
 	item := NewItem(instance.ClassName, ref, properties...)
@@ -978,20 +877,6 @@ func (c RobloxCodec) EncodeProperties(instance *rbxfile.Instance) (properties []
 }
 
 func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []*Tag) {
-	var apiMembers map[string]rbxapi.Property
-	if enc.codec.API != nil {
-		apiClass := enc.codec.API.GetClass(instance.ClassName)
-		if apiClass != nil {
-			m := apiClass.GetMembers()
-			apiMembers = make(map[string]rbxapi.Property, len(m))
-			for _, member := range m {
-				if member, ok := member.(rbxapi.Property); ok {
-					apiMembers[member.GetName()] = member
-				}
-			}
-		}
-	}
-
 	// Sort properties by name
 	sorted := make([]string, 0, len(instance.Properties))
 	for name := range instance.Properties {
@@ -1001,43 +886,6 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 
 	for _, name := range sorted {
 		value := instance.Properties[name]
-		if apiMembers != nil {
-			apiMember, ok := apiMembers[name]
-			if ok {
-				typ := apiMember.GetValueType().GetName()
-				token, istoken := value.(rbxfile.ValueToken)
-				enum := enc.codec.API.GetEnum(typ)
-				if istoken && enum == nil || !isCanonType(typ, value) {
-					enc.document.Warnings = append(enc.document.Warnings,
-						fmt.Errorf("invalid value type `%s` for property %s.%s (%s)", value, instance.ClassName, name, typ),
-					)
-					if enc.codec.ExcludeInvalidAPI {
-						continue
-					}
-				} else if istoken && enum != nil {
-					for _, item := range enum.GetEnumItems() {
-						if int(token) == item.GetValue() {
-							goto finishToken
-						}
-					}
-
-					enc.document.Warnings = append(enc.document.Warnings,
-						fmt.Errorf("invalid enum value `%d` for property %s.%s (%s)", uint32(token), instance.ClassName, name, enum.GetName()),
-					)
-					if enc.codec.ExcludeInvalidAPI {
-						continue
-					}
-
-				finishToken:
-				}
-			} else {
-				enc.document.Warnings = append(enc.document.Warnings, fmt.Errorf("invalid property %s.`%s`", instance.ClassName, name))
-				if enc.codec.ExcludeInvalidAPI {
-					continue
-				}
-			}
-		}
-
 		tag := enc.encodeProperty(instance.ClassName, name, value)
 		if tag != nil {
 			properties = append(properties, tag)

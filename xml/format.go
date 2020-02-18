@@ -2,7 +2,6 @@ package xml
 
 import (
 	"errors"
-	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
 	"io"
 )
@@ -88,15 +87,15 @@ func (s Serializer) Serialize(w io.Writer, root *rbxfile.Root) (err error) {
 }
 
 // Deserialize decodes data from r into a Root structure using the default
-// decoder. An optional API can be given to ensure more correct data.
-func Deserialize(r io.Reader, api rbxapi.Root) (root *rbxfile.Root, err error) {
-	codec := RobloxCodec{API: api}
+// decoder.
+func Deserialize(r io.Reader) (root *rbxfile.Root, err error) {
+	codec := RobloxCodec{}
 	return NewSerializer(codec, codec).Deserialize(r)
 }
 
 // Serialize encodes data from a Root structure to w using the default
-// encoder. An optional API can be given to ensure more correct data.
-func Serialize(w io.Writer, api rbxapi.Root, root *rbxfile.Root) (err error) {
-	codec := RobloxCodec{API: api}
+// encoder.
+func Serialize(w io.Writer, root *rbxfile.Root) (err error) {
+	codec := RobloxCodec{}
 	return NewSerializer(codec, codec).Serialize(w, root)
 }

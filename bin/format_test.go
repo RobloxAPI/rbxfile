@@ -3,7 +3,6 @@ package bin
 import (
 	"bytes"
 	"errors"
-	"github.com/robloxapi/rbxapi"
 	"github.com/robloxapi/rbxfile"
 	"testing"
 )
@@ -21,7 +20,7 @@ var goodroot = &rbxfile.Root{
 
 type testDecoder struct{}
 
-func (testDecoder) Decode(model *FormatModel, api *rbxapi.API) (root *rbxfile.Root, err error) {
+func (testDecoder) Decode(model *FormatModel) (root *rbxfile.Root, err error) {
 	if model.TypeCount == 0 {
 		return nil, errors.New("decode fail")
 	}
@@ -37,7 +36,7 @@ func (testDecoder) Decode(model *FormatModel, api *rbxapi.API) (root *rbxfile.Ro
 
 type testEncoder struct{}
 
-func (testEncoder) Encode(root *rbxfile.Root, api *rbxapi.API) (model *FormatModel, err error) {
+func (testEncoder) Encode(root *rbxfile.Root) (model *FormatModel, err error) {
 	if len(root.Instances) == 0 {
 		return nil, errors.New("encode fail")
 	}
@@ -93,23 +92,23 @@ func TestNewSerializer(t *testing.T) {
 func TestSerializer_Deserialize(t *testing.T) {
 	ser := Serializer{}
 
-	if _, err := ser.Deserialize(nil, nil); err == nil {
+	if _, err := ser.Deserialize(nil); err == nil {
 		t.Error("expected error (no decoder)")
 	}
 
 	ser.Decoder = testDecoder{}
 
-	if _, err := ser.Deserialize(nil, nil); err == nil {
+	if _, err := ser.Deserialize(nil); err == nil {
 		t.Error("expected error (format parsing)")
 	}
 
 	buf := bytes.NewBufferString(badfile)
-	if _, err := ser.Deserialize(buf, nil); err == nil {
+	if _, err := ser.Deserialize(buf); err == nil {
 		t.Error("expected error (decoding)")
 	}
 
 	buf = bytes.NewBufferString(goodfile)
-	if root, err := ser.Deserialize(buf, nil); err != nil {
+	if root, err := ser.Deserialize(buf); err != nil {
 		t.Error("unexpected error", err)
 	} else if len(root.Instances) == 0 || root.Instances[0].ClassName != "DecodeSuccess" {
 		t.Error("unexpected Root")
@@ -119,22 +118,22 @@ func TestSerializer_Deserialize(t *testing.T) {
 func TestSerializer_Serialize(t *testing.T) {
 	ser := Serializer{}
 
-	if err := ser.Serialize(nil, nil, nil); err == nil {
+	if err := ser.Serialize(nil, nil); err == nil {
 		t.Error("expected error (no encoder)")
 	}
 
 	ser.Encoder = testEncoder{}
 
-	if err := ser.Serialize(nil, nil, badroot); err == nil {
+	if err := ser.Serialize(nil, badroot); err == nil {
 		t.Error("expected error (encoding data)")
 	}
 
-	if err := ser.Serialize(nil, nil, goodroot); err == nil {
+	if err := ser.Serialize(nil, goodroot); err == nil {
 		t.Error("expected error (encoding format)")
 	}
 
 	var buf bytes.Buffer
-	if err := ser.Serialize(&buf, nil, goodroot); err != nil {
+	if err := ser.Serialize(&buf, goodroot); err != nil {
 		t.Error("unexpected error", err)
 	}
 
@@ -144,10 +143,10 @@ func TestSerializer_Serialize(t *testing.T) {
 }
 
 func TestSerializeFunc(t *testing.T) {
-	DeserializePlace(nil, nil)
-	SerializePlace(nil, nil, nil)
-	DeserializeModel(nil, nil)
-	SerializeModel(nil, nil, nil)
+	DeserializePlace(nil)
+	SerializePlace(nil, nil)
+	DeserializeModel(nil)
+	SerializeModel(nil, nil)
 }
 
 func TestFormat(t *testing.T) {
