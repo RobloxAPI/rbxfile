@@ -550,9 +550,9 @@ func (t Type) value(refs rbxfile.References, v []interface{}) rbxfile.Value {
 		case 12:
 			return rbxfile.ValueCFrame{
 				Position: rbxfile.ValueVector3{
-					normFloat32(v[0]),
-					normFloat32(v[1]),
-					normFloat32(v[2]),
+					X: normFloat32(v[0]),
+					Y: normFloat32(v[1]),
+					Z: normFloat32(v[2]),
 				},
 				Rotation: [9]float32{
 					normFloat32(v[3]),
