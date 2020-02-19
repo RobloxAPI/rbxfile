@@ -29,7 +29,7 @@ type Root []primary
 
 // build recursively resolves instance declarations.
 func build(dinst instance, refs rbxfile.References, props map[*rbxfile.Instance][]property) *rbxfile.Instance {
-	inst := rbxfile.NewInstance(dinst.className, nil)
+	inst := rbxfile.NewInstance(dinst.className)
 
 	if dinst.reference != "" {
 		refs[dinst.reference] = inst
@@ -121,7 +121,7 @@ func (instance) element() {}
 // descendants, and property values, setting up the instance hierarchy, and
 // resolving references.
 func (dinst instance) Declare() *rbxfile.Instance {
-	inst := rbxfile.NewInstance(dinst.className, nil)
+	inst := rbxfile.NewInstance(dinst.className)
 
 	refs := rbxfile.References{}
 	props := map[*rbxfile.Instance][]property{}

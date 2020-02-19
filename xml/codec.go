@@ -120,7 +120,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag) (instances 
 				continue
 			}
 
-			instance := rbxfile.NewInstance(className, nil)
+			instance := rbxfile.NewInstance(className)
 			referent, ok := tag.AttrValue("referent")
 			if ok && len(referent) > 0 {
 				instance.Reference = referent

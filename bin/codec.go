@@ -71,7 +71,7 @@ loop:
 				}
 				// No error if InstanceCount > actual count.
 
-				inst := rbxfile.NewInstance(chunk.ClassName, nil)
+				inst := rbxfile.NewInstance(chunk.ClassName)
 				if _, ok := instLookup[ref]; ok {
 					err = fmt.Errorf("duplicate id: %d", ref)
 					goto chunkErr

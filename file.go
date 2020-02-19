@@ -100,15 +100,11 @@ type Instance struct {
 
 // NewInstance creates a new Instance of a given class, and an optional
 // parent.
-func NewInstance(className string, parent *Instance) *Instance {
+func NewInstance(className string) *Instance {
 	inst := &Instance{
 		ClassName:  className,
 		Reference:  GenerateReference(),
 		Properties: make(map[string]Value, 0),
-	}
-	if parent != nil {
-		parent.Children = append(parent.Children, inst)
-		inst.parent = parent
 	}
 	return inst
 }
