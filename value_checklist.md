@@ -40,8 +40,8 @@ To add value type `Foobar`:
 		- [ ] In function `ValueFromJSONInterface`, add case
 		  `rbxfile.TypeFoobar`.
 			- Convert generic JSON interface to `rbxfile.ValueFoobar`.
-- xml
-	- `xml/codec.go`
+- rbxlx
+	- `rbxlx/codec.go`
 		- [ ] In function `GetCanonType` add case `"foobar"` (lowercase).
 			- Returns `"Foobar"`
 		- [ ] In method `rdecoder.getValue`, add case `"Foobar"`.

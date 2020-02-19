@@ -42,7 +42,7 @@ import (
 	"io"
 
 	"github.com/robloxapi/rbxfile"
-	"github.com/robloxapi/rbxfile/xml"
+	"github.com/robloxapi/rbxfile/rbxlx"
 )
 
 // Decoder decodes a FormatModel to a generic rbxfile.Root structure.
@@ -63,19 +63,19 @@ type Serializer struct {
 
 	// DecoderXML is used to decode the legacy XML format. If DecoderXML is
 	// not nil, then the serializer will attempt to detect if the stream is in
-	// the XML format. If so, then it will be decoded using an xml.Serializer
+	// the XML format. If so, then it will be decoded using an rbxlx.Serializer
 	// with the given decoder.
-	DecoderXML xml.Decoder
+	DecoderXML rbxlx.Decoder
 }
 
 // NewSerializer returns a new Serializer with a specified decoder and
 // encoder. If either value is nil, the default RobloxCodec will be used in
-// its place. DecoderXML is set to xml.RobloxCodec.
+// its place. DecoderXML is set to rbxlx.RobloxCodec.
 func NewSerializer(d Decoder, e Encoder) Serializer {
 	s := Serializer{
 		Decoder:    d,
 		Encoder:    e,
-		DecoderXML: xml.RobloxCodec{},
+		DecoderXML: rbxlx.RobloxCodec{},
 	}
 
 	if d == nil || e == nil {
@@ -116,7 +116,7 @@ func (s Serializer) Deserialize(r io.Reader) (root *rbxfile.Root, err error) {
 		}
 
 		if !bytes.Equal(sig[len(RobloxSig):], []byte(BinaryMarker)) {
-			return xml.NewSerializer(s.DecoderXML, nil).Deserialize(buf)
+			return rbxlx.NewSerializer(s.DecoderXML, nil).Deserialize(buf)
 		}
 		r = buf
 	}
@@ -161,7 +161,7 @@ func DeserializePlace(r io.Reader) (root *rbxfile.Root, err error) {
 	return Serializer{
 		Encoder:    codec,
 		Decoder:    codec,
-		DecoderXML: xml.RobloxCodec{},
+		DecoderXML: rbxlx.RobloxCodec{},
 	}.Deserialize(r)
 }
 
@@ -172,7 +172,7 @@ func SerializePlace(w io.Writer, root *rbxfile.Root) (err error) {
 	return Serializer{
 		Encoder:    codec,
 		Decoder:    codec,
-		DecoderXML: xml.RobloxCodec{},
+		DecoderXML: rbxlx.RobloxCodec{},
 	}.Serialize(w, root)
 }
 
@@ -183,7 +183,7 @@ func DeserializeModel(r io.Reader) (root *rbxfile.Root, err error) {
 	return Serializer{
 		Encoder:    codec,
 		Decoder:    codec,
-		DecoderXML: xml.RobloxCodec{},
+		DecoderXML: rbxlx.RobloxCodec{},
 	}.Deserialize(r)
 }
 
@@ -194,6 +194,6 @@ func SerializeModel(w io.Writer, root *rbxfile.Root) (err error) {
 	return Serializer{
 		Encoder:    codec,
 		Decoder:    codec,
-		DecoderXML: xml.RobloxCodec{},
+		DecoderXML: rbxlx.RobloxCodec{},
 	}.Serialize(w, root)
 }

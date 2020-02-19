@@ -11,7 +11,7 @@ import (
 
 	"github.com/robloxapi/rbxfile"
 	"github.com/robloxapi/rbxfile/rbxl"
-	"github.com/robloxapi/rbxfile/xml"
+	"github.com/robloxapi/rbxfile/rbxlx"
 )
 
 type Golden struct {
@@ -649,7 +649,7 @@ func (g *Golden) Format(format string, v interface{}) {
 		g.structure = "model"
 	case *rbxl.FormatModel:
 		g.structure = "binary"
-	case *xml.Document:
+	case *rbxlx.Document:
 		g.structure = "xml"
 	}
 	g.object(object{

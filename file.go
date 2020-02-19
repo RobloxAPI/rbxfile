@@ -13,7 +13,7 @@
 //
 // Root structures can be decoded from and encoded to various formats,
 // including Roblox's native file formats. The two sub-packages "rbxl" and
-// "xml" provide formats for Roblox's binary and XML formats. Root structures
+// "rbxlx" provide formats for Roblox's binary and XML formats. Root structures
 // can also be encoded and decoded with the "json" package.
 //
 // Besides decoding from a format, root structures can also be created

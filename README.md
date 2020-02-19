@@ -16,9 +16,9 @@ value of a certain [type][type]. Every available type implements the
 [Value][value] interface, and is prefixed with "Value".
 
 Root structures can be decoded from and encoded to various formats, including
-Roblox's native file formats. The two sub-packages [rbxl][rbxl] and [xml][xml]
-provide formats for Roblox's binary and XML formats. Root structures can also
-be encoded and decoded with the [json][json] package.
+Roblox's native file formats. The two sub-packages [rbxl][rbxl] and
+[rbxlx][rbxlx] provide formats for Roblox's binary and XML formats. Root
+structures can also be encoded and decoded with the [json][json] package.
 
 Besides decoding from a format, root structures can also be created manually.
 The best way to do this is through the [declare][declare] sub-package, which
@@ -29,7 +29,7 @@ provides an easy way to generate root structures.
 [type]: https://godoc.org/github.com/robloxapi/rbxfile#Type
 [value]: https://godoc.org/github.com/robloxapi/rbxfile#Value
 [rbxl]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl
-[xml]: https://godoc.org/github.com/robloxapi/rbxfile/xml
+[rbxlx]: https://godoc.org/github.com/robloxapi/rbxfile/rbxlx
 [json]: https://godoc.org/encoding/json
 [declare]: https://godoc.org/github.com/robloxapi/rbxfile/declare
 

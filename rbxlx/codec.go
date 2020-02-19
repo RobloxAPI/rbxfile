@@ -1,4 +1,4 @@
-package xml
+package rbxlx
 
 import (
 	"bytes"

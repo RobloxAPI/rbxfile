@@ -1,4 +1,4 @@
-package xml
+package rbxlx
 
 // Decoder adapted from the standard XML package.
 

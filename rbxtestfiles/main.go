@@ -13,7 +13,7 @@ import (
 
 	"github.com/anaminus/but"
 	"github.com/robloxapi/rbxfile/rbxl"
-	"github.com/robloxapi/rbxfile/xml"
+	"github.com/robloxapi/rbxfile/rbxlx"
 )
 
 var update bool
@@ -112,13 +112,13 @@ func openInput(input string) {
 	case "rbxlx", "rbxmx":
 		switch directives.pairs["output"] {
 		case "format":
-			doc := xml.Document{}
+			doc := rbxlx.Document{}
 			_, err = doc.ReadFrom(r)
 			data = &doc
 		case "model":
 			fallthrough
 		default:
-			data, err = xml.Deserialize(r)
+			data, err = rbxlx.Deserialize(r)
 		}
 	default:
 		return
