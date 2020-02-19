@@ -587,11 +587,11 @@ func (d *decoder) readSpace() []byte {
 	for {
 		b, ok := d.getc()
 		if !ok {
-			return d.buf.Bytes()
+			break
 		}
 		if !isSpace(b) {
 			d.ungetc(b)
-			return d.buf.Bytes()
+			break
 		}
 		d.buf.WriteByte(b)
 	}
