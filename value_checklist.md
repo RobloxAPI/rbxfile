@@ -51,8 +51,8 @@ To add value type `Foobar`:
 		  `rbxfile.ValueFoobar`.
 		  	- Returns `*Tag` that is decodable by `rdecoder.getValue`.
 		 - [ ] In function `isCanonType`, add case `rbxfile.ValueFoobar`.
-- bin
-	- `bin/values.go`
+- rbxl
+	- `rbxl/values.go`
 		- [ ] Add `TypeFoobar` to type constants.
 		- [ ] In `String` method, add case `TypeFoobar` that returns `"Foobar"`.
 		- [ ] In `valueGenerators`, map `TypeFoobar` to function
@@ -82,7 +82,7 @@ To add value type `Foobar`:
 					- Sets field number `i` using bytes from `b`.
 				- [ ] Implement `fieldGet`.
 					- Returns field number `i` as a slice of bytes.
-	- `bin/codec.go`
+	- `rbxl/codec.go`
 		- [ ] In function `decodeValue`, add case `*ValueFoobar`.
 			- Converts `*ValueFoobar` to `rbxfile.ValueFoobar`.
 		- [ ] In function `encodeValue`, add case `rbxfile.ValueFoobar`.

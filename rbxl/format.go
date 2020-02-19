@@ -1,4 +1,4 @@
-// Package bin implements a decoder and encoder for Roblox's binary file
+// Package rbxl implements a decoder and encoder for Roblox's binary file
 // format.
 //
 // The easiest way to decode and encode files is through the functions
@@ -33,7 +33,7 @@
 // decoded) to and from Root structures in multiple ways, which is specified
 // by codecs. However, there is only one way to encode and decode to and from
 // a byte stream, which is handled by the FormatModel.
-package bin
+package rbxl
 
 import (
 	"bufio"

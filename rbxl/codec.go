@@ -1,4 +1,4 @@
-package bin
+package rbxl
 
 import (
 	"crypto/md5"
@@ -179,7 +179,7 @@ chunkErr:
 	return nil, err
 }
 
-// Decode a bin.value to a rbxfile.Value based on a given value type.
+// Decode a rbxl.value to a rbxfile.Value based on a given value type.
 func decodeValue(refs map[int32]*rbxfile.Instance, sharedStrings []SharedString, bvalue Value) (value rbxfile.Value) {
 	switch bvalue := bvalue.(type) {
 	case *ValueString:

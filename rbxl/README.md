@@ -1,8 +1,8 @@
-# rbxfile/bin
+# rbxfile/rbxl
 
-[![GoDoc](https://godoc.org/github.com/robloxapi/rbxfile/bin?status.png)](https://godoc.org/github.com/robloxapi/rbxfile/bin)
+[![GoDoc](https://godoc.org/github.com/robloxapi/rbxfile/rbxl?status.png)](https://godoc.org/github.com/robloxapi/rbxfile/rbxl)
 
-Package bin implements a decoder and encoder for Roblox's binary file format.
+Package rbxl implements a decoder and encoder for Roblox's binary file format.
 
 This package registers the formats "rbxl" and "rbxm" to the rbxfile package.
 
@@ -42,15 +42,15 @@ decoded) to and from Root structures in multiple ways, which is specified by
 codecs. However, there is only one way to encode and decode to and from a byte
 stream, which is handled by the FormatModel.
 
-[dserp]: https://godoc.org/github.com/robloxapi/rbxfile/bin#DeserializePlace
-[serp]: https://godoc.org/github.com/robloxapi/rbxfile/bin#SerializePlace
-[dserm]: https://godoc.org/github.com/robloxapi/rbxfile/bin#DeserializeModel
-[serm]: https://godoc.org/github.com/robloxapi/rbxfile/bin#SerializeModel
+[dserp]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#DeserializePlace
+[serp]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#SerializePlace
+[dserm]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#DeserializeModel
+[serm]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#SerializeModel
 
 [rbxfile]: https://godoc.org/github.com/robloxapi/rbxfile
 [root]: https://godoc.org/github.com/robloxapi/rbxfile#Root
-[serzr]: https://godoc.org/github.com/robloxapi/rbxfile/bin#Serializer
-[decr]: https://godoc.org/github.com/robloxapi/rbxfile/bin#Decoder
-[encr]: https://godoc.org/github.com/robloxapi/rbxfile/bin#Encoder
-[roco]: https://godoc.org/github.com/robloxapi/rbxfile/bin#RobloxCodec
-[fmtm]: https://godoc.org/github.com/robloxapi/rbxfile/bin#FormatModel
+[serzr]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#Serializer
+[decr]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#Decoder
+[encr]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#Encoder
+[roco]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#RobloxCodec
+[fmtm]: https://godoc.org/github.com/robloxapi/rbxfile/rbxl#FormatModel

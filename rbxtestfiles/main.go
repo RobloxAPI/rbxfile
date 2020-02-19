@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/anaminus/but"
-	"github.com/robloxapi/rbxfile/bin"
+	"github.com/robloxapi/rbxfile/rbxl"
 	"github.com/robloxapi/rbxfile/xml"
 )
 
@@ -90,24 +90,24 @@ func openInput(input string) {
 	case "rbxl":
 		switch directives.pairs["output"] {
 		case "format":
-			doc := bin.FormatModel{}
+			doc := rbxl.FormatModel{}
 			_, err = doc.ReadFrom(r)
 			data = &doc
 		case "model":
 			fallthrough
 		default:
-			data, err = bin.DeserializePlace(r)
+			data, err = rbxl.DeserializePlace(r)
 		}
 	case "rbxm":
 		switch directives.pairs["output"] {
 		case "format":
-			doc := bin.FormatModel{}
+			doc := rbxl.FormatModel{}
 			_, err = doc.ReadFrom(r)
 			data = &doc
 		case "model":
 			fallthrough
 		default:
-			data, err = bin.DeserializeModel(r)
+			data, err = rbxl.DeserializeModel(r)
 		}
 	case "rbxlx", "rbxmx":
 		switch directives.pairs["output"] {

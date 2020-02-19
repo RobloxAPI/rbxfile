@@ -1,6 +1,6 @@
 // +build ignore
 
-package bin
+package rbxl
 
 import (
 	"bytes"

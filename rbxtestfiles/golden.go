@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/robloxapi/rbxfile"
-	"github.com/robloxapi/rbxfile/bin"
+	"github.com/robloxapi/rbxfile/rbxl"
 	"github.com/robloxapi/rbxfile/xml"
 )
 
@@ -533,7 +533,7 @@ func (g *Golden) value(v interface{}) {
 	case rbxfile.ValueSharedString:
 		g.value(string(v))
 
-	case *bin.FormatModel:
+	case *rbxl.FormatModel:
 		chunks := make(array, len(v.Chunks))
 		for i, chunk := range v.Chunks {
 			chunks[i] = chunk
@@ -545,7 +545,7 @@ func (g *Golden) value(v interface{}) {
 			field{name: "Chunks", value: chunks},
 		})
 
-	case *bin.ChunkMeta:
+	case *rbxl.ChunkMeta:
 		sig := v.Signature()
 		values := make(array, len(v.Values))
 		for i, s := range v.Values {
@@ -560,7 +560,7 @@ func (g *Golden) value(v interface{}) {
 			field{name: "Values", value: values},
 		})
 
-	case *bin.ChunkSharedStrings:
+	case *rbxl.ChunkSharedStrings:
 		sig := v.Signature()
 		values := make(array, len(v.Values))
 		for i, s := range v.Values {
@@ -576,7 +576,7 @@ func (g *Golden) value(v interface{}) {
 			field{name: "Values", value: values},
 		})
 
-	case *bin.ChunkInstance:
+	case *rbxl.ChunkInstance:
 		sig := v.Signature()
 
 		instanceIDs := make(array, len(v.InstanceIDs))
@@ -597,7 +597,7 @@ func (g *Golden) value(v interface{}) {
 			field{name: "GetService", value: getService},
 		})
 
-	case *bin.ChunkProperty:
+	case *rbxl.ChunkProperty:
 		sig := v.Signature()
 		props := make(array, len(v.Properties))
 		for i, prop := range v.Properties {
@@ -612,7 +612,7 @@ func (g *Golden) value(v interface{}) {
 			field{name: "Values", value: props},
 		})
 
-	case *bin.ChunkParent:
+	case *rbxl.ChunkParent:
 		sig := v.Signature()
 		children := make(array, len(v.Children))
 		for i, child := range v.Children {
@@ -630,7 +630,7 @@ func (g *Golden) value(v interface{}) {
 			field{name: "Parents", value: parents},
 		})
 
-	case *bin.ChunkEnd:
+	case *rbxl.ChunkEnd:
 		sig := v.Signature()
 		g.object(object{
 			field{name: "Signature", value: sig[:]},
@@ -647,7 +647,7 @@ func (g *Golden) Format(format string, v interface{}) {
 		g.structure = "error"
 	case *rbxfile.Root:
 		g.structure = "model"
-	case *bin.FormatModel:
+	case *rbxl.FormatModel:
 		g.structure = "binary"
 	case *xml.Document:
 		g.structure = "xml"
