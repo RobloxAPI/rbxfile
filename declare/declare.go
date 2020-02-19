@@ -39,9 +39,10 @@ func build(dinst instance, refs rbxfile.References, props map[*rbxfile.Instance]
 	inst.Properties = make(map[string]rbxfile.Value, len(dinst.properties))
 	props[inst] = dinst.properties
 
-	for _, dchild := range dinst.children {
+	inst.Children = make([]*rbxfile.Instance, len(dinst.children))
+	for i, dchild := range dinst.children {
 		child := build(dchild, refs, props)
-		inst.AddChild(child)
+		inst.Children[i] = child
 	}
 
 	return inst
@@ -134,9 +135,10 @@ func (dinst instance) Declare() *rbxfile.Instance {
 	inst.Properties = make(map[string]rbxfile.Value, len(dinst.properties))
 	props[inst] = dinst.properties
 
-	for _, dchild := range dinst.children {
+	inst.Children = make([]*rbxfile.Instance, len(dinst.children))
+	for i, dchild := range dinst.children {
 		child := build(dchild, refs, props)
-		inst.AddChild(child)
+		inst.Children[i] = child
 	}
 
 	for inst, properties := range props {

@@ -149,10 +149,7 @@ loop:
 					continue
 				}
 
-				if err = parent.AddChild(child); err != nil {
-					goto chunkErr
-				}
-
+				parent.Children = append(parent.Children, child)
 			}
 
 		case *ChunkMeta:
@@ -566,15 +563,15 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 
 	if len(instList) > 0 {
 		i := 0
-		var recInst func(inst *rbxfile.Instance)
-		recInst = func(inst *rbxfile.Instance) {
+		var recInst func(inst, parent *rbxfile.Instance)
+		recInst = func(inst, parent *rbxfile.Instance) {
 			for _, child := range inst.Children {
-				recInst(child)
+				recInst(child, inst)
 			}
 
 			instRef := int32(refs[inst])
 			parentChunk.Children[i] = instRef
-			parentRef, ok := refs[inst.Parent()]
+			parentRef, ok := refs[parent]
 			if !ok {
 				parentRef = -1
 			}
@@ -582,7 +579,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 			i++
 		}
 		for _, inst := range root.Instances {
-			recInst(inst)
+			recInst(inst, nil)
 		}
 	}
 

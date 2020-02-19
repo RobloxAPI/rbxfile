@@ -131,8 +131,9 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag) (instances 
 
 			var children []*rbxfile.Instance
 			children, instance.Properties = dec.getItems(instance, tag.Tags)
-			for _, child := range children {
-				instance.AddChild(child)
+			instance.Children = make([]*rbxfile.Instance, len(children))
+			for i, child := range children {
+				instance.Children[i] = child
 			}
 
 			instances = append(instances, instance)

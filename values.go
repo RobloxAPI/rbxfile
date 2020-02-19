@@ -633,7 +633,7 @@ func (t ValueReference) String() string {
 	if t.Instance == nil {
 		return "<nil>"
 	}
-	return t.Name()
+	return t.Reference
 }
 func (t ValueReference) Copy() Value {
 	return t

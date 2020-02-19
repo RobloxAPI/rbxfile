@@ -238,12 +238,12 @@ func InstanceFromJSONInterface(iinst interface{}, refs rbxfile.References, propR
 	var children []interface{}
 	indexJSON(iinst, "children", &children)
 	inst.Children = make([]*rbxfile.Instance, 0, len(children))
-	for _, ichild := range children {
+	for i, ichild := range children {
 		child, ok := InstanceFromJSONInterface(ichild, refs, propRefs)
 		if !ok {
 			continue
 		}
-		child.SetParent(inst)
+		inst.Children[i] = child
 	}
 
 	return inst, true
