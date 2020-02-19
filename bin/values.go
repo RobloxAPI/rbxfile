@@ -7,18 +7,8 @@ import (
 	"math"
 )
 
-// Type indicates the type of a Value.
+// Type represents a type that can be serialized.
 type Type byte
-
-// String returns a string representation of the type. If the type is not
-// valid, then the returned value will be "Invalid".
-func (t Type) String() string {
-	s, ok := typeStrings[t]
-	if !ok {
-		return "Invalid"
-	}
-	return s
-}
 
 const (
 	TypeInvalid      Type = 0x0
@@ -52,38 +42,72 @@ const (
 	TypeSharedString       Type = 0x1C
 )
 
-var typeStrings = map[Type]string{
-	TypeString:       "String",
-	TypeBool:         "Bool",
-	TypeInt:          "Int",
-	TypeFloat:        "Float",
-	TypeDouble:       "Double",
-	TypeUDim:         "UDim",
-	TypeUDim2:        "UDim2",
-	TypeRay:          "Ray",
-	TypeFaces:        "Faces",
-	TypeAxes:         "Axes",
-	TypeBrickColor:   "BrickColor",
-	TypeColor3:       "Color3",
-	TypeVector2:      "Vector2",
-	TypeVector3:      "Vector3",
-	TypeVector2int16: "Vector2int16",
-	TypeCFrame:       "CFrame",
-	//TypeCFrameQuat: "CFrameQuat",
-	TypeToken:              "Token",
-	TypeReference:          "Reference",
-	TypeVector3int16:       "Vector3int16",
-	TypeNumberSequence:     "NumberSequence",
-	TypeColorSequence:      "ColorSequence",
-	TypeNumberRange:        "NumberRange",
-	TypeRect2D:             "Rect2D",
-	TypePhysicalProperties: "PhysicalProperties",
-	TypeColor3uint8:        "Color3uint8",
-	TypeInt64:              "Int64",
-	TypeSharedString:       "SharedString",
+// String returns a string representation of the type. If the type is not
+// valid, then the returned value will be "Invalid".
+func (t Type) String() string {
+	switch t {
+	case TypeString:
+		return "String"
+	case TypeBool:
+		return "Bool"
+	case TypeInt:
+		return "Int"
+	case TypeFloat:
+		return "Float"
+	case TypeDouble:
+		return "Double"
+	case TypeUDim:
+		return "UDim"
+	case TypeUDim2:
+		return "UDim2"
+	case TypeRay:
+		return "Ray"
+	case TypeFaces:
+		return "Faces"
+	case TypeAxes:
+		return "Axes"
+	case TypeBrickColor:
+		return "BrickColor"
+	case TypeColor3:
+		return "Color3"
+	case TypeVector2:
+		return "Vector2"
+	case TypeVector3:
+		return "Vector3"
+	case TypeVector2int16:
+		return "Vector2int16"
+	case TypeCFrame:
+		return "CFrame"
+	// case TypeCFrameQuat:
+	// 	return "CFrameQuat"
+	case TypeToken:
+		return "Token"
+	case TypeReference:
+		return "Reference"
+	case TypeVector3int16:
+		return "Vector3int16"
+	case TypeNumberSequence:
+		return "NumberSequence"
+	case TypeColorSequence:
+		return "ColorSequence"
+	case TypeNumberRange:
+		return "NumberRange"
+	case TypeRect2D:
+		return "Rect2D"
+	case TypePhysicalProperties:
+		return "PhysicalProperties"
+	case TypeColor3uint8:
+		return "Color3uint8"
+	case TypeInt64:
+		return "Int64"
+	case TypeSharedString:
+		return "SharedString"
+	default:
+		return "Invalid"
+	}
 }
 
-// Value is a property value of a certain Type.
+// Value represents a value of a certain Type.
 type Value interface {
 	// Type returns an identifier indicating the type.
 	Type() Type

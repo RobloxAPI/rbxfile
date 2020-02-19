@@ -54,7 +54,7 @@ To add value type `Foobar`:
 - bin
 	- `bin/values.go`
 		- [ ] Add `TypeFoobar` to type constants.
-		- [ ] In `typeStrings`, map `TypeFoobar` to `"Foobar"`.
+		- [ ] In `String` method, add case `TypeFoobar` that returns `"Foobar"`.
 		- [ ] In `valueGenerators`, map `TypeFoobar` to function
 		  `newValueFoobar`.
 		- [ ] Create `ValueFoobar` type.
