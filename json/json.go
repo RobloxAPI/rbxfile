@@ -7,8 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/robloxapi/rbxfile"
 	"io/ioutil"
+
+	"github.com/robloxapi/rbxfile"
 )
 
 func Encode(root *rbxfile.Root) (b []byte, err error) {

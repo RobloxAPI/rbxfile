@@ -1,8 +1,9 @@
 package declare
 
 import (
-	"github.com/robloxapi/rbxfile"
 	"strings"
+
+	"github.com/robloxapi/rbxfile"
 )
 
 // Type corresponds to a rbxfile.Type.

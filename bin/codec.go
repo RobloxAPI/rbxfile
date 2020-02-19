@@ -4,8 +4,9 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"github.com/robloxapi/rbxfile"
 	"sort"
+
+	"github.com/robloxapi/rbxfile"
 )
 
 // Mode indicates how RobloxCodec should interpret data.

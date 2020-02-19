@@ -5,14 +5,15 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/anaminus/but"
-	"github.com/robloxapi/rbxfile/bin"
-	"github.com/robloxapi/rbxfile/xml"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/anaminus/but"
+	"github.com/robloxapi/rbxfile/bin"
+	"github.com/robloxapi/rbxfile/xml"
 )
 
 var update bool

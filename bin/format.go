@@ -39,9 +39,10 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io"
+
 	"github.com/robloxapi/rbxfile"
 	"github.com/robloxapi/rbxfile/xml"
-	"io"
 )
 
 // Decoder decodes a FormatModel to a generic rbxfile.Root structure.

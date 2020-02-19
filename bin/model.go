@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/bkaradzic/go-lz4"
 	"io"
 	"io/ioutil"
+
+	"github.com/bkaradzic/go-lz4"
 )
 
 ////////////////////////////////////////////////////////////////
