@@ -1,6 +1,10 @@
 package declare_test
 
-import . "github.com/robloxapi/rbxfile/declare"
+import (
+	"fmt"
+
+	. "github.com/robloxapi/rbxfile/declare"
+)
 
 func Example() {
 	root := Root{
@@ -19,4 +23,5 @@ func Example() {
 			),
 		),
 	}.Declare()
+	fmt.Println(root)
 }
