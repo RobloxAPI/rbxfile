@@ -540,7 +540,7 @@ func (g *Golden) value(v interface{}) {
 		}
 		g.object(object{
 			field{name: "Version", value: v.Version},
-			field{name: "Types", value: v.TypeCount},
+			field{name: "Types", value: v.ClassCount},
 			field{name: "Instances", value: v.InstanceCount},
 			field{name: "Chunks", value: chunks},
 		})
@@ -590,7 +590,7 @@ func (g *Golden) value(v interface{}) {
 		g.object(object{
 			field{name: "Signature", value: sig[:]},
 			field{name: "Compressed", value: v.IsCompressed},
-			field{name: "TypeID", value: v.TypeID},
+			field{name: "TypeID", value: v.ClassID},
 			field{name: "ClassName", value: v.ClassName},
 			field{name: "InstanceIDs", value: instanceIDs},
 			field{name: "IsService", value: v.IsService},
@@ -606,7 +606,7 @@ func (g *Golden) value(v interface{}) {
 		g.object(object{
 			field{name: "Signature", value: sig[:]},
 			field{name: "Compressed", value: v.IsCompressed},
-			field{name: "TypeID", value: v.TypeID},
+			field{name: "TypeID", value: v.ClassID},
 			field{name: "PropertyName", value: v.PropertyName},
 			field{name: "DataType", value: "0x" + strconv.FormatUint(uint64(v.DataType), 16) + " (" + v.DataType.String() + ")"},
 			field{name: "Values", value: props},

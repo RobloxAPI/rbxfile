@@ -31,7 +31,7 @@ func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) 
 
 	root = new(rbxfile.Root)
 
-	groupLookup := make(map[int32]*ChunkInstance, model.TypeCount)
+	groupLookup := make(map[int32]*ChunkInstance, model.ClassCount)
 	instLookup := make(map[int32]*rbxfile.Instance, model.InstanceCount+1)
 	instLookup[-1] = nil
 
@@ -53,14 +53,14 @@ loop:
 		switch chunk := chunk.(type) {
 		case *ChunkInstance:
 			chunkType = "instance"
-			if chunk.TypeID < 0 || uint32(chunk.TypeID) >= model.TypeCount {
-				err = fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
+				err = fmt.Errorf("class index out of bounds: %d", model.ClassCount)
 				goto chunkErr
 			}
-			// No error if TypeCount > actual count.
+			// No error if ClassCount > actual count.
 
 			if chunk.IsService && len(chunk.InstanceIDs) != len(chunk.GetService) {
-				err = fmt.Errorf("malformed instance chunk (type ID %d): GetService array length does not equal InstanceIDs array length", chunk.TypeID)
+				err = fmt.Errorf("malformed instance chunk (class ID %d): GetService array length does not equal InstanceIDs array length", chunk.ClassID)
 				goto chunkErr
 			}
 
@@ -84,28 +84,28 @@ loop:
 				instLookup[ref] = inst
 			}
 
-			if _, ok := groupLookup[chunk.TypeID]; ok {
-				err = fmt.Errorf("duplicate type index: %d", chunk.TypeID)
+			if _, ok := groupLookup[chunk.ClassID]; ok {
+				err = fmt.Errorf("duplicate class index: %d", chunk.ClassID)
 				goto chunkErr
 			}
-			groupLookup[chunk.TypeID] = chunk
+			groupLookup[chunk.ClassID] = chunk
 
 		case *ChunkProperty:
 			chunkType = "property"
-			if chunk.TypeID < 0 || uint32(chunk.TypeID) >= model.TypeCount {
-				err = fmt.Errorf("type index out of bounds: %d", model.TypeCount)
+			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
+				err = fmt.Errorf("class index out of bounds: %d", model.ClassCount)
 				goto chunkErr
 			}
 			// No error if TypeCount > actual count.
 
-			instChunk, ok := groupLookup[chunk.TypeID]
+			instChunk, ok := groupLookup[chunk.ClassID]
 			if !ok {
-				addWarn("type `%d` of property group is invalid or unknown", chunk.TypeID)
+				addWarn("class `%d` of property group is invalid or unknown", chunk.ClassID)
 				continue
 			}
 
 			if len(chunk.Properties) != len(instChunk.InstanceIDs) {
-				err = fmt.Errorf("length of properties array (%d) does not equal length of type array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
+				err = fmt.Errorf("length of properties array (%d) does not equal length of class array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
 				goto chunkErr
 			}
 
@@ -442,10 +442,10 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	// Sort chunks by ClassName.
 	instChunkList := make(sortInstChunks, len(instChunkMap))
 	if len(instChunkMap) > 0 {
-		typeID := 0
+		classID := 0
 		for _, chunk := range instChunkMap {
-			instChunkList[typeID] = chunk
-			typeID++
+			instChunkList[classID] = chunk
+			classID++
 		}
 
 		sort.Sort(instChunkList)
@@ -454,11 +454,11 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	// Make property chunks.
 	propChunkList := []*ChunkProperty{}
 	for i, instChunk := range instChunkList {
-		instChunk.TypeID = int32(i)
+		instChunk.ClassID = int32(i)
 
 		addWarn := func(format string, v ...interface{}) {
 			q := make([]interface{}, 0, len(v)+1)
-			q = append(q, instChunk.TypeID)
+			q = append(q, instChunk.ClassID)
 			q = append(q, v...)
 			model.Warnings = append(model.Warnings, fmt.Errorf("instance chunk #%d: "+format, q...))
 		}
@@ -474,7 +474,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 				}
 				propChunkMap[name] = &ChunkProperty{
 					IsCompressed: true,
-					TypeID:       instChunk.TypeID,
+					ClassID:      instChunk.ClassID,
 					PropertyName: name,
 					Properties:   make([]Value, len(instChunk.InstanceIDs)),
 				}
@@ -590,7 +590,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	}
 
 	// Make FormatModel.
-	model.TypeCount = uint32(len(instChunkList))
+	model.ClassCount = uint32(len(instChunkList))
 	model.InstanceCount = uint32(len(instList))
 
 	chunkLength := len(instChunkList) + len(propChunkList) + 1

@@ -309,8 +309,8 @@ type FormatModel struct {
 	// Version indicates the version of the format model.
 	Version uint16
 
-	// TypeCount is the number of instance types in the model.
-	TypeCount uint32
+	// ClassCount is the number of unique classes in the model.
+	ClassCount uint32
 
 	// InstanceCount is the number of unique instances in the model.
 	InstanceCount uint32
@@ -377,7 +377,7 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 	f.Warnings = f.Warnings[:0]
 	f.Chunks = f.Chunks[:0]
 
-	if fr.readNumber(binary.LittleEndian, &f.TypeCount) {
+	if fr.readNumber(binary.LittleEndian, &f.ClassCount) {
 		return fr.end()
 	}
 
@@ -456,7 +456,7 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.end()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, f.TypeCount) {
+	if fw.writeNumber(binary.LittleEndian, f.ClassCount) {
 		return fw.end()
 	}
 
@@ -715,8 +715,8 @@ type ChunkInstance struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
-	// TypeID is a number identifying the instance group.
-	TypeID int32
+	// ClassID is a number identifying the instance group.
+	ClassID int32
 
 	// ClassName indicates the ClassName property of each instance in the
 	// group.
@@ -761,7 +761,7 @@ func (c *ChunkInstance) SetCompressed(b bool) {
 func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := &formatReader{r: r}
 
-	if fr.readNumber(binary.LittleEndian, &c.TypeID) {
+	if fr.readNumber(binary.LittleEndian, &c.ClassID) {
 		return fr.end()
 	}
 
@@ -810,7 +810,7 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 	fw := &formatWriter{w: w}
 
-	if fw.writeNumber(binary.LittleEndian, c.TypeID) {
+	if fw.writeNumber(binary.LittleEndian, c.ClassID) {
 		return fw.end()
 	}
 
@@ -1052,8 +1052,8 @@ type ChunkProperty struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
-	// TypeID is the ID of an instance group contained in a ChunkInstance.
-	TypeID int32
+	// ClassID is the ID of an instance group contained in a ChunkInstance.
+	ClassID int32
 
 	// PropertyName is the name of a valid property in each instance of the
 	// corresponding instance group.
@@ -1087,7 +1087,7 @@ func (c *ChunkProperty) SetCompressed(b bool) {
 func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := &formatReader{r: r}
 
-	if fr.readNumber(binary.LittleEndian, &c.TypeID) {
+	if fr.readNumber(binary.LittleEndian, &c.ClassID) {
 		return fr.end()
 	}
 
@@ -1124,7 +1124,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 	fw := &formatWriter{w: w}
 
-	if fw.writeNumber(binary.LittleEndian, c.TypeID) {
+	if fw.writeNumber(binary.LittleEndian, c.ClassID) {
 		return fw.end()
 	}
 
