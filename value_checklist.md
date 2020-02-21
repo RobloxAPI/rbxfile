@@ -55,21 +55,16 @@ To add value type `Foobar`:
 	- `rbxl/values.go`
 		- [ ] Add `TypeFoobar` to type constants.
 		- [ ] In `String` method, add case `TypeFoobar` that returns `"Foobar"`.
-		- [ ] In `ValueType` method, add case `TypeFoobar` that returns `rbxfile.TypeFoobar`.
-		- [ ] In `FromValueType` function, add case `rbxfile.TypeFoobar` that returns `TypeFoobar`.
-		- [ ] In `NewValue`, add case `TypeFoobar` that returns `new(ValueFoobar)`.
+		- [ ] In `ValueType` method, add case `TypeFoobar` that returns
+		  `rbxfile.TypeFoobar`.
+		- [ ] In `FromValueType` function, add case `rbxfile.TypeFoobar` that
+		  returns `TypeFoobar`.
+		- [ ] In `NewValue`, add case `TypeFoobar` that returns
+		  `new(ValueFoobar)`.
 		- [ ] Create `ValueFoobar` type.
 			- [ ] Add `ValueFoobar` with appropriate underlying type.
 			- [ ] Implement `Type() Type` method.
 				- Returns `TypeFoobar`.
-			- [ ] Implement `ArrayBytes`.
-				- Converts a slice of `ValueFoobar` to a slice of bytes.
-				- If fields `ValueFoobar` must be interleaved, use
-				  `interleaveFields`.
-			- [ ] Implement `FromArrayBytes`.
-				- Converts a slice of bytes to a slice of `ValueFoobar`.
-				- If fields of ValueFoobar` are interleaved, use
-				  `deinterleaveFields`.
 			- [ ] Implement `Bytes`.
 				- Converts a single `ValueFoobar` to a slice of bytes.
 			- [ ] Implement `FromBytes`.
@@ -87,3 +82,12 @@ To add value type `Foobar`:
 			- Converts `*ValueFoobar` to `rbxfile.ValueFoobar`.
 		- [ ] In function `encodeValue`, add case `rbxfile.ValueFoobar`.
 			- Converts `rbxfile.ValueFoobar` to `*ValueFoobar`.
+	- `rbxl/arrays.go`
+		- [ ] In function `ValuesToBytes`, add case `TypeFoobar`.
+			- Converts a slice of `ValueFoobar` to a slice of bytes.
+			- If fields `ValueFoobar` must be interleaved, use
+			  `interleaveFields`.
+		- [ ] In function `ValuesFromBytes`, add case `TypeFoobar`.
+			- Converts a slice of bytes to a slice of `ValueFoobar`.
+			- If fields of ValueFoobar` are interleaved, use
+			  `deinterleaveFields`.
