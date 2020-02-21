@@ -55,6 +55,8 @@ To add value type `Foobar`:
 	- `rbxl/values.go`
 		- [ ] Add `TypeFoobar` to type constants.
 		- [ ] In `String` method, add case `TypeFoobar` that returns `"Foobar"`.
+		- [ ] In `ValueType` method, add case `TypeFoobar` that returns `rbxfile.TypeFoobar`.
+		- [ ] In `FromValueType` function, add case `rbxfile.TypeFoobar` that returns `TypeFoobar`.
 		- [ ] In `valueGenerators`, map `TypeFoobar` to function
 		  `newValueFoobar`.
 		- [ ] Create `ValueFoobar` type.

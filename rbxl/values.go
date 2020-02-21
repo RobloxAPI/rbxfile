@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"github.com/robloxapi/rbxfile"
 )
 
 // Type represents a type that can be serialized.
@@ -104,6 +106,130 @@ func (t Type) String() string {
 		return "SharedString"
 	default:
 		return "Invalid"
+	}
+}
+
+// ValueType returns the rbxfile.Type that corresponds to the type.
+func (t Type) ValueType() rbxfile.Type {
+	switch t {
+	case TypeString:
+		return rbxfile.TypeString
+	case TypeBool:
+		return rbxfile.TypeBool
+	case TypeInt:
+		return rbxfile.TypeInt
+	case TypeFloat:
+		return rbxfile.TypeFloat
+	case TypeDouble:
+		return rbxfile.TypeDouble
+	case TypeUDim:
+		return rbxfile.TypeUDim
+	case TypeUDim2:
+		return rbxfile.TypeUDim2
+	case TypeRay:
+		return rbxfile.TypeRay
+	case TypeFaces:
+		return rbxfile.TypeFaces
+	case TypeAxes:
+		return rbxfile.TypeAxes
+	case TypeBrickColor:
+		return rbxfile.TypeBrickColor
+	case TypeColor3:
+		return rbxfile.TypeColor3
+	case TypeVector2:
+		return rbxfile.TypeVector2
+	case TypeVector3:
+		return rbxfile.TypeVector3
+	case TypeVector2int16:
+		return rbxfile.TypeVector2int16
+	case TypeCFrame:
+		return rbxfile.TypeCFrame
+	case TypeToken:
+		return rbxfile.TypeToken
+	case TypeReference:
+		return rbxfile.TypeReference
+	case TypeVector3int16:
+		return rbxfile.TypeVector3int16
+	case TypeNumberSequence:
+		return rbxfile.TypeNumberSequence
+	case TypeColorSequence:
+		return rbxfile.TypeColorSequence
+	case TypeNumberRange:
+		return rbxfile.TypeNumberRange
+	case TypeRect2D:
+		return rbxfile.TypeRect2D
+	case TypePhysicalProperties:
+		return rbxfile.TypePhysicalProperties
+	case TypeColor3uint8:
+		return rbxfile.TypeColor3uint8
+	case TypeInt64:
+		return rbxfile.TypeInt64
+	case TypeSharedString:
+		return rbxfile.TypeSharedString
+	default:
+		return rbxfile.TypeInvalid
+	}
+}
+
+// FromValueType returns the Type corresponding to a given rbxfile.Type.
+func FromValueType(t rbxfile.Type) Type {
+	switch t {
+	case rbxfile.TypeString:
+		return TypeString
+	case rbxfile.TypeBool:
+		return TypeBool
+	case rbxfile.TypeInt:
+		return TypeInt
+	case rbxfile.TypeFloat:
+		return TypeFloat
+	case rbxfile.TypeDouble:
+		return TypeDouble
+	case rbxfile.TypeUDim:
+		return TypeUDim
+	case rbxfile.TypeUDim2:
+		return TypeUDim2
+	case rbxfile.TypeRay:
+		return TypeRay
+	case rbxfile.TypeFaces:
+		return TypeFaces
+	case rbxfile.TypeAxes:
+		return TypeAxes
+	case rbxfile.TypeBrickColor:
+		return TypeBrickColor
+	case rbxfile.TypeColor3:
+		return TypeColor3
+	case rbxfile.TypeVector2:
+		return TypeVector2
+	case rbxfile.TypeVector3:
+		return TypeVector3
+	case rbxfile.TypeVector2int16:
+		return TypeVector2int16
+	case rbxfile.TypeCFrame:
+		return TypeCFrame
+	case rbxfile.TypeToken:
+		return TypeToken
+	case rbxfile.TypeReference:
+		return TypeReference
+	case rbxfile.TypeVector3int16:
+		return TypeVector3int16
+	case rbxfile.TypeNumberSequence:
+		return TypeNumberSequence
+	case rbxfile.TypeColorSequence:
+		return TypeColorSequence
+	case rbxfile.TypeNumberRange:
+		return TypeNumberRange
+	case rbxfile.TypeRect2D:
+		return TypeRect2D
+	case rbxfile.TypePhysicalProperties:
+		return TypePhysicalProperties
+	case rbxfile.TypeColor3uint8:
+		return TypeColor3uint8
+	case rbxfile.TypeInt64:
+		return TypeInt64
+	case rbxfile.TypeSharedString:
+		return TypeSharedString
+	default:
+		return TypeInvalid
 	}
 }
 
