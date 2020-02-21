@@ -788,7 +788,7 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 
 		var values []Value
-		if values, fr.err = ValueReference(0).FromArrayBytes(raw); fr.err != nil {
+		if values, fr.err = ValuesFromBytes(TypeReference, raw); fr.err != nil {
 			return fr.end()
 		}
 
@@ -838,7 +838,7 @@ func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 		}
 
 		var raw []byte
-		if raw, fw.err = new(ValueReference).ArrayBytes(values); fw.err != nil {
+		if raw, fw.err = ValuesToBytes(TypeReference, values); fw.err != nil {
 			return fw.end()
 		}
 
@@ -963,7 +963,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 
 		var values []Value
-		if values, fr.err = ValueReference(0).FromArrayBytes(raw); fr.err != nil {
+		if values, fr.err = ValuesFromBytes(TypeReference, raw); fr.err != nil {
 			return fr.end()
 		}
 
@@ -980,7 +980,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 
 		var values []Value
-		if values, fr.err = ValueReference(0).FromArrayBytes(raw); fr.err != nil {
+		if values, fr.err = ValuesFromBytes(TypeReference, raw); fr.err != nil {
 			return fr.end()
 		}
 
@@ -1013,7 +1013,7 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 		}
 
 		var raw []byte
-		if raw, fw.err = new(ValueReference).ArrayBytes(values); fw.err != nil {
+		if raw, fw.err = ValuesToBytes(TypeReference, values); fw.err != nil {
 			return fw.end()
 		}
 
@@ -1032,7 +1032,7 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 			values[i] = (*ValueReference)(&n)
 		}
 
-		if raw, fw.err = new(ValueReference).ArrayBytes(values); fw.err != nil {
+		if raw, fw.err = ValuesToBytes(TypeReference, values); fw.err != nil {
 			return fw.end()
 		}
 
@@ -1104,13 +1104,12 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.end()
 	}
 
-	newValue, ok := valueGenerators[c.DataType]
-	if !ok {
+	if !c.DataType.Valid() {
 		fr.err = &ErrInvalidType{Chunk: c, Bytes: rawBytes}
 		return fr.end()
 	}
 
-	c.Properties, fr.err = newValue().FromArrayBytes(rawBytes)
+	c.Properties, fr.err = ValuesFromBytes(c.DataType, rawBytes)
 	if fr.err != nil {
 		errBytes := make([]byte, len(rawBytes))
 		copy(errBytes, rawBytes)
@@ -1136,14 +1135,13 @@ func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.end()
 	}
 
-	newValue, ok := valueGenerators[c.DataType]
-	if !ok {
+	if !c.DataType.Valid() {
 		fw.err = &ErrInvalidType{Chunk: c}
 		return fw.end()
 	}
 
 	var rawBytes []byte
-	if rawBytes, fw.err = newValue().ArrayBytes(c.Properties); fw.err != nil {
+	if rawBytes, fw.err = ValuesToBytes(c.DataType, c.Properties); fw.err != nil {
 		return fw.end()
 	}
 
