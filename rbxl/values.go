@@ -44,6 +44,10 @@ const (
 	TypeSharedString       Type = 0x1C
 )
 
+func (t Type) Valid() bool {
+	return TypeString <= t && t <= TypeSharedString && t != 0x11
+}
+
 // String returns a string representation of the type. If the type is not
 // valid, then the returned value will be "Invalid".
 func (t Type) String() string {
