@@ -16,7 +16,7 @@ type fielder interface {
 	// Set bytes of nth field
 	fieldSet(int, []byte) error
 	// Get bytes of nth field
-	fieldGet(int) []byte
+	fieldGet(int, []byte)
 }
 
 // Encodes Values that implement the fielder interface.
@@ -62,11 +62,7 @@ func interleaveFields(id Type, a []Value) (b []byte, err error) {
 
 	for i, v := range af {
 		for f, field := range fields {
-			fb := v.fieldGet(f)
-			if len(fb) != nbytes[f] {
-				panic("length of field's bytes does not match given field length")
-			}
-			copy(field[i*nbytes[f]:], fb)
+			v.fieldGet(f, field[i*nbytes[f]:])
 		}
 	}
 
@@ -193,17 +189,20 @@ func deinterleave(bytes []byte, size int) error {
 	return interleave(bytes, len(bytes)/size)
 }
 
-// Appends the bytes of a list of Values into a byte array.
-func appendValueBytes(id Type, a []Value) (b []byte, err error) {
-	for i, v := range a {
-		if v.Type() != id {
-			return nil, fmt.Errorf("element %d is of type `%s` where `%s` is expected", i, v.Type().String(), id.String())
-		}
-
-		b = append(b, v.Bytes()...)
+// Concatenates the bytes of a list of Values into a byte array.
+func concatValueBytes(id Type, a []Value) []byte {
+	n := 0
+	for _, v := range a {
+		n += v.BytesLen()
 	}
-
-	return b, nil
+	b := make([]byte, n)
+	c := b[:]
+	for _, v := range a {
+		n := v.BytesLen()
+		v.Bytes(c[:n])
+		c = c[n:]
+	}
+	return b
 }
 
 // Reads a byte array as an array of Values of a certain type. Size is the
@@ -211,7 +210,7 @@ func appendValueBytes(id Type, a []Value) (b []byte, err error) {
 // be of variable length. The first 4 bytes of a value is read as length N of
 // the value. Field then indicates the size of each field in the value, so the
 // next N*field bytes are read as the full value.
-func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err error) {
+func concatByteValues(id Type, b []byte, size int, field int) (a []Value, err error) {
 	if size < 0 {
 		// Variable length; get size from first 4 bytes.
 		ba := b
@@ -268,22 +267,18 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		TypeColorSequence,
 		TypeNumberRange:
 		// Append each value as bytes with no further operation.
-		b, err = appendValueBytes(t, a)
+		b = concatValueBytes(t, a)
 	case TypeInt,
 		TypeFloat,
 		TypeBrickColor,
 		TypeToken,
 		TypeSharedString:
 		// Append each value a bytes, then interleave to improve compression.
-		if b, err = appendValueBytes(t, a); err != nil {
-			break
-		}
+		b = concatValueBytes(t, a)
 		err = interleave(b, 4)
 	case TypeInt64:
 		// Append each value a bytes, then interleave to improve compression.
-		if b, err = appendValueBytes(t, a); err != nil {
-			break
-		}
+		b = concatValueBytes(t, a)
 		err = interleave(b, 8)
 	case TypeUDim,
 		TypeUDim2,
@@ -328,10 +323,10 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		for i, ref := range a {
 			ref := ref.(*ValueReference)
 			if i == 0 {
-				copy(b[i*size:i*size+size], ref.Bytes())
+				ref.Bytes(b[i*size : i*size+size])
 			} else {
 				// Convert absolute ref to relative ref.
-				copy(b[i*size:i*size+size], (*ref - prev).Bytes())
+				(*ref - prev).Bytes(b[i*size : i*size+size])
 			}
 			prev = *ref
 		}
@@ -371,26 +366,26 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		TypeFaces,
 		TypeAxes:
 		// Append from constant size 1.
-		a, err = appendByteValues(t, b, 1, 0)
+		a, err = concatByteValues(t, b, 1, 0)
 	case TypeVector3int16:
 		// Append from constant size 6.
-		a, err = appendByteValues(t, b, 6, 0)
+		a, err = concatByteValues(t, b, 6, 0)
 	case TypeDouble,
 		TypeNumberRange:
 		// Append from constant size 8.
-		a, err = appendByteValues(t, b, 8, 0)
+		a, err = concatByteValues(t, b, 8, 0)
 	case TypeRay:
 		// Append from constant size 24.
-		a, err = appendByteValues(t, b, 24, 0)
+		a, err = concatByteValues(t, b, 24, 0)
 	case TypeString:
 		// Append from variable size.
-		a, err = appendByteValues(t, b, -1, 1)
+		a, err = concatByteValues(t, b, -1, 1)
 	case TypeNumberSequence:
 		// Append from variable size.
-		a, err = appendByteValues(t, b, -1, sizeNSK)
+		a, err = concatByteValues(t, b, -1, sizeNSK)
 	case TypeColorSequence:
 		// Append from variable size.
-		a, err = appendByteValues(t, b, -1, sizeCSK)
+		a, err = concatByteValues(t, b, -1, sizeCSK)
 	case TypeInt,
 		TypeFloat,
 		TypeBrickColor,
@@ -402,7 +397,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		if err = deinterleave(bc, 4); err != nil {
 			return nil, err
 		}
-		a, err = appendByteValues(t, bc, 4, 0)
+		a, err = concatByteValues(t, bc, 4, 0)
 	case TypeInt64:
 		// Deinterleave, then append from size 8.
 		bc := make([]byte, len(b))
@@ -410,7 +405,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		if err = deinterleave(bc, 8); err != nil {
 			return nil, err
 		}
-		a, err = appendByteValues(t, bc, 8, 0)
+		a, err = concatByteValues(t, bc, 8, 0)
 	case TypeUDim,
 		TypeUDim2,
 		TypeColor3,
