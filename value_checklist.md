@@ -57,11 +57,9 @@ To add value type `Foobar`:
 		- [ ] In `String` method, add case `TypeFoobar` that returns `"Foobar"`.
 		- [ ] In `ValueType` method, add case `TypeFoobar` that returns `rbxfile.TypeFoobar`.
 		- [ ] In `FromValueType` function, add case `rbxfile.TypeFoobar` that returns `TypeFoobar`.
-		- [ ] In `valueGenerators`, map `TypeFoobar` to function
-		  `newValueFoobar`.
+		- [ ] In `NewValue`, add case `TypeFoobar` that returns `new(ValueFoobar)`.
 		- [ ] Create `ValueFoobar` type.
 			- [ ] Add `ValueFoobar` with appropriate underlying type.
-			- [ ] Implement `newValueFoobar` function (`func() Value`).
 			- [ ] Implement `Type() Type` method.
 				- Returns `TypeFoobar`.
 			- [ ] Implement `ArrayBytes`.

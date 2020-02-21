@@ -253,44 +253,65 @@ type Value interface {
 // necessarily be the zero for the type. If the given type is invalid, then a
 // nil value is returned.
 func NewValue(typ Type) Value {
-	newValue, ok := valueGenerators[typ]
-	if !ok {
-		return nil
+	switch typ {
+	case TypeString:
+		return new(ValueString)
+	case TypeBool:
+		return new(ValueBool)
+	case TypeInt:
+		return new(ValueInt)
+	case TypeFloat:
+		return new(ValueFloat)
+	case TypeDouble:
+		return new(ValueDouble)
+	case TypeUDim:
+		return new(ValueUDim)
+	case TypeUDim2:
+		return new(ValueUDim2)
+	case TypeRay:
+		return new(ValueRay)
+	case TypeFaces:
+		return new(ValueFaces)
+	case TypeAxes:
+		return new(ValueAxes)
+	case TypeBrickColor:
+		return new(ValueBrickColor)
+	case TypeColor3:
+		return new(ValueColor3)
+	case TypeVector2:
+		return new(ValueVector2)
+	case TypeVector3:
+		return new(ValueVector3)
+	case TypeVector2int16:
+		return new(ValueVector2int16)
+	case TypeCFrame:
+		return new(ValueCFrame)
+	// case TypeCFrameQuat:
+	// 	return new(ValueCFrameQuat)
+	case TypeToken:
+		return new(ValueToken)
+	case TypeReference:
+		return new(ValueReference)
+	case TypeVector3int16:
+		return new(ValueVector3int16)
+	case TypeNumberSequence:
+		return new(ValueNumberSequence)
+	case TypeColorSequence:
+		return new(ValueColorSequence)
+	case TypeNumberRange:
+		return new(ValueNumberRange)
+	case TypeRect2D:
+		return new(ValueRect2D)
+	case TypePhysicalProperties:
+		return new(ValuePhysicalProperties)
+	case TypeColor3uint8:
+		return new(ValueColor3uint8)
+	case TypeInt64:
+		return new(ValueInt64)
+	case TypeSharedString:
+		return new(ValueSharedString)
 	}
-	return newValue()
-}
-
-type valueGenerator func() Value
-
-var valueGenerators = map[Type]valueGenerator{
-	TypeString:       newValueString,
-	TypeBool:         newValueBool,
-	TypeInt:          newValueInt,
-	TypeFloat:        newValueFloat,
-	TypeDouble:       newValueDouble,
-	TypeUDim:         newValueUDim,
-	TypeUDim2:        newValueUDim2,
-	TypeRay:          newValueRay,
-	TypeFaces:        newValueFaces,
-	TypeAxes:         newValueAxes,
-	TypeBrickColor:   newValueBrickColor,
-	TypeColor3:       newValueColor3,
-	TypeVector2:      newValueVector2,
-	TypeVector3:      newValueVector3,
-	TypeVector2int16: newValueVector2int16,
-	TypeCFrame:       newValueCFrame,
-	//TypeCFrameQuat: newValueCFrameQuat,
-	TypeToken:              newValueToken,
-	TypeReference:          newValueReference,
-	TypeVector3int16:       newValueVector3int16,
-	TypeNumberSequence:     newValueNumberSequence,
-	TypeColorSequence:      newValueColorSequence,
-	TypeNumberRange:        newValueNumberRange,
-	TypeRect2D:             newValueRect2D,
-	TypePhysicalProperties: newValuePhysicalProperties,
-	TypeColor3uint8:        newValueColor3uint8,
-	TypeInt64:              newValueInt64,
-	TypeSharedString:       newValueSharedString,
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -330,10 +351,6 @@ func decodeRobloxFloat(n uint32) float32 {
 
 type ValueString []byte
 
-func newValueString() Value {
-	return new(ValueString)
-}
-
 func (ValueString) Type() Type {
 	return TypeString
 }
@@ -366,10 +383,6 @@ func (v *ValueString) FromBytes(b []byte) error {
 
 type ValueBool bool
 
-func newValueBool() Value {
-	return new(ValueBool)
-}
-
 func (ValueBool) Type() Type {
 	return TypeBool
 }
@@ -395,10 +408,6 @@ func (v *ValueBool) FromBytes(b []byte) error {
 
 type ValueInt int32
 
-func newValueInt() Value {
-	return new(ValueInt)
-}
-
 func (ValueInt) Type() Type {
 	return TypeInt
 }
@@ -423,10 +432,6 @@ func (v *ValueInt) FromBytes(b []byte) error {
 
 type ValueFloat float32
 
-func newValueFloat() Value {
-	return new(ValueFloat)
-}
-
 func (ValueFloat) Type() Type {
 	return TypeFloat
 }
@@ -450,10 +455,6 @@ func (v *ValueFloat) FromBytes(b []byte) error {
 ////////////////////////////////////////////////////////////////
 
 type ValueDouble float64
-
-func newValueDouble() Value {
-	return new(ValueDouble)
-}
 
 func (ValueDouble) Type() Type {
 	return TypeDouble
@@ -480,10 +481,6 @@ func (v *ValueDouble) FromBytes(b []byte) error {
 type ValueUDim struct {
 	Scale  ValueFloat
 	Offset ValueInt
-}
-
-func newValueUDim() Value {
-	return new(ValueUDim)
 }
 
 func (ValueUDim) Type() Type {
@@ -541,10 +538,6 @@ type ValueUDim2 struct {
 	ScaleY  ValueFloat
 	OffsetX ValueInt
 	OffsetY ValueInt
-}
-
-func newValueUDim2() Value {
-	return new(ValueUDim2)
 }
 
 func (ValueUDim2) Type() Type {
@@ -616,10 +609,6 @@ type ValueRay struct {
 	DirectionZ float32
 }
 
-func newValueRay() Value {
-	return new(ValueRay)
-}
-
 func (ValueRay) Type() Type {
 	return TypeRay
 }
@@ -654,10 +643,6 @@ func (v *ValueRay) FromBytes(b []byte) error {
 
 type ValueFaces struct {
 	Right, Top, Back, Left, Bottom, Front bool
-}
-
-func newValueFaces() Value {
-	return new(ValueFaces)
 }
 
 func (ValueFaces) Type() Type {
@@ -697,10 +682,6 @@ type ValueAxes struct {
 	X, Y, Z bool
 }
 
-func newValueAxes() Value {
-	return new(ValueAxes)
-}
-
 func (ValueAxes) Type() Type {
 	return TypeAxes
 }
@@ -733,10 +714,6 @@ func (v *ValueAxes) FromBytes(b []byte) error {
 
 type ValueBrickColor uint32
 
-func newValueBrickColor() Value {
-	return new(ValueBrickColor)
-}
-
 func (ValueBrickColor) Type() Type {
 	return TypeBrickColor
 }
@@ -761,10 +738,6 @@ func (v *ValueBrickColor) FromBytes(b []byte) error {
 
 type ValueColor3 struct {
 	R, G, B ValueFloat
-}
-
-func newValueColor3() Value {
-	return new(ValueColor3)
 }
 
 func (ValueColor3) Type() Type {
@@ -825,10 +798,6 @@ type ValueVector2 struct {
 	X, Y ValueFloat
 }
 
-func newValueVector2() Value {
-	return new(ValueVector2)
-}
-
 func (ValueVector2) Type() Type {
 	return TypeVector2
 }
@@ -879,10 +848,6 @@ func (v ValueVector2) fieldGet(i int) (b []byte) {
 
 type ValueVector3 struct {
 	X, Y, Z ValueFloat
-}
-
-func newValueVector3() Value {
-	return new(ValueVector3)
 }
 
 func (ValueVector3) Type() Type {
@@ -943,10 +908,6 @@ type ValueVector2int16 struct {
 	X, Y int16
 }
 
-func newValueVector2int16() Value {
-	return new(ValueVector2int16)
-}
-
 func (ValueVector2int16) Type() Type {
 	return TypeVector2int16
 }
@@ -977,10 +938,6 @@ type ValueCFrame struct {
 	Special  uint8
 	Rotation [9]float32
 	Position ValueVector3
-}
-
-func newValueCFrame() Value {
-	return new(ValueCFrame)
 }
 
 func (ValueCFrame) Type() Type {
@@ -1034,10 +991,6 @@ func (v *ValueCFrame) FromBytes(b []byte) error {
 
 type ValueToken uint32
 
-func newValueToken() Value {
-	return new(ValueToken)
-}
-
 func (ValueToken) Type() Type {
 	return TypeToken
 }
@@ -1061,10 +1014,6 @@ func (v *ValueToken) FromBytes(b []byte) error {
 ////////////////////////////////////////////////////////////////
 
 type ValueReference int32
-
-func newValueReference() Value {
-	return new(ValueReference)
-}
 
 func (ValueReference) Type() Type {
 	return TypeReference
@@ -1090,10 +1039,6 @@ func (v *ValueReference) FromBytes(b []byte) error {
 
 type ValueVector3int16 struct {
 	X, Y, Z int16
-}
-
-func newValueVector3int16() Value {
-	return new(ValueVector3int16)
 }
 
 func (ValueVector3int16) Type() Type {
@@ -1131,10 +1076,6 @@ type ValueNumberSequenceKeypoint struct {
 }
 
 type ValueNumberSequence []ValueNumberSequenceKeypoint
-
-func newValueNumberSequence() Value {
-	return new(ValueNumberSequence)
-}
 
 func (ValueNumberSequence) Type() Type {
 	return TypeNumberSequence
@@ -1193,10 +1134,6 @@ type ValueColorSequenceKeypoint struct {
 }
 
 type ValueColorSequence []ValueColorSequenceKeypoint
-
-func newValueColorSequence() Value {
-	return new(ValueColorSequence)
-}
 
 func (ValueColorSequence) Type() Type {
 	return TypeColorSequence
@@ -1258,10 +1195,6 @@ type ValueNumberRange struct {
 	Min, Max float32
 }
 
-func newValueNumberRange() Value {
-	return new(ValueNumberRange)
-}
-
 func (ValueNumberRange) Type() Type {
 	return TypeNumberRange
 }
@@ -1290,10 +1223,6 @@ func (v *ValueNumberRange) FromBytes(b []byte) error {
 
 type ValueRect2D struct {
 	Min, Max ValueVector2
-}
-
-func newValueRect2D() Value {
-	return new(ValueRect2D)
 }
 
 func (ValueRect2D) Type() Type {
@@ -1363,10 +1292,6 @@ type ValuePhysicalProperties struct {
 	ElasticityWeight float32
 }
 
-func newValuePhysicalProperties() Value {
-	return new(ValuePhysicalProperties)
-}
-
 func (ValuePhysicalProperties) Type() Type {
 	return TypePhysicalProperties
 }
@@ -1416,10 +1341,6 @@ func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
 
 type ValueColor3uint8 struct {
 	R, G, B byte
-}
-
-func newValueColor3uint8() Value {
-	return new(ValueColor3uint8)
 }
 
 func (ValueColor3uint8) Type() Type {
@@ -1478,10 +1399,6 @@ func (v ValueColor3uint8) fieldGet(i int) (b []byte) {
 
 type ValueInt64 int64
 
-func newValueInt64() Value {
-	return new(ValueInt64)
-}
-
 func (ValueInt64) Type() Type {
 	return TypeInt64
 }
@@ -1505,10 +1422,6 @@ func (v *ValueInt64) FromBytes(b []byte) error {
 ////////////////////////////////////////////////////////////////
 
 type ValueSharedString uint32
-
-func newValueSharedString() Value {
-	return new(ValueSharedString)
-}
 
 func (ValueSharedString) Type() Type {
 	return TypeSharedString

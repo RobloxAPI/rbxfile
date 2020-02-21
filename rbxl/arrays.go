@@ -86,13 +86,12 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 		return a, nil
 	}
 
-	newValue := valueGenerators[id]
-	if newValue == nil {
+	if !id.Valid() {
 		return nil, fmt.Errorf("type identifier 0x%X is not a valid Type.", id)
 	}
 
 	// Number of bytes per field
-	nbytes := newValue().(fielder).fieldLen()
+	nbytes := NewValue(id).(fielder).fieldLen()
 	// Number fields per value
 	nfields := len(nbytes)
 
@@ -130,7 +129,7 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 	}
 
 	for i := range a {
-		v := newValue()
+		v := NewValue(id)
 		vf := v.(fielder)
 		for f, field := range fields {
 			n := nbytes[f]
@@ -213,7 +212,6 @@ func appendValueBytes(id Type, a []Value) (b []byte, err error) {
 // the value. Field then indicates the size of each field in the value, so the
 // next N*field bytes are read as the full value.
 func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err error) {
-	gen := valueGenerators[id]
 	if size < 0 {
 		// Variable length; get size from first 4 bytes.
 		ba := b
@@ -226,7 +224,7 @@ func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err er
 				return nil, fmt.Errorf("expected %d more bytes in array", size*field)
 			}
 
-			v := gen()
+			v := NewValue(id)
 			if err := v.FromBytes(ba[:4+size*field]); err != nil {
 				return nil, err
 			}
@@ -236,7 +234,7 @@ func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err er
 		}
 	} else {
 		for i := 0; i+size <= len(b); i += size {
-			v := gen()
+			v := NewValue(id)
 			if err := v.FromBytes(b[i : i+size]); err != nil {
 				return nil, err
 			}
