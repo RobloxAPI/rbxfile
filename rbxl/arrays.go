@@ -164,17 +164,32 @@ func interleave(bytes []byte, length int) error {
 			}
 		}
 	} else {
-		tmp := make([]byte, len(bytes))
-		for r := 0; r < rows; r++ {
-			for c := 0; c < cols; c++ {
-				tmp[c*rows+r] = bytes[r*cols+c]
+	loop:
+		for start := range bytes {
+			next := (start%rows)*cols + start/rows
+			if next <= start {
+				continue loop
+			}
+			for {
+				if next = (next%rows)*cols + next/rows; next < start {
+					continue loop
+				} else if next == start {
+					break
+				}
+			}
+			for next, tmp := start, bytes[start]; ; {
+				i := (next%rows)*cols + next/rows
+				if i == start {
+					bytes[next] = tmp
+				} else {
+					bytes[next] = bytes[i]
+				}
+				if next = i; next <= start {
+					break
+				}
 			}
 		}
-		for i, b := range tmp {
-			bytes[i] = b
-		}
 	}
-
 	return nil
 }
 
