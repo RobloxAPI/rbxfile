@@ -9,6 +9,10 @@ import (
 	"github.com/robloxapi/rbxfile"
 )
 
+// Expected maximum length of fielder.fieldLen() slice. This MUST be set to the
+// maximum of all implementations.
+const maxFieldLen = 4
+
 // Type represents a type that can be serialized.
 type Type byte
 

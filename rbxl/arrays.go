@@ -45,7 +45,7 @@ func interleaveFields(id Type, a []Value) (b []byte, err error) {
 	// Total bytes per value
 	tbytes := 0
 	// Offset of each field slice
-	ofields := make([]int, len(nbytes)+1)
+	ofields := make([]int, maxFieldLen)[:len(nbytes)+1]
 	for i, n := range nbytes {
 		tbytes += n
 		ofields[i+1] = ofields[i] + n*nvalues
@@ -54,7 +54,7 @@ func interleaveFields(id Type, a []Value) (b []byte, err error) {
 	b = make([]byte, tbytes*nvalues)
 
 	// List of each field slice
-	fields := make([][]byte, nfields)
+	fields := make([][]byte, maxFieldLen)[:nfields]
 	for i := range fields {
 		// Each field slice affects the final array
 		fields[i] = b[ofields[i]:ofields[i+1]]
@@ -103,8 +103,8 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 
 	// Number of values
 	nvalues := len(b) / tbytes
-	// Offset of each field slice
-	ofields := make([]int, len(nbytes)+1)
+	// Offset of each field slice.
+	ofields := make([]int, maxFieldLen+1)[:len(nbytes)+1]
 	for i, n := range nbytes {
 		ofields[i+1] = ofields[i] + n*nvalues
 	}
@@ -112,7 +112,7 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 	a = make([]Value, nvalues)
 
 	// List of each field slice
-	fields := make([][]byte, nfields)
+	fields := make([][]byte, maxFieldLen)[:nfields]
 	for i := range fields {
 		fields[i] = b[ofields[i]:ofields[i+1]]
 	}

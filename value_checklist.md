@@ -73,6 +73,8 @@ To add value type `Foobar`:
 			  `fielder` interface.
 				- [ ] Implement `fieldLen`.
 					- Returns the byte size of each field.
+					- Update maxFieldLen if the length of the returned slice is
+					  greater.
 				- [ ] Implement `fieldSet`.
 					- Sets field number `i` using bytes from `b`.
 				- [ ] Implement `fieldGet`.
