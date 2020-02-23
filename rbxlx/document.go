@@ -36,6 +36,12 @@ type Tag struct {
 	// has the empty-tag format.
 	Empty bool
 
+	// Comment indicates whether the tag is a comment. When encoding, the Text
+	// field will be written as a comment, with other fields being ignored. When
+	// decoding, a Tag is emitted with this field set to true, with the Text
+	// field set to the content of the comment.
+	Comment bool
+
 	// CData is a sequence of characters in a CDATA section. Only up to one
 	// section is allowed, and must be the first element in the tag. A nil
 	// array means that the tag does not contain a CDATA section.
@@ -245,14 +251,19 @@ func (d *decoder) ignoreStartTag(err error) int {
 	return 0
 }
 
-func (d *decoder) decodeComment() int {
+func (d *decoder) decodeComment(tag *Tag) int {
+	d.buf.Reset()
 	for {
 		if b, ok := d.mustgetc(); !ok {
 			return -1
 		} else if b == '-' && d.match("->") {
 			break
+		} else {
+			d.buf.WriteByte(b)
 		}
 	}
+	tag.Comment = true
+	tag.Text = d.buf.String()
 	return 2
 }
 
@@ -278,7 +289,7 @@ func (d *decoder) decodeStartTag(tag *Tag) int {
 		return -1
 	}
 	if b == '!' && d.match("--") {
-		return d.decodeComment()
+		return d.decodeComment(tag)
 	}
 
 	// Must be an open element like <a href="foo">
@@ -435,7 +446,7 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 		return nil, d.err
 	}
 	if startTagState == 2 {
-		return nil, nil
+		return tag, nil
 	}
 
 	if root {
@@ -992,6 +1003,19 @@ func (e *encoder) checkName(name string, typ int) bool {
 func (e *encoder) encodeTag(tag *Tag, noTags bool, noindent bool) int {
 	if e.err != nil {
 		return -1
+	}
+
+	if tag.Comment {
+		if !e.writeString("<!--") {
+			return -1
+		}
+		if !e.encodeText(tag) {
+			return -1
+		}
+		if !e.writeString("-->") {
+			return -1
+		}
+		return 1
 	}
 
 	endName := tag.EndName
