@@ -18,7 +18,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 )
 
@@ -52,13 +51,19 @@ func Diff(A, B string) string {
 	buf := new(bytes.Buffer)
 	for _, c := range chunks {
 		for _, line := range c.Added {
-			fmt.Fprintf(buf, "+%s\n", line)
+			buf.WriteByte('+')
+			buf.WriteString(line)
+			buf.WriteByte('\n')
 		}
 		for _, line := range c.Deleted {
-			fmt.Fprintf(buf, "-%s\n", line)
+			buf.WriteByte('-')
+			buf.WriteString(line)
+			buf.WriteByte('\n')
 		}
 		for _, line := range c.Equal {
-			fmt.Fprintf(buf, " %s\n", line)
+			buf.WriteByte(' ')
+			buf.WriteString(line)
+			buf.WriteByte('\n')
 		}
 	}
 	return strings.TrimRight(buf.String(), "\n")
