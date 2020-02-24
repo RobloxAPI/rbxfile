@@ -246,18 +246,45 @@ func (g *Golden) value(v interface{}) {
 		}
 		g.writebyte('[')
 		g.push()
-		for i, c := range v {
-			if i%16 == 0 {
-				g.newline()
-			}
-			if c < 100 {
-				g.writebyte(' ')
-				if c < 10 {
-					g.writebyte(' ')
+		const width = 16
+		for j := 0; j < len(v); j += width {
+			g.newline()
+			g.write("\"| ")
+			for i := j; i < j+width; {
+				if i < len(v) {
+					s := strconv.FormatUint(uint64(v[i]), 16)
+					if len(s) == 1 {
+						g.write("0")
+					}
+					g.write(s)
+				} else if len(v) < width {
+					break
+				} else {
+					g.write("  ")
+				}
+				i++
+				if i%8 == 0 && i < j+width {
+					g.write("  ")
+				} else {
+					g.write(" ")
 				}
 			}
-			g.write(strconv.FormatUint(uint64(c), 10))
-			if i < len(v)-1 {
+			g.write("|")
+			n := len(v)
+			if j+width < n {
+				n = j + width
+			}
+			for i := j; i < n; i++ {
+				if 32 <= v[i] && v[i] <= 126 {
+					g.s.WriteRune(rune(v[i]))
+				} else {
+					g.s.WriteByte('.')
+
+				}
+
+			}
+			g.write("|\"")
+			if j+width < len(v)-1 {
 				g.writebyte(',')
 			}
 		}
