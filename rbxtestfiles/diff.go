@@ -105,9 +105,6 @@ func diffGolden(input string, context int, curr, spec []byte) error {
 	}
 
 lineDiff:
-	currLines := strings.Split(string(curr), "\n")
-	specLines := strings.Split(string(spec), "\n")
-	chunks := DiffChunks(currLines, specLines)
 
 	type lineData struct {
 		line int
@@ -117,6 +114,10 @@ lineDiff:
 
 	var lines []lineData
 	{
+		chunks := DiffChunks(
+			strings.Split(string(curr), "\n"),
+			strings.Split(string(spec), "\n"),
+		)
 		var prev []string
 		var prevLine int
 		for _, c := range chunks {
