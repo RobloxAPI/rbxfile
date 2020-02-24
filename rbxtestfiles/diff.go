@@ -1,8 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
-	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -190,7 +191,7 @@ lineDiff:
 
 	buf := make([]byte, intlen(max)+1)
 
-	var b strings.Builder
+	b := bufio.NewWriter(os.Stdout)
 	b.WriteString("--- ")
 	b.WriteString(input)
 	b.WriteString(".golden\n")
@@ -221,6 +222,7 @@ lineDiff:
 	if color {
 		b.WriteString("\x1b[0m")
 	}
-	fmt.Println(b.String())
+	b.WriteByte('\n')
+	b.Flush()
 	return nil
 }
