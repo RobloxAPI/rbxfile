@@ -979,7 +979,7 @@ func (v ValueCFrame) BytesLen() int {
 	if v.Special == 0 {
 		return 49
 	}
-	return 1
+	return 13
 }
 
 func (v ValueCFrame) Bytes(b []byte) {
