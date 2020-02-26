@@ -217,6 +217,9 @@ type SyntaxError struct {
 }
 
 func (e *SyntaxError) Error() string {
+	if e.Msg == "" {
+		return "unmatched tag on line " + strconv.Itoa(e.Line)
+	}
 	return "XML syntax error on line " + strconv.Itoa(e.Line) + ": " + e.Msg
 }
 
@@ -225,6 +228,7 @@ type decoder struct {
 	buf      bytes.Buffer
 	nextByte []byte
 	doc      *Document
+	tagstack []int
 	n        int64
 	err      error
 	line     int
@@ -233,6 +237,14 @@ type decoder struct {
 // Creates a SyntaxError with the current line number.
 func (d *decoder) syntaxError(msg string) error {
 	return &SyntaxError{Msg: msg, Line: d.line}
+}
+
+// Creates a SyntaxError indicating an unmatched tag.
+func (d *decoder) tagError() error {
+	if len(d.tagstack) == 0 {
+		return nil
+	}
+	return &SyntaxError{Line: d.tagstack[len(d.tagstack)-1]}
 }
 
 func (d *decoder) ignoreStartTag(err error) int {
@@ -479,6 +491,9 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 		return
 	}
 
+	// Remember location of opening tag.
+	d.tagstack = append(d.tagstack, d.line)
+
 	if !d.decodeCData(tag) {
 		return nil, d.err
 	}
@@ -527,6 +542,7 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 
 		b, ok := d.getc()
 		if !ok {
+			d.err = d.tagError()
 			return nil, d.err
 		}
 
@@ -546,6 +562,8 @@ func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
 			if !d.decodeEndTag(tag) {
 				return nil, d.err
 			}
+
+			d.tagstack = d.tagstack[:len(d.tagstack)-1]
 
 			break
 		}
