@@ -430,7 +430,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 		v, err := strconv.ParseInt(getContent(tag), 10, 32)
 		if err != nil {
 			// Allow constrained result, which matches Roblox behavior.
-			if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+			if !errors.Is(err, strconv.ErrRange) {
 				// In Roblox, invalid characters cause the property to be discarded
 				// (and therefore appear with the default value) rather than set to
 				// zero.
@@ -641,7 +641,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 	case "int64":
 		v, err := strconv.ParseInt(getContent(tag), 10, 64)
 		if err != nil {
-			if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+			if !errors.Is(err, strconv.ErrRange) {
 				return nil, false
 			}
 		}
@@ -699,7 +699,7 @@ func (c components) getFrom(tag *Tag) {
 				// Parsed as int32 % 256.
 				n, err := strconv.ParseInt(getContent(subtag), 10, 32)
 				if err != nil {
-					if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+					if errors.Is(err, strconv.ErrRange) {
 						break
 					}
 				}
@@ -707,7 +707,7 @@ func (c components) getFrom(tag *Tag) {
 			case *int16:
 				n, err := strconv.ParseInt(getContent(subtag), 10, 16)
 				if err != nil {
-					if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+					if errors.Is(err, strconv.ErrRange) {
 						break
 					}
 				}
@@ -715,7 +715,7 @@ func (c components) getFrom(tag *Tag) {
 			case *int32:
 				n, err := strconv.ParseInt(getContent(subtag), 10, 32)
 				if err != nil {
-					if err, ok := err.(*strconv.NumError); !ok || err.Err != strconv.ErrRange {
+					if errors.Is(err, strconv.ErrRange) {
 						break
 					}
 				}
