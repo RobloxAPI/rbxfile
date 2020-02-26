@@ -2,7 +2,6 @@ package rbxl
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math"
 
@@ -252,7 +251,9 @@ type Value interface {
 	// Bytes encodes value to buf, panicking if buf is shorter than BytesLen().
 	Bytes(buf []byte)
 
-	// FromBytes decodes the value from buf, returning an error, if any.
+	// FromBytes decodes the value from buf. Returns an error if the value could
+	// not be decoded. If successful, BytesLen() will return the number of bytes
+	// read from buf.
 	FromBytes(buf []byte) error
 }
 
@@ -354,6 +355,43 @@ func decodeRobloxFloat(n uint32) float32 {
 	return math.Float32frombits(f)
 }
 
+type buflenError struct {
+	typ Type
+	exp uint64
+	got int
+}
+
+func (err buflenError) Error() string {
+	return fmt.Sprintf("%s: expected %d bytes, got %d", err.typ, err.exp, err.got)
+}
+
+// checklen does a basic check of the buffer's length against a value with a
+// constant expected byte length.
+func checklen(v Value, b []byte) error {
+	if len(b) < v.BytesLen() {
+		return buflenError{typ: v.Type(), exp: uint64(v.BytesLen()), got: len(b)}
+	}
+	return nil
+}
+
+// checkvarlen checks the buffer's length to make sure it can be decoded into
+// the value. The first 4 bytes are decoded as the number of fields of the
+// value, and the remaining length of the buffer is expected to be field*length.
+// Returns the remaining buffer and the number of fields. Returns an error if
+// the buffer is too short.
+func checkvarlen(v Value, b []byte, field uint32) ([]byte, int, error) {
+	const lensize = 4
+	if len(b) < lensize {
+		return b, 0, buflenError{typ: v.Type(), exp: lensize, got: len(b)}
+	}
+	length := binary.LittleEndian.Uint32(b[:lensize])
+	// field is uint32 to ensure that n cannot overflow.
+	if n := lensize + uint64(field)*uint64(length); uint64(len(b)) < n {
+		return b, 0, buflenError{typ: v.Type(), exp: n, got: len(b)}
+	}
+	return b[lensize:], int(length), nil
+}
+
 ////////////////////////////////////////////////////////////////
 
 type ValueString []byte
@@ -371,19 +409,12 @@ func (v ValueString) Bytes(b []byte) {
 }
 
 func (v *ValueString) FromBytes(b []byte) error {
-	if len(b) < 4 {
-		return errors.New("array length must be greater than or equal to 4")
+	b, n, err := checkvarlen(v, b, 1)
+	if err != nil {
+		return err
 	}
-
-	length := binary.LittleEndian.Uint32(b[:4])
-	str := b[4:]
-	if uint32(len(str)) != length {
-		return fmt.Errorf("string length (%d) does not match integer length (%d)", len(str), length)
-	}
-
-	*v = make(ValueString, len(str))
-	copy(*v, str)
-
+	*v = make(ValueString, n)
+	copy(*v, b)
 	return nil
 }
 
@@ -408,12 +439,10 @@ func (v ValueBool) Bytes(b []byte) {
 }
 
 func (v *ValueBool) FromBytes(b []byte) error {
-	if len(b) != 1 {
-		return errors.New("array length must be 1")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = b[0] != 0
-
 	return nil
 }
 
@@ -434,12 +463,10 @@ func (v ValueInt) Bytes(b []byte) {
 }
 
 func (v *ValueInt) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueInt(decodeZigzag32(binary.BigEndian.Uint32(b)))
-
 	return nil
 }
 
@@ -460,12 +487,10 @@ func (v ValueFloat) Bytes(b []byte) {
 }
 
 func (v *ValueFloat) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueFloat(decodeRobloxFloat(binary.BigEndian.Uint32(b)))
-
 	return nil
 }
 
@@ -486,12 +511,10 @@ func (v ValueDouble) Bytes(b []byte) {
 }
 
 func (v *ValueDouble) FromBytes(b []byte) error {
-	if len(b) != 8 {
-		return errors.New("array length must be 8")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueDouble(math.Float64frombits(binary.LittleEndian.Uint64(b)))
-
 	return nil
 }
 
@@ -516,13 +539,11 @@ func (v ValueUDim) Bytes(b []byte) {
 }
 
 func (v *ValueUDim) FromBytes(b []byte) error {
-	if len(b) != 8 {
-		return errors.New("array length must be 8")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.Scale.FromBytes(b[0:4])
 	v.Offset.FromBytes(b[4:8])
-
 	return nil
 }
 
@@ -575,15 +596,13 @@ func (v ValueUDim2) Bytes(b []byte) {
 }
 
 func (v *ValueUDim2) FromBytes(b []byte) error {
-	if len(b) != 16 {
-		return errors.New("array length must be 16")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.ScaleX.FromBytes(b[0:4])
 	v.ScaleY.FromBytes(b[4:8])
 	v.OffsetX.FromBytes(b[8:12])
 	v.OffsetY.FromBytes(b[12:16])
-
 	return nil
 }
 
@@ -647,17 +666,15 @@ func (v ValueRay) Bytes(b []byte) {
 }
 
 func (v *ValueRay) FromBytes(b []byte) error {
-	if len(b) != 24 {
-		return errors.New("array length must be 24")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.OriginX = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
 	v.OriginY = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
 	v.OriginZ = math.Float32frombits(binary.LittleEndian.Uint32(b[8:12]))
 	v.DirectionX = math.Float32frombits(binary.LittleEndian.Uint32(b[12:16]))
 	v.DirectionY = math.Float32frombits(binary.LittleEndian.Uint32(b[16:20]))
 	v.DirectionZ = math.Float32frombits(binary.LittleEndian.Uint32(b[20:24]))
-
 	return nil
 }
 
@@ -686,17 +703,15 @@ func (v ValueFaces) Bytes(b []byte) {
 }
 
 func (v *ValueFaces) FromBytes(b []byte) error {
-	if len(b) != 1 {
-		return errors.New("array length must be 1")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.Right = b[0]&(1<<0) != 0
 	v.Top = b[0]&(1<<1) != 0
 	v.Back = b[0]&(1<<2) != 0
 	v.Left = b[0]&(1<<3) != 0
 	v.Bottom = b[0]&(1<<4) != 0
 	v.Front = b[0]&(1<<5) != 0
-
 	return nil
 }
 
@@ -725,14 +740,12 @@ func (v ValueAxes) Bytes(b []byte) {
 }
 
 func (v *ValueAxes) FromBytes(b []byte) error {
-	if len(b) != 1 {
-		return errors.New("array length must be 1")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.X = b[0]&(1<<0) != 0
 	v.Y = b[0]&(1<<1) != 0
 	v.Z = b[0]&(1<<2) != 0
-
 	return nil
 }
 
@@ -753,12 +766,10 @@ func (v ValueBrickColor) Bytes(b []byte) {
 }
 
 func (v *ValueBrickColor) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueBrickColor(binary.BigEndian.Uint32(b))
-
 	return nil
 }
 
@@ -783,14 +794,12 @@ func (v ValueColor3) Bytes(b []byte) {
 }
 
 func (v *ValueColor3) FromBytes(b []byte) error {
-	if len(b) != 12 {
-		return errors.New("array length must be 12")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.R.FromBytes(b[0:4])
 	v.G.FromBytes(b[4:8])
 	v.B.FromBytes(b[8:12])
-
 	return nil
 }
 
@@ -841,13 +850,11 @@ func (v ValueVector2) Bytes(b []byte) {
 }
 
 func (v *ValueVector2) FromBytes(b []byte) error {
-	if len(b) != 8 {
-		return errors.New("array length must be 8")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.X.FromBytes(b[0:4])
 	v.Y.FromBytes(b[4:8])
-
 	return nil
 }
 
@@ -895,14 +902,12 @@ func (v ValueVector3) Bytes(b []byte) {
 }
 
 func (v *ValueVector3) FromBytes(b []byte) error {
-	if len(b) != 12 {
-		return errors.New("array length must be 12")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.X.FromBytes(b[0:4])
 	v.Y.FromBytes(b[4:8])
 	v.Z.FromBytes(b[8:12])
-
 	return nil
 }
 
@@ -953,13 +958,11 @@ func (v ValueVector2int16) Bytes(b []byte) {
 }
 
 func (v *ValueVector2int16) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
 	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
-
 	return nil
 }
 
@@ -998,14 +1001,12 @@ func (v ValueCFrame) Bytes(b []byte) {
 }
 
 func (v *ValueCFrame) FromBytes(b []byte) error {
-	if b[0] == 0 && len(b) != 49 {
-		return errors.New("array length must be 49")
+	if b[0] == 0 && len(b) < 49 {
+		return buflenError{typ: v.Type(), exp: 49, got: len(b)}
 	} else if b[0] != 0 && len(b) != 13 {
-		return errors.New("array length must be 13")
+		return buflenError{typ: v.Type(), exp: 13, got: len(b)}
 	}
-
 	v.Special = b[0]
-
 	if b[0] == 0 {
 		r := b[1:]
 		for i := range v.Rotation {
@@ -1016,9 +1017,7 @@ func (v *ValueCFrame) FromBytes(b []byte) error {
 			v.Rotation[i] = 0
 		}
 	}
-
 	v.Position.FromBytes(b[len(b)-12:])
-
 	return nil
 }
 
@@ -1039,12 +1038,10 @@ func (v ValueToken) Bytes(b []byte) {
 }
 
 func (v *ValueToken) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueToken(binary.BigEndian.Uint32(b))
-
 	return nil
 }
 
@@ -1065,12 +1062,10 @@ func (v ValueReference) Bytes(b []byte) {
 }
 
 func (v *ValueReference) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueReference(decodeZigzag32(binary.BigEndian.Uint32(b)))
-
 	return nil
 }
 
@@ -1095,20 +1090,18 @@ func (v ValueVector3int16) Bytes(b []byte) {
 }
 
 func (v *ValueVector3int16) FromBytes(b []byte) error {
-	if len(b) != 6 {
-		return errors.New("array length must be 6")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
 	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
 	v.Z = int16(binary.LittleEndian.Uint16(b[4:6]))
-
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////
 
-const sizeNSK = 3 * 4
+const sizeNSK = 3 * 4 // unsafe.Sizeof(ValueNumberSequenceKeypoint{})
 
 type ValueNumberSequenceKeypoint struct {
 	Time, Value, Envelope float32
@@ -1136,34 +1129,26 @@ func (v ValueNumberSequence) Bytes(b []byte) {
 }
 
 func (v *ValueNumberSequence) FromBytes(b []byte) error {
-	if len(b) < 4 {
-		return errors.New("array length must be at least 4")
+	b, n, err := checkvarlen(v, b, sizeNSK)
+	if err != nil {
+		return err
 	}
-
-	length := int(binary.LittleEndian.Uint32(b))
-	ba := b[4:]
-	if len(ba) != sizeNSK*length {
-		return fmt.Errorf("expected array length of %d (4 + %d * %d)", 4+sizeNSK*length, sizeNSK, length)
-	}
-
-	a := make(ValueNumberSequence, length)
-	for i := 0; i < length; i++ {
-		bk := ba[i*sizeNSK:]
+	a := make(ValueNumberSequence, n)
+	for i := 0; i < n; i++ {
+		bk := b[i*sizeNSK:]
 		a[i] = ValueNumberSequenceKeypoint{
 			Time:     math.Float32frombits(binary.LittleEndian.Uint32(bk[0:4])),
 			Value:    math.Float32frombits(binary.LittleEndian.Uint32(bk[4:8])),
 			Envelope: math.Float32frombits(binary.LittleEndian.Uint32(bk[8:12])),
 		}
 	}
-
 	*v = a
-
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////
 
-const sizeCSK = 4 + 3*4 + 4
+const sizeCSK = 4 + 3*4 + 4 // unsafe.Sizeof(ValueColorSequenceKeypoint{})
 
 type ValueColorSequenceKeypoint struct {
 	Time     float32
@@ -1195,19 +1180,13 @@ func (v ValueColorSequence) Bytes(b []byte) {
 }
 
 func (v *ValueColorSequence) FromBytes(b []byte) error {
-	if len(b) < 4 {
-		return errors.New("array length must be at least 4")
+	b, n, err := checkvarlen(v, b, sizeCSK)
+	if err != nil {
+		return err
 	}
-
-	length := int(binary.LittleEndian.Uint32(b))
-	ba := b[4:]
-	if len(ba) != sizeCSK*length {
-		return fmt.Errorf("expected array length of %d (4 + %d * %d)", 4+sizeCSK*length, sizeCSK, length)
-	}
-
-	a := make(ValueColorSequence, length)
-	for i := 0; i < length; i++ {
-		bk := ba[i*sizeCSK:]
+	a := make(ValueColorSequence, n)
+	for i := 0; i < n; i++ {
+		bk := b[i*sizeCSK:]
 		c3 := *new(ValueColor3)
 		c3.FromBytes(bk[4:16])
 		a[i] = ValueColorSequenceKeypoint{
@@ -1220,9 +1199,7 @@ func (v *ValueColorSequence) FromBytes(b []byte) error {
 			Envelope: math.Float32frombits(binary.LittleEndian.Uint32(bk[16:20])),
 		}
 	}
-
 	*v = a
-
 	return nil
 }
 
@@ -1246,13 +1223,11 @@ func (v ValueNumberRange) Bytes(b []byte) {
 }
 
 func (v *ValueNumberRange) FromBytes(b []byte) error {
-	if len(b) != 8 {
-		return errors.New("array length must be 8")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.Min = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
 	v.Max = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
-
 	return nil
 }
 
@@ -1276,13 +1251,11 @@ func (v ValueRect2D) Bytes(b []byte) {
 }
 
 func (v *ValueRect2D) FromBytes(b []byte) error {
-	if len(b) != 16 {
-		return errors.New("array length must be 16")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.Min.FromBytes(b[0:8])
 	v.Max.FromBytes(b[8:16])
-
 	return nil
 }
 
@@ -1354,20 +1327,19 @@ func (v ValuePhysicalProperties) Bytes(b []byte) {
 }
 
 func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
-	if b[0] == 0 && len(b) != 21 {
-		return errors.New("array length must be 21")
-	} else if b[0] != 0 && len(b) != 1 {
-		return errors.New("array length must be 1")
+	if b[0] == 0 && len(b) < 21 {
+		return buflenError{typ: v.Type(), exp: 21, got: len(b)}
+	} else if b[0] != 0 && len(b) < 1 {
+		return buflenError{typ: v.Type(), exp: 1, got: len(b)}
 	}
-
 	v.CustomPhysics = b[0]
 	if v.CustomPhysics != 0 {
-		p := b[1:]
-		v.Density = math.Float32frombits(binary.LittleEndian.Uint32(p[0*4 : 0*4+4]))
-		v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(p[1*4 : 1*4+4]))
-		v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(p[2*4 : 2*4+4]))
-		v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[3*4 : 3*4+4]))
-		v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[4*4 : 4*4+4]))
+		b = b[1:]
+		v.Density = math.Float32frombits(binary.LittleEndian.Uint32(b[0*4 : 0*4+4]))
+		v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(b[1*4 : 1*4+4]))
+		v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(b[2*4 : 2*4+4]))
+		v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[3*4 : 3*4+4]))
+		v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[4*4 : 4*4+4]))
 	} else {
 		v.Density = 0
 		v.Friction = 0
@@ -1375,7 +1347,6 @@ func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
 		v.FrictionWeight = 0
 		v.ElasticityWeight = 0
 	}
-
 	return nil
 }
 
@@ -1400,14 +1371,12 @@ func (v ValueColor3uint8) Bytes(b []byte) {
 }
 
 func (v *ValueColor3uint8) FromBytes(b []byte) error {
-	if len(b) != 3 {
-		return errors.New("array length must be 3")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	v.R = b[0]
 	v.G = b[1]
 	v.B = b[2]
-
 	return nil
 }
 
@@ -1455,12 +1424,10 @@ func (v ValueInt64) Bytes(b []byte) {
 }
 
 func (v *ValueInt64) FromBytes(b []byte) error {
-	if len(b) != 8 {
-		return errors.New("array length must be 8")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueInt64(decodeZigzag64(binary.BigEndian.Uint64(b)))
-
 	return nil
 }
 
@@ -1481,12 +1448,10 @@ func (v ValueSharedString) Bytes(b []byte) {
 }
 
 func (v *ValueSharedString) FromBytes(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("array length must be 4")
+	if err := checklen(v, b); err != nil {
+		return err
 	}
-
 	*v = ValueSharedString(binary.BigEndian.Uint32(b))
-
 	return nil
 }
 
