@@ -210,13 +210,13 @@ type Document struct {
 	Warnings []error
 }
 
-// A SyntaxError represents a syntax error in the XML input stream.
-type SyntaxError struct {
+// syntaxError represents a syntax error in the XML input stream.
+type syntaxError struct {
 	Msg  string
 	Line int
 }
 
-func (e *SyntaxError) Error() string {
+func (e syntaxError) Error() string {
 	if e.Msg == "" {
 		return "unmatched tag on line " + strconv.Itoa(e.Line)
 	}
@@ -236,7 +236,7 @@ type decoder struct {
 
 // Creates a SyntaxError with the current line number.
 func (d *decoder) syntaxError(msg string) error {
-	return &SyntaxError{Msg: msg, Line: d.line}
+	return syntaxError{Msg: msg, Line: d.line}
 }
 
 // Creates a SyntaxError indicating an unmatched tag.
@@ -244,7 +244,7 @@ func (d *decoder) tagError() error {
 	if len(d.tagstack) == 0 {
 		return nil
 	}
-	return &SyntaxError{Line: d.tagstack[len(d.tagstack)-1]}
+	return syntaxError{Line: d.tagstack[len(d.tagstack)-1]}
 }
 
 func (d *decoder) ignoreStartTag(err error) int {
