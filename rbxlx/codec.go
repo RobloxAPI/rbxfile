@@ -5,12 +5,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/robloxapi/rbxfile"
 	"io"
 	"io/ioutil"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/robloxapi/rbxfile"
 )
 
 // RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
@@ -27,6 +28,13 @@ type RobloxCodec struct {
 	// ExcludeMetadata determines whether <Meta> tags should be included while
 	// encoding.
 	ExcludeMetadata bool
+
+	// DiscardInvalidProperties determines how invalid properties are decoded.
+	// If true, when the parser successfully decodes a property, but fails to
+	// decode its value or a component, then the entire property is discarded.
+	// If false, then as much information as possible is retained; any value or
+	// component that fails will be emitted as the zero value for the type.
+	DiscardInvalidProperties bool
 }
 
 func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) {
@@ -285,10 +293,15 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 	switch valueType {
 	case "Axes":
 		var bits int32
-		components{
+		ok := components{
 			"axes": &bits,
 		}.getFrom(tag)
-
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueAxes{}, true
+		}
 		return rbxfile.ValueAxes{
 			X: bits&(1<<0) > 0,
 			Y: bits&(1<<1) > 0,
@@ -296,10 +309,13 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 		}, true
 
 	case "BinaryString":
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag)))
-		v, err := ioutil.ReadAll(dec)
+		d := base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag)))
+		v, err := ioutil.ReadAll(d)
 		if err != nil {
-			return nil, false
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueBinaryString(nil), true
 		}
 		return rbxfile.ValueBinaryString(v), true
 
@@ -309,20 +325,25 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			return rbxfile.ValueBool(false), true
 		case "true", "True", "TRUE":
 			return rbxfile.ValueBool(true), true
-		default:
+		}
+		if dec.codec.DiscardInvalidProperties {
 			return nil, false
 		}
+		return rbxfile.ValueBool(false), true
 
 	case "BrickColor":
 		v, err := strconv.ParseUint(getContent(tag), 10, 32)
-		if err != nil {
-			return nil, false
+		if err != nil && !errors.Is(err, strconv.ErrRange) {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueBrickColor(0), true
 		}
 		return rbxfile.ValueBrickColor(v), true
 
 	case "CoordinateFrame":
-		v := *new(rbxfile.ValueCFrame)
-		components{
+		var v rbxfile.ValueCFrame
+		ok := components{
 			"X":   &v.Position.X,
 			"Y":   &v.Position.Y,
 			"Z":   &v.Position.Z,
@@ -336,14 +357,23 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			"R21": &v.Rotation[7],
 			"R22": &v.Rotation[8],
 		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueCFrame{}, true
+		}
 		return v, true
 
 	case "Color3":
 		content := getContent(tag)
 		if len(content) > 0 {
 			v, err := strconv.ParseUint(content, 10, 32)
-			if err != nil {
-				return nil, false
+			if err != nil && !errors.Is(err, strconv.ErrRange) {
+				if dec.codec.DiscardInvalidProperties {
+					return nil, false
+				}
+				return rbxfile.ValueColor3{}, true
 			}
 			return rbxfile.ValueColor3{
 				R: float32(v&0x00FF0000>>16) / 255,
@@ -352,12 +382,18 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			}, true
 		} else {
 			//DIFF: If any tags are missing, entire value defaults.
-			v := *new(rbxfile.ValueColor3)
-			components{
+			var v rbxfile.ValueColor3
+			ok := components{
 				"R": &v.R,
 				"G": &v.G,
 				"B": &v.B,
 			}.getFrom(tag)
+			if !ok {
+				if dec.codec.DiscardInvalidProperties {
+					return nil, false
+				}
+				return rbxfile.ValueColor3{}, true
+			}
 			return v, true
 		}
 
@@ -367,32 +403,32 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			// empty. This is correct according to Roblox's codec.
 			return nil, false
 		}
-
+	loop:
 		for _, subtag := range tag.Tags {
 			switch subtag.StartName {
 			case "binary":
 				dec.document.Warnings = append(dec.document.Warnings, errors.New("not reading binary data"))
-				fallthrough
+				return rbxfile.ValueContent(nil), true
 			case "hash":
 				// Ignored.
-				fallthrough
+				return rbxfile.ValueContent(nil), true
 			case "null":
 				//DIFF: If null tag has content, then `tag expected` error is
 				//thrown.
-				return rbxfile.ValueContent{}, true
+				return rbxfile.ValueContent(nil), true
 			case "url":
 				return rbxfile.ValueContent(getContent(subtag)), true
 			default:
 				//DIFF: Throws error `TextXmlParser::parse - Unknown tag ''.`
-				return nil, false
+				break loop
 			}
 		}
-
-		// Tag has no subtags.
-
-		//DIFF: Attempts to read end tag as a subtag, erroneously throwing an
-		//"unknown tag" error.
-		return nil, false
+		//DIFF: When tag has no subtags, attempts to read end tag as a subtag,
+		//erroneously throwing an "unknown tag" error.
+		if dec.codec.DiscardInvalidProperties {
+			return nil, false
+		}
+		return rbxfile.ValueContent(nil), true
 
 	case "double":
 		// TODO: check inf, nan, and overflow. ParseFloat reads special numbers
@@ -400,16 +436,24 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 		// have to catch these forms early and treat them as invalid.
 		v, err := strconv.ParseFloat(getContent(tag), 64)
 		if err != nil {
-			return nil, false
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueDouble(0), true
 		}
 		return rbxfile.ValueDouble(v), true
 
 	case "Faces":
 		var bits int32
-		components{
+		ok := components{
 			"faces": &bits,
 		}.getFrom(tag)
-
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueFaces{}, true
+		}
 		return rbxfile.ValueFaces{
 			Right:  bits&(1<<0) > 0,
 			Top:    bits&(1<<1) > 0,
@@ -422,20 +466,20 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 	case "float":
 		v, err := strconv.ParseFloat(getContent(tag), 32)
 		if err != nil {
-			return nil, false
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueFloat(0), true
 		}
 		return rbxfile.ValueFloat(v), true
 
 	case "int":
 		v, err := strconv.ParseInt(getContent(tag), 10, 32)
-		if err != nil {
-			// Allow constrained result, which matches Roblox behavior.
-			if !errors.Is(err, strconv.ErrRange) {
-				// In Roblox, invalid characters cause the property to be discarded
-				// (and therefore appear with the default value) rather than set to
-				// zero.
+		if err != nil && !errors.Is(err, strconv.ErrRange) {
+			if dec.codec.DiscardInvalidProperties {
 				return nil, false
 			}
+			return rbxfile.ValueInt(0), true
 		}
 		return rbxfile.ValueInt(v), true
 
@@ -444,25 +488,39 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 
 	case "Ray":
 		var origin, direction *Tag
-		components{
+		ok := components{
 			"origin":    &origin,
 			"direction": &direction,
 		}.getFrom(tag)
-
-		v := *new(rbxfile.ValueRay)
-
-		components{
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueRay{}, true
+		}
+		var v rbxfile.ValueRay
+		ok = components{
 			"X": &v.Origin.X,
 			"Y": &v.Origin.Y,
 			"Z": &v.Origin.Z,
 		}.getFrom(origin)
-
-		components{
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueRay{}, true
+		}
+		ok = components{
 			"X": &v.Direction.X,
 			"Y": &v.Direction.Y,
 			"Z": &v.Direction.Z,
 		}.getFrom(direction)
-
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueRay{}, true
+		}
 		return v, true
 
 	case "Object":
@@ -475,65 +533,103 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 
 	case "token":
 		v, err := strconv.ParseInt(getContent(tag), 10, 32)
-		if err != nil {
-			return nil, false
+		if err != nil && !errors.Is(err, strconv.ErrRange) {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueToken(0), true
 		}
 		return rbxfile.ValueToken(v), true
 
 	case "UDim":
-		v := *new(rbxfile.ValueUDim)
-		components{
+		var v rbxfile.ValueUDim
+		ok := components{
 			"S": &v.Scale,
 			"O": &v.Offset,
 		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueUDim{}, true
+		}
 		return v, true
 
 	case "UDim2":
 		// DIFF: UDim2 is initialized with odd values
-		v := *new(rbxfile.ValueUDim2)
-		components{
+		var v rbxfile.ValueUDim2
+		ok := components{
 			"XS": &v.X.Scale,
 			"XO": &v.X.Offset,
 			"YS": &v.Y.Scale,
 			"YO": &v.Y.Offset,
 		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueUDim2{}, true
+		}
 		return v, true
 
 	case "Vector2":
-		// DIFF: If any component tags are missing, entire value fails
-		v := *new(rbxfile.ValueVector2)
-		components{
+		var v rbxfile.ValueVector2
+		ok := components{
 			"X": &v.X,
 			"Y": &v.Y,
 		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueVector2{}, true
+		}
 		return v, true
 
 	case "Vector2int16":
 		// Unknown; guessed
-		v := *new(rbxfile.ValueVector2int16)
-		components{
+		var v rbxfile.ValueVector2int16
+		ok := components{
 			"X": &v.X,
 			"Y": &v.Y,
 		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueVector2int16{}, true
+		}
 		return v, true
 
 	case "Vector3":
-		v := *new(rbxfile.ValueVector3)
-		components{
+		var v rbxfile.ValueVector3
+		ok := components{
 			"X": &v.X,
 			"Y": &v.Y,
 			"Z": &v.Z,
 		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueVector3{}, true
+		}
 		return v, true
 
 	case "Vector3int16":
 		// Unknown; guessed
-		v := *new(rbxfile.ValueVector3int16)
-		components{
+		var v rbxfile.ValueVector3int16
+		ok := components{
 			"X": &v.X,
 			"Y": &v.Y,
 			"Z": &v.Z,
 		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueVector3int16{}, true
+		}
 		return v, true
 
 	case "NumberSequence":
@@ -545,7 +641,10 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			nsk.Value, i = scanFloat(b, i)
 			nsk.Envelope, i = scanFloat(b, i)
 			if i < 0 {
-				return nil, false
+				if dec.codec.DiscardInvalidProperties {
+					return nil, false
+				}
+				return rbxfile.ValueNumberSequence(nil), true
 			}
 			v = append(v, nsk)
 		}
@@ -562,7 +661,10 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			csk.Value.B, i = scanFloat(b, i)
 			csk.Envelope, i = scanFloat(b, i)
 			if i < 0 {
-				return nil, false
+				if dec.codec.DiscardInvalidProperties {
+					return nil, false
+				}
+				return rbxfile.ValueColorSequence(nil), true
 			}
 			v = append(v, csk)
 		}
@@ -570,57 +672,100 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 
 	case "NumberRange":
 		b := []byte(getContent(tag))
-		v := *new(rbxfile.ValueNumberRange)
+		var v rbxfile.ValueNumberRange
 		i := 0
 		v.Min, i = scanFloat(b, i)
 		v.Max, i = scanFloat(b, i)
 		if i < 0 {
-			return nil, false
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueNumberRange{}, true
 		}
 		return v, true
 
 	case "Rect2D":
 		var min, max *Tag
-		components{
+		ok := components{
 			"min": &min,
 			"max": &max,
 		}.getFrom(tag)
-
-		v := *new(rbxfile.ValueRect2D)
-
-		components{
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueRect2D{}, true
+		}
+		var v rbxfile.ValueRect2D
+		ok = components{
 			"X": &v.Min.X,
 			"Y": &v.Min.Y,
 		}.getFrom(min)
-
-		components{
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueRect2D{}, true
+		}
+		ok = components{
 			"X": &v.Max.X,
 			"Y": &v.Max.Y,
 		}.getFrom(max)
-
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueRect2D{}, true
+		}
 		return v, true
 
 	case "PhysicalProperties":
-		v := *new(rbxfile.ValuePhysicalProperties)
+		var v rbxfile.ValuePhysicalProperties
 		var cp *Tag
-		components{
-			"CustomPhysics":    &cp,
+		ok := components{
+			"CustomPhysics": &cp,
+		}.getFrom(tag)
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValuePhysicalProperties{}, true
+		}
+		vb, ok := dec.getValue(cp, "bool")
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValuePhysicalProperties{}, true
+		}
+		v.CustomPhysics = bool(vb.(rbxfile.ValueBool))
+		if !v.CustomPhysics {
+			return v, true
+		}
+		ok = components{
 			"Density":          &v.Density,
 			"Friction":         &v.Friction,
 			"Elasticity":       &v.Elasticity,
 			"FrictionWeight":   &v.FrictionWeight,
 			"ElasticityWeight": &v.ElasticityWeight,
 		}.getFrom(tag)
-		vb, _ := dec.getValue(cp, "bool")
-		v.CustomPhysics = bool(vb.(rbxfile.ValueBool))
+		if !ok {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValuePhysicalProperties{}, true
+		}
 		return v, true
 
 	case "Color3uint8":
 		content := getContent(tag)
 		if len(content) > 0 {
 			v, err := strconv.ParseUint(content, 10, 32)
-			if err != nil {
-				return nil, false
+			if err != nil && !errors.Is(err, strconv.ErrRange) {
+				if dec.codec.DiscardInvalidProperties {
+					return nil, false
+				}
+				return rbxfile.ValueColor3uint8{}, true
 			}
 			return rbxfile.ValueColor3uint8{
 				R: byte(v & 0x00FF0000 >> 16),
@@ -629,33 +774,42 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			}, true
 		} else {
 			//DIFF: If any tags are missing, entire value defaults.
-			v := *new(rbxfile.ValueColor3uint8)
-			components{
+			var v rbxfile.ValueColor3uint8
+			ok := components{
 				"R": &v.R,
 				"G": &v.G,
 				"B": &v.B,
 			}.getFrom(tag)
+			if !ok {
+				if dec.codec.DiscardInvalidProperties {
+					return nil, false
+				}
+				return rbxfile.ValueColor3uint8{}, true
+			}
 			return v, true
 		}
 
 	case "int64":
 		v, err := strconv.ParseInt(getContent(tag), 10, 64)
-		if err != nil {
-			if !errors.Is(err, strconv.ErrRange) {
+		if err != nil && !errors.Is(err, strconv.ErrRange) {
+			if dec.codec.DiscardInvalidProperties {
 				return nil, false
 			}
+			return rbxfile.ValueInt64(0), true
 		}
 		return rbxfile.ValueInt64(v), true
 
 	case "SharedString":
 		v, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
 		if err != nil {
-			return nil, false
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueSharedString(nil), true
 		}
 		return rbxfile.ValueSharedString(v), true
 
 	}
-
 	return nil, false
 }
 
@@ -683,13 +837,13 @@ func scanFloat(b []byte, i int) (float32, int) {
 
 type components map[string]interface{}
 
-func (c components) getFrom(tag *Tag) {
+func (c components) getFrom(tag *Tag) (ok bool) {
 	if tag == nil {
-		return
+		return false
 	}
 
 	// Used to ensure that only the first matched tag is selected.
-	d := map[string]bool{}
+	d := make(map[string]bool, 12)
 
 	for _, subtag := range tag.Tags {
 		if p, ok := c[subtag.StartName]; ok && !d[subtag.StartName] {
@@ -698,28 +852,31 @@ func (c components) getFrom(tag *Tag) {
 			case *uint8:
 				// Parsed as int32 % 256.
 				n, err := strconv.ParseInt(getContent(subtag), 10, 32)
+				*v = uint8(n % 256)
 				if err != nil {
 					if errors.Is(err, strconv.ErrRange) {
-						break
+						return true
 					}
+					return false
 				}
-				*v = uint8(n % 256)
 			case *int16:
 				n, err := strconv.ParseInt(getContent(subtag), 10, 16)
+				*v = int16(n)
 				if err != nil {
 					if errors.Is(err, strconv.ErrRange) {
-						break
+						return true
 					}
+					return false
 				}
-				*v = int16(n)
 			case *int32:
 				n, err := strconv.ParseInt(getContent(subtag), 10, 32)
+				*v = int32(n)
 				if err != nil {
 					if errors.Is(err, strconv.ErrRange) {
-						break
+						return true
 					}
+					return false
 				}
-				*v = int32(n)
 			case *float32:
 				if n, err := strconv.ParseFloat(getContent(subtag), 32); err == nil {
 					*v = float32(n)
@@ -729,6 +886,8 @@ func (c components) getFrom(tag *Tag) {
 			}
 		}
 	}
+	// Fail if not all components have been found.
+	return len(d) == len(c)
 }
 
 // Reads either the CData or the text of a tag.
