@@ -21,35 +21,35 @@ func (t Type) String() string {
 }
 
 const (
-	TypeInvalid      Type = 0x0
-	TypeString       Type = 0x1
-	TypeBool         Type = 0x2
-	TypeInt          Type = 0x3
-	TypeFloat        Type = 0x4
-	TypeDouble       Type = 0x5
-	TypeUDim         Type = 0x6
-	TypeUDim2        Type = 0x7
-	TypeRay          Type = 0x8
-	TypeFaces        Type = 0x9
-	TypeAxes         Type = 0xA
-	TypeBrickColor   Type = 0xB
-	TypeColor3       Type = 0xC
-	TypeVector2      Type = 0xD
-	TypeVector3      Type = 0xE
-	TypeVector2int16 Type = 0xF
-	TypeCFrame       Type = 0x10
-	//TypeCFrameQuat Type = 0x11
-	TypeToken              Type = 0x12
-	TypeReference          Type = 0x13
-	TypeVector3int16       Type = 0x14
-	TypeNumberSequence     Type = 0x15
-	TypeColorSequence      Type = 0x16
-	TypeNumberRange        Type = 0x17
-	TypeRect2D             Type = 0x18
-	TypePhysicalProperties Type = 0x19
-	TypeColor3uint8        Type = 0x1A
-	TypeInt64              Type = 0x1B
-	TypeSharedString       Type = 0x1C
+	TypeInvalid Type = iota
+	TypeString
+	TypeBool
+	TypeInt
+	TypeFloat
+	TypeDouble
+	TypeUDim
+	TypeUDim2
+	TypeRay
+	TypeFaces
+	TypeAxes
+	TypeBrickColor
+	TypeColor3
+	TypeVector2
+	TypeVector3
+	TypeVector2int16
+	TypeCFrame
+	//TypeCFrameQuat
+	TypeToken
+	TypeReference
+	TypeVector3int16
+	TypeNumberSequence
+	TypeColorSequence
+	TypeNumberRange
+	TypeRect2D
+	TypePhysicalProperties
+	TypeColor3uint8
+	TypeInt64
+	TypeSharedString
 )
 
 var typeStrings = map[Type]string{
