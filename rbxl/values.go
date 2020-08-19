@@ -406,6 +406,7 @@ func (v ValueString) BytesLen() int {
 
 func (v ValueString) Bytes(b []byte) {
 	binary.LittleEndian.PutUint32(b, uint32(len(v)))
+	copy(b[4:], v)
 }
 
 func (v *ValueString) FromBytes(b []byte) error {
