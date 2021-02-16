@@ -195,130 +195,131 @@ chunkErr:
 }
 
 // Decode a rbxl.value to a rbxfile.Value based on a given value type.
-func decodeValue(bvalue Value) (value rbxfile.Value) {
-	switch bvalue := bvalue.(type) {
+func decodeValue(value Value) rbxfile.Value {
+	switch value := value.(type) {
 	case *ValueString:
-		v := make([]byte, len(*bvalue))
-		copy(v, *bvalue)
+		v := make([]byte, len(*value))
+		copy(v, *value)
 		// The binary format does not differentiate between the various string
 		// types.
-		value = rbxfile.ValueString(v)
+		return rbxfile.ValueString(v)
 
 	case *ValueBool:
-		value = rbxfile.ValueBool(*bvalue)
+		return rbxfile.ValueBool(*value)
 
 	case *ValueInt:
-		value = rbxfile.ValueInt(*bvalue)
+		return rbxfile.ValueInt(*value)
 
 	case *ValueFloat:
-		value = rbxfile.ValueFloat(*bvalue)
+		return rbxfile.ValueFloat(*value)
 
 	case *ValueDouble:
-		value = rbxfile.ValueDouble(*bvalue)
+		return rbxfile.ValueDouble(*value)
 
 	case *ValueUDim:
-		value = rbxfile.ValueUDim{
-			Scale:  float32(bvalue.Scale),
-			Offset: int32(bvalue.Offset),
+		return rbxfile.ValueUDim{
+			Scale:  float32(value.Scale),
+			Offset: int32(value.Offset),
 		}
 
 	case *ValueUDim2:
-		value = rbxfile.ValueUDim2{
+		return rbxfile.ValueUDim2{
 			X: rbxfile.ValueUDim{
-				Scale:  float32(bvalue.ScaleX),
-				Offset: int32(bvalue.OffsetX),
+				Scale:  float32(value.ScaleX),
+				Offset: int32(value.OffsetX),
 			},
 			Y: rbxfile.ValueUDim{
-				Scale:  float32(bvalue.ScaleY),
-				Offset: int32(bvalue.OffsetY),
+				Scale:  float32(value.ScaleY),
+				Offset: int32(value.OffsetY),
 			},
 		}
 
 	case *ValueRay:
-		value = rbxfile.ValueRay{
+		return rbxfile.ValueRay{
 			Origin: rbxfile.ValueVector3{
-				X: bvalue.OriginX,
-				Y: bvalue.OriginY,
-				Z: bvalue.OriginZ,
+				X: value.OriginX,
+				Y: value.OriginY,
+				Z: value.OriginZ,
 			},
 			Direction: rbxfile.ValueVector3{
-				X: bvalue.DirectionX,
-				Y: bvalue.DirectionY,
-				Z: bvalue.DirectionZ,
+				X: value.DirectionX,
+				Y: value.DirectionY,
+				Z: value.DirectionZ,
 			},
 		}
 
 	case *ValueFaces:
-		value = rbxfile.ValueFaces(*bvalue)
+		return rbxfile.ValueFaces(*value)
 
 	case *ValueAxes:
-		value = rbxfile.ValueAxes(*bvalue)
+		return rbxfile.ValueAxes(*value)
 
 	case *ValueBrickColor:
-		value = rbxfile.ValueBrickColor(*bvalue)
+		return rbxfile.ValueBrickColor(*value)
 
 	case *ValueColor3:
-		value = rbxfile.ValueColor3{
-			R: float32(bvalue.R),
-			G: float32(bvalue.G),
-			B: float32(bvalue.B),
+		return rbxfile.ValueColor3{
+			R: float32(value.R),
+			G: float32(value.G),
+			B: float32(value.B),
 		}
 
 	case *ValueVector2:
-		value = rbxfile.ValueVector2{
-			X: float32(bvalue.X),
-			Y: float32(bvalue.Y),
+		return rbxfile.ValueVector2{
+			X: float32(value.X),
+			Y: float32(value.Y),
 		}
 
 	case *ValueVector3:
-		value = rbxfile.ValueVector3{
-			X: float32(bvalue.X),
-			Y: float32(bvalue.Y),
-			Z: float32(bvalue.Z),
+		return rbxfile.ValueVector3{
+			X: float32(value.X),
+			Y: float32(value.Y),
+			Z: float32(value.Z),
 		}
 
 	case *ValueVector2int16:
-		value = rbxfile.ValueVector2int16(*bvalue)
+		return rbxfile.ValueVector2int16(*value)
 
 	case *ValueCFrame:
 		cf := rbxfile.ValueCFrame{
 			Position: rbxfile.ValueVector3{
-				X: float32(bvalue.Position.X),
-				Y: float32(bvalue.Position.Y),
-				Z: float32(bvalue.Position.Z),
+				X: float32(value.Position.X),
+				Y: float32(value.Position.Y),
+				Z: float32(value.Position.Z),
 			},
-			Rotation: bvalue.Rotation,
+			Rotation: value.Rotation,
 		}
 
-		if bvalue.Special != 0 {
-			cf.Rotation = cframeSpecialMatrix[bvalue.Special]
+		if value.Special != 0 {
+			cf.Rotation = cframeSpecialMatrix[value.Special]
 		}
 
-		value = cf
+		return cf
 
 	case *ValueToken:
-		value = rbxfile.ValueToken(*bvalue)
+		return rbxfile.ValueToken(*value)
 
 	case *ValueReference:
 		// Must be resolved elsewhere.
+		return nil
 
 	case *ValueVector3int16:
-		value = rbxfile.ValueVector3int16(*bvalue)
+		return rbxfile.ValueVector3int16(*value)
 
 	case *ValueNumberSequence:
-		v := make(rbxfile.ValueNumberSequence, len(*bvalue))
-		for i, nsk := range *bvalue {
+		v := make(rbxfile.ValueNumberSequence, len(*value))
+		for i, nsk := range *value {
 			v[i] = rbxfile.ValueNumberSequenceKeypoint{
 				Time:     nsk.Time,
 				Value:    nsk.Value,
 				Envelope: nsk.Envelope,
 			}
 		}
-		value = v
+		return v
 
 	case *ValueColorSequence:
-		v := make(rbxfile.ValueColorSequence, len(*bvalue))
-		for i, nsk := range *bvalue {
+		v := make(rbxfile.ValueColorSequence, len(*value))
+		for i, nsk := range *value {
 			v[i] = rbxfile.ValueColorSequenceKeypoint{
 				Time: nsk.Time,
 				Value: rbxfile.ValueColor3{
@@ -329,48 +330,50 @@ func decodeValue(bvalue Value) (value rbxfile.Value) {
 				Envelope: nsk.Envelope,
 			}
 		}
-		value = v
+		return v
 
 	case *ValueNumberRange:
-		value = rbxfile.ValueNumberRange(*bvalue)
+		return rbxfile.ValueNumberRange(*value)
 
 	case *ValueRect2D:
-		value = rbxfile.ValueRect2D{
+		return rbxfile.ValueRect2D{
 			Min: rbxfile.ValueVector2{
-				X: float32(bvalue.Min.X),
-				Y: float32(bvalue.Min.Y),
+				X: float32(value.Min.X),
+				Y: float32(value.Min.Y),
 			},
 			Max: rbxfile.ValueVector2{
-				X: float32(bvalue.Max.X),
-				Y: float32(bvalue.Max.Y),
+				X: float32(value.Max.X),
+				Y: float32(value.Max.Y),
 			},
 		}
 
 	case *ValuePhysicalProperties:
-		value = rbxfile.ValuePhysicalProperties{
-			CustomPhysics:    bvalue.CustomPhysics != 0,
-			Density:          bvalue.Density,
-			Friction:         bvalue.Friction,
-			Elasticity:       bvalue.Elasticity,
-			FrictionWeight:   bvalue.FrictionWeight,
-			ElasticityWeight: bvalue.ElasticityWeight,
+		return rbxfile.ValuePhysicalProperties{
+			CustomPhysics:    value.CustomPhysics != 0,
+			Density:          value.Density,
+			Friction:         value.Friction,
+			Elasticity:       value.Elasticity,
+			FrictionWeight:   value.FrictionWeight,
+			ElasticityWeight: value.ElasticityWeight,
 		}
 
 	case *ValueColor3uint8:
-		value = rbxfile.ValueColor3uint8{
-			R: bvalue.R,
-			G: bvalue.G,
-			B: bvalue.B,
+		return rbxfile.ValueColor3uint8{
+			R: value.R,
+			G: value.G,
+			B: value.B,
 		}
 
 	case *ValueInt64:
-		value = rbxfile.ValueInt64(*bvalue)
+		return rbxfile.ValueInt64(*value)
 
 	case *ValueSharedString:
 		// Must be resolved elsewhere.
-	}
+		return nil
 
-	return
+	default:
+		return nil
+	}
 }
 
 type sharedEntry struct {
@@ -710,48 +713,48 @@ func (c sortMetaData) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
 }
 
-func encodeValue(value rbxfile.Value) (bvalue Value) {
+func encodeValue(value rbxfile.Value) Value {
 	switch value := value.(type) {
 	case rbxfile.ValueString:
 		v := make([]byte, len(value))
 		copy(v, value)
-		bvalue = (*ValueString)(&v)
+		return (*ValueString)(&v)
 
 	case rbxfile.ValueBinaryString:
 		v := make([]byte, len(value))
 		copy(v, value)
-		bvalue = (*ValueString)(&v)
+		return (*ValueString)(&v)
 
 	case rbxfile.ValueProtectedString:
 		v := make([]byte, len(value))
 		copy(v, value)
-		bvalue = (*ValueString)(&v)
+		return (*ValueString)(&v)
 
 	case rbxfile.ValueContent:
 		v := make([]byte, len(value))
 		copy(v, value)
-		bvalue = (*ValueString)(&v)
+		return (*ValueString)(&v)
 
 	case rbxfile.ValueBool:
-		bvalue = (*ValueBool)(&value)
+		return (*ValueBool)(&value)
 
 	case rbxfile.ValueInt:
-		bvalue = (*ValueInt)(&value)
+		return (*ValueInt)(&value)
 
 	case rbxfile.ValueFloat:
-		bvalue = (*ValueFloat)(&value)
+		return (*ValueFloat)(&value)
 
 	case rbxfile.ValueDouble:
-		bvalue = (*ValueDouble)(&value)
+		return (*ValueDouble)(&value)
 
 	case rbxfile.ValueUDim:
-		bvalue = &ValueUDim{
+		return &ValueUDim{
 			Scale:  ValueFloat(value.Scale),
 			Offset: ValueInt(value.Offset),
 		}
 
 	case rbxfile.ValueUDim2:
-		bvalue = &ValueUDim2{
+		return &ValueUDim2{
 			ScaleX:  ValueFloat(value.X.Scale),
 			ScaleY:  ValueFloat(value.Y.Scale),
 			OffsetX: ValueInt(value.X.Offset),
@@ -759,7 +762,7 @@ func encodeValue(value rbxfile.Value) (bvalue Value) {
 		}
 
 	case rbxfile.ValueRay:
-		bvalue = &ValueRay{
+		return &ValueRay{
 			OriginX:    value.Origin.X,
 			OriginY:    value.Origin.Y,
 			OriginZ:    value.Origin.Z,
@@ -769,29 +772,29 @@ func encodeValue(value rbxfile.Value) (bvalue Value) {
 		}
 
 	case rbxfile.ValueFaces:
-		bvalue = (*ValueFaces)(&value)
+		return (*ValueFaces)(&value)
 
 	case rbxfile.ValueAxes:
-		bvalue = (*ValueAxes)(&value)
+		return (*ValueAxes)(&value)
 
 	case rbxfile.ValueBrickColor:
-		bvalue = (*ValueBrickColor)(&value)
+		return (*ValueBrickColor)(&value)
 
 	case rbxfile.ValueColor3:
-		bvalue = &ValueColor3{
+		return &ValueColor3{
 			R: ValueFloat(value.R),
 			G: ValueFloat(value.G),
 			B: ValueFloat(value.B),
 		}
 
 	case rbxfile.ValueVector2:
-		bvalue = &ValueVector2{
+		return &ValueVector2{
 			X: ValueFloat(value.X),
 			Y: ValueFloat(value.Y),
 		}
 
 	case rbxfile.ValueVector3:
-		bvalue = &ValueVector3{
+		return &ValueVector3{
 			X: ValueFloat(value.X),
 			Y: ValueFloat(value.Y),
 			Z: ValueFloat(value.Z),
@@ -812,19 +815,20 @@ func encodeValue(value rbxfile.Value) (bvalue Value) {
 			cf.Rotation = value.Rotation
 		}
 
-		bvalue = cf
+		return cf
 
 	case rbxfile.ValueToken:
 		return (*ValueToken)(&value)
 
 	case rbxfile.ValueReference:
 		// Must be resolved elsewhere.
+		return nil
 
 	case rbxfile.ValueVector3int16:
-		bvalue = (*ValueVector3int16)(&value)
+		return (*ValueVector3int16)(&value)
 
 	case rbxfile.ValueVector2int16:
-		bvalue = (*ValueVector2int16)(&value)
+		return (*ValueVector2int16)(&value)
 
 	case rbxfile.ValueNumberSequence:
 		v := make(ValueNumberSequence, len(value))
@@ -835,7 +839,7 @@ func encodeValue(value rbxfile.Value) (bvalue Value) {
 				Envelope: nsk.Envelope,
 			}
 		}
-		bvalue = &v
+		return &v
 
 	case rbxfile.ValueColorSequence:
 		v := make(ValueColorSequence, len(value))
@@ -850,13 +854,13 @@ func encodeValue(value rbxfile.Value) (bvalue Value) {
 				Envelope: nsk.Envelope,
 			}
 		}
-		bvalue = &v
+		return &v
 
 	case rbxfile.ValueNumberRange:
-		bvalue = (*ValueNumberRange)(&value)
+		return (*ValueNumberRange)(&value)
 
 	case rbxfile.ValueRect2D:
-		bvalue = &ValueRect2D{
+		return &ValueRect2D{
 			Min: ValueVector2{
 				X: ValueFloat(value.Min.X),
 				Y: ValueFloat(value.Min.Y),
@@ -880,21 +884,23 @@ func encodeValue(value rbxfile.Value) (bvalue Value) {
 		} else {
 			v.CustomPhysics = 0
 		}
-		bvalue = &v
+		return &v
 
 	case rbxfile.ValueColor3uint8:
-		bvalue = &ValueColor3uint8{
+		return &ValueColor3uint8{
 			R: value.R,
 			G: value.G,
 			B: value.B,
 		}
 
 	case rbxfile.ValueInt64:
-		bvalue = (*ValueInt64)(&value)
+		return (*ValueInt64)(&value)
 
 	case rbxfile.ValueSharedString:
 		// Must be resolved elsewhere.
-	}
+		return nil
 
-	return
+	default:
+		return nil
+	}
 }
