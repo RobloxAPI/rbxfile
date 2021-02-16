@@ -204,8 +204,8 @@ func deinterleave(bytes []byte, size int) error {
 	return interleave(bytes, len(bytes)/size)
 }
 
-// Concatenates the bytes of a list of Values into a byte array.
-func concatValueBytes(id Type, a []Value) []byte {
+// Appends the bytes of a list of Values into a byte array.
+func appendValueBytes(id Type, a []Value) []byte {
 	n := 0
 	for _, v := range a {
 		n += v.BytesLen()
@@ -225,7 +225,7 @@ func concatValueBytes(id Type, a []Value) []byte {
 // be of variable length. The first 4 bytes of a value is read as length N of
 // the value. Field then indicates the size of each field in the value, so the
 // next N*field bytes are read as the full value.
-func concatByteValues(id Type, b []byte, size int, field int) (a []Value, err error) {
+func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err error) {
 	if size < 0 {
 		// Variable length; get size from first 4 bytes.
 		ba := b
@@ -258,6 +258,25 @@ func concatByteValues(id Type, b []byte, size int, field int) (a []Value, err er
 	return a, nil
 }
 
+// Append each value as bytes, then interleave to improve compression.
+func interleaveAppend(t Type, a []Value, size int) (b []byte, err error) {
+	b = appendValueBytes(t, a)
+	if err = interleave(b, size); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+// Deinterleave, then append from given size.
+func deinterleaveAppend(t Type, b []byte, size int) (a []Value, err error) {
+	bc := make([]byte, len(b))
+	copy(bc, b)
+	if err = deinterleave(bc, size); err != nil {
+		return nil, err
+	}
+	return appendByteValues(t, bc, size, 0)
+}
+
 // ValuesToBytes encodes a slice of values into binary form, according to t.
 // Returns an error if a value cannot be encoded as t.
 func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
@@ -271,39 +290,51 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 	}
 
 	switch t {
-	case TypeString,
-		TypeBool,
-		TypeDouble,
-		TypeRay,
-		TypeFaces,
-		TypeAxes,
-		TypeVector3int16,
-		TypeNumberSequence,
-		TypeColorSequence,
-		TypeNumberRange:
-		// Append each value as bytes with no further operation.
-		b = concatValueBytes(t, a)
-	case TypeInt,
-		TypeFloat,
-		TypeBrickColor,
-		TypeToken,
-		TypeSharedString:
-		// Append each value a bytes, then interleave to improve compression.
-		b = concatValueBytes(t, a)
-		err = interleave(b, 4)
-	case TypeInt64:
-		// Append each value a bytes, then interleave to improve compression.
-		b = concatValueBytes(t, a)
-		err = interleave(b, 8)
-	case TypeUDim,
-		TypeUDim2,
-		TypeColor3,
-		TypeVector2,
-		TypeVector3,
-		TypeRect2D,
-		TypeColor3uint8:
-		// Interleave fields.
+	case TypeString:
+		return appendValueBytes(t, a), nil
+
+	case TypeBool:
+		return appendValueBytes(t, a), nil
+
+	case TypeInt:
+		return interleaveAppend(t, a, 4)
+
+	case TypeFloat:
+		return interleaveAppend(t, a, 4)
+
+	case TypeDouble:
+		return appendValueBytes(t, a), nil
+
+	case TypeUDim:
 		return interleaveFields(t, a)
+
+	case TypeUDim2:
+		return interleaveFields(t, a)
+
+	case TypeRay:
+		return appendValueBytes(t, a), nil
+
+	case TypeFaces:
+		return appendValueBytes(t, a), nil
+
+	case TypeAxes:
+		return appendValueBytes(t, a), nil
+
+	case TypeBrickColor:
+		return interleaveAppend(t, a, 4)
+
+	case TypeColor3:
+		return interleaveFields(t, a)
+
+	case TypeVector2:
+		return interleaveFields(t, a)
+
+	case TypeVector3:
+		return interleaveFields(t, a)
+
+	case TypeVector2int16:
+		return nil, errors.New("not implemented")
+
 	case TypeCFrame:
 		// The bytes of each value can vary in length.
 		p := make([]Value, len(a))
@@ -325,12 +356,17 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		// Build position part.
 		pb, _ := interleaveFields(TypeVector3, p)
 		b = append(b, pb...)
+		return b, nil
+
+	case TypeToken:
+		return interleaveAppend(t, a, 4)
+
 	case TypeReference:
 		// Because values are generated in sequence, they are likely to be
 		// relatively close to each other. Subtracting each value from the
 		// previous will likely produce small values that compress well.
 		if len(a) == 0 {
-			break
+			return b, nil
 		}
 		const size = 4
 		b = make([]byte, len(a)*size)
@@ -345,7 +381,26 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 			}
 			prev = *ref
 		}
-		err = interleave(b, size)
+		if err = interleave(b, size); err != nil {
+			return nil, err
+		}
+		return b, nil
+
+	case TypeVector3int16:
+		return appendValueBytes(t, a), nil
+
+	case TypeNumberSequence:
+		return appendValueBytes(t, a), nil
+
+	case TypeColorSequence:
+		return appendValueBytes(t, a), nil
+
+	case TypeNumberRange:
+		return appendValueBytes(t, a), nil
+
+	case TypeRect2D:
+		return interleaveFields(t, a)
+
 	case TypePhysicalProperties:
 		// The bytes of each value can vary in length.
 		q := make([]byte, 20)
@@ -362,11 +417,20 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 				b = append(b, q...)
 			}
 		}
-	case TypeVector2int16:
-		err = errors.New("not implemented")
-	}
+		return b, nil
 
-	return
+	case TypeColor3uint8:
+		return interleaveFields(t, a)
+
+	case TypeInt64:
+		return interleaveAppend(t, a, 8)
+
+	case TypeSharedString:
+		return interleaveAppend(t, a, 4)
+
+	default:
+		return b, nil
+	}
 }
 
 // ValuesFromBytes decodes b according to t, into a slice of values, the type of
@@ -377,59 +441,51 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 	}
 
 	switch t {
-	case TypeBool,
-		TypeFaces,
-		TypeAxes:
-		// Append from constant size 1.
-		a, err = concatByteValues(t, b, 1, 0)
-	case TypeVector3int16:
-		// Append from constant size 6.
-		a, err = concatByteValues(t, b, 6, 0)
-	case TypeDouble,
-		TypeNumberRange:
-		// Append from constant size 8.
-		a, err = concatByteValues(t, b, 8, 0)
-	case TypeRay:
-		// Append from constant size 24.
-		a, err = concatByteValues(t, b, 24, 0)
 	case TypeString:
-		// Append from variable size.
-		a, err = concatByteValues(t, b, -1, 1)
-	case TypeNumberSequence:
-		// Append from variable size.
-		a, err = concatByteValues(t, b, -1, sizeNSK)
-	case TypeColorSequence:
-		// Append from variable size.
-		a, err = concatByteValues(t, b, -1, sizeCSK)
-	case TypeInt,
-		TypeFloat,
-		TypeBrickColor,
-		TypeToken,
-		TypeSharedString:
-		// Deinterleave, then append from size 4.
-		bc := make([]byte, len(b))
-		copy(bc, b)
-		if err = deinterleave(bc, 4); err != nil {
-			return nil, err
-		}
-		a, err = concatByteValues(t, bc, 4, 0)
-	case TypeInt64:
-		// Deinterleave, then append from size 8.
-		bc := make([]byte, len(b))
-		copy(bc, b)
-		if err = deinterleave(bc, 8); err != nil {
-			return nil, err
-		}
-		a, err = concatByteValues(t, bc, 8, 0)
-	case TypeUDim,
-		TypeUDim2,
-		TypeColor3,
-		TypeVector2,
-		TypeVector3,
-		TypeRect2D,
-		TypeColor3uint8:
-		// Deinterleave fields.
-		a, err = deinterleaveFields(t, b)
+		return appendByteValues(t, b, -1, 1)
+
+	case TypeBool:
+		return appendByteValues(t, b, 1, 0)
+
+	case TypeInt:
+		return deinterleaveAppend(t, b, 4)
+
+	case TypeFloat:
+		return deinterleaveAppend(t, b, 4)
+
+	case TypeDouble:
+		return appendByteValues(t, b, 8, 0)
+
+	case TypeUDim:
+		return deinterleaveFields(t, b)
+
+	case TypeUDim2:
+		return deinterleaveFields(t, b)
+
+	case TypeRay:
+		return appendByteValues(t, b, 24, 0)
+
+	case TypeFaces:
+		return appendByteValues(t, b, 1, 0)
+
+	case TypeAxes:
+		return appendByteValues(t, b, 1, 0)
+
+	case TypeBrickColor:
+		return deinterleaveAppend(t, b, 4)
+
+	case TypeColor3:
+		return deinterleaveFields(t, b)
+
+	case TypeVector2:
+		return deinterleaveFields(t, b)
+
+	case TypeVector3:
+		return deinterleaveFields(t, b)
+
+	case TypeVector2int16:
+		return nil, errors.New("not implemented")
+
 	case TypeCFrame:
 		cfs := make([]*ValueCFrame, 0)
 		// This loop reads the matrix data. i is the current position in the
@@ -458,9 +514,8 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		}
 		// Read remaining position data using the Position field, which is a
 		// ValueVector3.
-		a, err = deinterleaveFields(TypeVector3, b[i:])
-		if err != nil {
-			return
+		if a, err = deinterleaveFields(TypeVector3, b[i:]); err != nil {
+			return nil, err
 		}
 		if len(a) != len(cfs) {
 			return nil, errors.New("number of positions does not match number of matrices")
@@ -472,9 +527,14 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			cfs[i].Position = *p.(*ValueVector3)
 			a[i] = cfs[i]
 		}
+		return a, nil
+
+	case TypeToken:
+		return deinterleaveAppend(t, b, 4)
+
 	case TypeReference:
 		if len(b) == 0 {
-			return
+			return a, nil
 		}
 		const size = 4
 		if len(b)%size != 0 {
@@ -496,6 +556,23 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			}
 			a[i] = ref
 		}
+		return a, nil
+
+	case TypeVector3int16:
+		return appendByteValues(t, b, 6, 0)
+
+	case TypeNumberSequence:
+		return appendByteValues(t, b, -1, sizeNSK)
+
+	case TypeColorSequence:
+		return appendByteValues(t, b, -1, sizeCSK)
+
+	case TypeNumberRange:
+		return appendByteValues(t, b, 8, 0)
+
+	case TypeRect2D:
+		return deinterleaveFields(t, b)
+
 	case TypePhysicalProperties:
 		for i := 0; i < len(b); {
 			pp := new(ValuePhysicalProperties)
@@ -516,9 +593,18 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			}
 			a = append(a, pp)
 		}
-	case TypeVector2int16:
-		err = errors.New("not implemented")
-	}
+		return a, nil
 
-	return
+	case TypeColor3uint8:
+		return deinterleaveFields(t, b)
+
+	case TypeInt64:
+		return deinterleaveAppend(t, b, 4)
+
+	case TypeSharedString:
+		return deinterleaveAppend(t, b, 4)
+
+	default:
+		return a, nil
+	}
 }
