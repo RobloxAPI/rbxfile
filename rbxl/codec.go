@@ -124,7 +124,7 @@ loop:
 					}
 					value = rbxfile.ValueSharedString(sharedStrings[i].Value)
 				default:
-					value = decodeValue(bvalue)
+					value = DecodeValue(bvalue)
 				}
 				inst.Properties[chunk.PropertyName] = value
 			}
@@ -194,8 +194,14 @@ chunkErr:
 	return nil, err
 }
 
-// Decode a rbxl.value to a rbxfile.Value based on a given value type.
-func decodeValue(value Value) rbxfile.Value {
+// DecodeValue converts a Value to a rbxfile.Value. Returns nil if the value
+// could not be decoded.
+//
+// ValueString is always converted to a rbxfile.ValueString.
+//
+// ValueReference and ValueSharedString, which require external information in
+// order to decode, return nil.
+func DecodeValue(value Value) rbxfile.Value {
 	switch value := value.(type) {
 	case *ValueString:
 		v := make([]byte, len(*value))
@@ -563,7 +569,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 						index := uint32(entry.index)
 						bvalue = (*ValueSharedString)(&index)
 					default:
-						bvalue = encodeValue(value)
+						bvalue = EncodeValue(value)
 					}
 				}
 
@@ -713,7 +719,20 @@ func (c sortMetaData) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
 }
 
-func encodeValue(value rbxfile.Value) Value {
+// EncodeValue converts a rbxfile.Value to a Value. Returns nil if the value
+// could not be encoded.
+//
+// Because the rbxl format has only one string type, the following types are
+// converted to ValueString:
+//
+//     - rbxfile.ValueString
+//     - rbxfile.ValueBinaryString
+//     - rbxfile.ValueProtectedString
+//     - rbxfile.ValueContent
+//
+// rbxfile.ValueReference and rbxfile.ValueSharedString, which require external
+// information in order to encode, return nil.
+func EncodeValue(value rbxfile.Value) Value {
 	switch value := value.(type) {
 	case rbxfile.ValueString:
 		v := make([]byte, len(value))
