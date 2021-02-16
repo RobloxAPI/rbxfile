@@ -510,13 +510,13 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 				addWarn("mismatched types for property %s.%s, chunk skipped", instList[instRef].ClassName, name)
 				continue
 			}
-			bval := encodeValue(refs, sharedStrings, rbxfile.NewValue(dataType))
-			if bval == nil {
+			btype := FromValueType(dataType)
+			if btype == TypeInvalid {
 				delete(propChunkMap, name)
 				addWarn("unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(dataType), instList[instRef].ClassName, name, instRef)
 				continue
 			}
-			propChunk.DataType = bval.Type()
+			propChunk.DataType = btype
 		}
 
 		// Set the values for each property chunk.
