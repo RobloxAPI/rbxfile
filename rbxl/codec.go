@@ -111,7 +111,22 @@ loop:
 
 			for i, bvalue := range chunk.Properties {
 				inst := instLookup[instChunk.InstanceIDs[i]]
-				inst.Properties[chunk.PropertyName] = decodeValue(instLookup, sharedStrings, bvalue)
+				var value rbxfile.Value
+				switch bvalue := bvalue.(type) {
+				case *ValueReference:
+					value = rbxfile.ValueReference{Instance: instLookup[int32(*bvalue)]}
+				case *ValueSharedString:
+					i := int(*bvalue)
+					if i < 0 || i >= len(sharedStrings) {
+						// TODO: How are invalid indexes handled?
+						value = rbxfile.ValueSharedString("")
+						break
+					}
+					value = rbxfile.ValueSharedString(sharedStrings[i].Value)
+				default:
+					value = decodeValue(bvalue)
+				}
+				inst.Properties[chunk.PropertyName] = value
 			}
 
 		case *ChunkParent:
@@ -180,7 +195,7 @@ chunkErr:
 }
 
 // Decode a rbxl.value to a rbxfile.Value based on a given value type.
-func decodeValue(refs map[int32]*rbxfile.Instance, sharedStrings []SharedString, bvalue Value) (value rbxfile.Value) {
+func decodeValue(bvalue Value) (value rbxfile.Value) {
 	switch bvalue := bvalue.(type) {
 	case *ValueString:
 		v := make([]byte, len(*bvalue))
@@ -285,7 +300,7 @@ func decodeValue(refs map[int32]*rbxfile.Instance, sharedStrings []SharedString,
 		value = rbxfile.ValueToken(*bvalue)
 
 	case *ValueReference:
-		value = rbxfile.ValueReference{Instance: refs[int32(*bvalue)]}
+		// Must be resolved elsewhere.
 
 	case *ValueVector3int16:
 		value = rbxfile.ValueVector3int16(*bvalue)
@@ -352,13 +367,7 @@ func decodeValue(refs map[int32]*rbxfile.Instance, sharedStrings []SharedString,
 		value = rbxfile.ValueInt64(*bvalue)
 
 	case *ValueSharedString:
-		i := int(*bvalue)
-		if i < 0 || i >= len(sharedStrings) {
-			// TODO: How are invalid indexes handled?
-			value = rbxfile.ValueSharedString("")
-			break
-		}
-		value = rbxfile.ValueSharedString(sharedStrings[i].Value)
+		// Must be resolved elsewhere.
 	}
 
 	return
@@ -526,7 +535,33 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 
 				var bvalue Value
 				if value, ok := inst.Properties[name]; ok {
-					bvalue = encodeValue(refs, sharedStrings, value)
+					switch value := value.(type) {
+					case rbxfile.ValueReference:
+						// Convert an instance reference to a reference number.
+						ref, ok := refs[value.Instance]
+						if !ok {
+							// References that map to some instance not under the
+							// Root should be nil.
+							ref = -1
+						}
+
+						v := int32(ref)
+						bvalue = (*ValueReference)(&v)
+					case rbxfile.ValueSharedString:
+						// TODO: verify that strings are compared by MD5 hash.
+						hash := md5.Sum([]byte(value))
+						entry, ok := sharedStrings[hash]
+						if !ok {
+							entry.index = len(sharedStrings)
+							entry.value.Hash = hash
+							entry.value.Value = []byte(value)
+							sharedStrings[hash] = entry
+						}
+						index := uint32(entry.index)
+						bvalue = (*ValueSharedString)(&index)
+					default:
+						bvalue = encodeValue(value)
+					}
 				}
 
 				if bvalue == nil || bvalue.Type() != propChunk.DataType {
@@ -675,7 +710,7 @@ func (c sortMetaData) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
 }
 
-func encodeValue(refs map[*rbxfile.Instance]int, sharedStrings sharedMap, value rbxfile.Value) (bvalue Value) {
+func encodeValue(value rbxfile.Value) (bvalue Value) {
 	switch value := value.(type) {
 	case rbxfile.ValueString:
 		v := make([]byte, len(value))
@@ -783,16 +818,7 @@ func encodeValue(refs map[*rbxfile.Instance]int, sharedStrings sharedMap, value 
 		return (*ValueToken)(&value)
 
 	case rbxfile.ValueReference:
-		// Convert an instance reference to a reference number.
-		ref, ok := refs[value.Instance]
-		if !ok {
-			// References that map to some instance not under the
-			// Root should be nil.
-			ref = -1
-		}
-
-		v := int32(ref)
-		bvalue = (*ValueReference)(&v)
+		// Must be resolved elsewhere.
 
 	case rbxfile.ValueVector3int16:
 		bvalue = (*ValueVector3int16)(&value)
@@ -867,17 +893,7 @@ func encodeValue(refs map[*rbxfile.Instance]int, sharedStrings sharedMap, value 
 		bvalue = (*ValueInt64)(&value)
 
 	case rbxfile.ValueSharedString:
-		// TODO: verify that strings are compared by MD5 hash.
-		hash := md5.Sum([]byte(value))
-		entry, ok := sharedStrings[hash]
-		if !ok {
-			entry.index = len(sharedStrings)
-			entry.value.Hash = hash
-			entry.value.Value = []byte(value)
-			sharedStrings[hash] = entry
-		}
-		index := uint32(entry.index)
-		bvalue = (*ValueSharedString)(&index)
+		// Must be resolved elsewhere.
 	}
 
 	return
