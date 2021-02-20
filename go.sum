@@ -1,4 +1,6 @@
 github.com/anaminus/but v0.2.0 h1:UPKY6UtvTZH8seod0rfVRsQxP8qssz+P6VE9a2AYeNY=
 github.com/anaminus/but v0.2.0/go.mod h1:44z5qYo/3MWnZDi6ifH3IgrFWa1VFfdTttL3IYN/9R4=
+github.com/anaminus/golden v0.1.0 h1:BuWb8lWSMta8gDkDfG7Uv3IMkDwU28iRUZ/Or4tSVPM=
+github.com/anaminus/golden v0.1.0/go.mod h1:MYFILb9ZU2Q3s2Zwh+kichCSLwmq36toSV0dj+FhrAk=
 github.com/bkaradzic/go-lz4 v1.0.0 h1:RXc4wYsyz985CkXXeX04y4VnZFGG8Rd43pRaHsOXAKk=
 github.com/bkaradzic/go-lz4 v1.0.0/go.mod h1:0YdlkowM3VswSROI7qDxhRvJ3sLhlFrRRwjwegp5jy4=
