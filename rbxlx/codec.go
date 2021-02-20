@@ -753,7 +753,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			if dec.codec.DiscardInvalidProperties {
 				return nil, false
 			}
-			return rbxfile.ValuePhysicalProperties{}, true
+			return v, true
 		}
 		return v, true
 
