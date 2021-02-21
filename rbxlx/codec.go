@@ -1434,7 +1434,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		g := uint64(value.G)
 		b := uint64(value.B)
 		return &Tag{
-			StartName: "Color3",
+			StartName: "Color3uint8",
 			Attr:      attr,
 			NoIndent:  true,
 			Text:      strconv.FormatUint(0xFF<<24|r<<16|g<<8|b, 10),
