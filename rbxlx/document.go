@@ -106,19 +106,19 @@ func NewRoot(items ...*Tag) *Tag {
 	return &Tag{
 		StartName: "roblox",
 		Attr: []Attr{
-			Attr{
+			{
 				Name:  "xmlns:xmime",
 				Value: "http://www.w3.org/2005/05/xmlmime",
 			},
-			Attr{
+			{
 				Name:  "xmlns:xsi",
 				Value: "http://www.w3.org/2001/XMLSchema-instance",
 			},
-			Attr{
+			{
 				Name:  "xsi:noNamespaceSchemaLocation",
 				Value: "http://www.roblox.com/roblox.xsd",
 			},
-			Attr{
+			{
 				Name:  "version",
 				Value: "4",
 			},
@@ -132,11 +132,11 @@ func NewItem(class, referent string, properties ...*Tag) *Tag {
 	return &Tag{
 		StartName: "Item",
 		Attr: []Attr{
-			Attr{Name: "class", Value: class},
-			Attr{Name: "referent", Value: referent},
+			{Name: "class", Value: class},
+			{Name: "referent", Value: referent},
 		},
 		Tags: []*Tag{
-			&Tag{
+			{
 				StartName: "Properties",
 				Tags:      properties,
 			},
@@ -150,7 +150,7 @@ func NewProp(valueType, propName, value string) *Tag {
 	return &Tag{
 		StartName: valueType,
 		Attr: []Attr{
-			Attr{Name: "name", Value: propName},
+			{Name: "name", Value: propName},
 		},
 		Text:     value,
 		NoIndent: true,

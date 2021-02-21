@@ -1056,7 +1056,7 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 }
 
 func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Tag {
-	attr := []Attr{Attr{Name: "name", Value: prop}}
+	attr := []Attr{{Name: "name", Value: prop}}
 	switch value := value.(type) {
 	case rbxfile.ValueAxes:
 		var n uint64
@@ -1069,7 +1069,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Axes",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{
+				{
 					StartName: "axes",
 					NoIndent:  true,
 					Text:      strconv.FormatUint(n, 10),
@@ -1118,18 +1118,18 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "CoordinateFrame",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.Position.X)},
-				&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Position.Y)},
-				&Tag{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Position.Z)},
-				&Tag{StartName: "R00", NoIndent: true, Text: encodeFloat(value.Rotation[0])},
-				&Tag{StartName: "R01", NoIndent: true, Text: encodeFloat(value.Rotation[1])},
-				&Tag{StartName: "R02", NoIndent: true, Text: encodeFloat(value.Rotation[2])},
-				&Tag{StartName: "R10", NoIndent: true, Text: encodeFloat(value.Rotation[3])},
-				&Tag{StartName: "R11", NoIndent: true, Text: encodeFloat(value.Rotation[4])},
-				&Tag{StartName: "R12", NoIndent: true, Text: encodeFloat(value.Rotation[5])},
-				&Tag{StartName: "R20", NoIndent: true, Text: encodeFloat(value.Rotation[6])},
-				&Tag{StartName: "R21", NoIndent: true, Text: encodeFloat(value.Rotation[7])},
-				&Tag{StartName: "R22", NoIndent: true, Text: encodeFloat(value.Rotation[8])},
+				{StartName: "X", NoIndent: true, Text: encodeFloat(value.Position.X)},
+				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Position.Y)},
+				{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Position.Z)},
+				{StartName: "R00", NoIndent: true, Text: encodeFloat(value.Rotation[0])},
+				{StartName: "R01", NoIndent: true, Text: encodeFloat(value.Rotation[1])},
+				{StartName: "R02", NoIndent: true, Text: encodeFloat(value.Rotation[2])},
+				{StartName: "R10", NoIndent: true, Text: encodeFloat(value.Rotation[3])},
+				{StartName: "R11", NoIndent: true, Text: encodeFloat(value.Rotation[4])},
+				{StartName: "R12", NoIndent: true, Text: encodeFloat(value.Rotation[5])},
+				{StartName: "R20", NoIndent: true, Text: encodeFloat(value.Rotation[6])},
+				{StartName: "R21", NoIndent: true, Text: encodeFloat(value.Rotation[7])},
+				{StartName: "R22", NoIndent: true, Text: encodeFloat(value.Rotation[8])},
 			},
 		}
 
@@ -1138,9 +1138,9 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Color3",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "R", NoIndent: true, Text: encodeFloat(value.R)},
-				&Tag{StartName: "G", NoIndent: true, Text: encodeFloat(value.G)},
-				&Tag{StartName: "B", NoIndent: true, Text: encodeFloat(value.B)},
+				{StartName: "R", NoIndent: true, Text: encodeFloat(value.R)},
+				{StartName: "G", NoIndent: true, Text: encodeFloat(value.G)},
+				{StartName: "B", NoIndent: true, Text: encodeFloat(value.B)},
 			},
 		}
 
@@ -1150,7 +1150,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			Attr:      attr,
 			NoIndent:  true,
 			Tags: []*Tag{
-				&Tag{
+				{
 					StartName: "",
 					NoIndent:  true,
 				},
@@ -1183,7 +1183,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Faces",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{
+				{
 					StartName: "faces",
 					NoIndent:  true,
 					Text:      strconv.FormatUint(n, 10),
@@ -1221,20 +1221,20 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Ray",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{
+				{
 					StartName: "origin",
 					Tags: []*Tag{
-						&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.Origin.X)},
-						&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Origin.Y)},
-						&Tag{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Origin.Z)},
+						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Origin.X)},
+						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Origin.Y)},
+						{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Origin.Z)},
 					},
 				},
-				&Tag{
+				{
 					StartName: "direction",
 					Tags: []*Tag{
-						&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.Origin.X)},
-						&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Origin.Y)},
-						&Tag{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Origin.Z)},
+						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Origin.X)},
+						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Origin.Y)},
+						{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Origin.Z)},
 					},
 				},
 			},
@@ -1276,8 +1276,8 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "UDim",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "S", NoIndent: true, Text: encodeFloat(value.Scale)},
-				&Tag{StartName: "O", NoIndent: true, Text: strconv.FormatInt(int64(value.Offset), 10)},
+				{StartName: "S", NoIndent: true, Text: encodeFloat(value.Scale)},
+				{StartName: "O", NoIndent: true, Text: strconv.FormatInt(int64(value.Offset), 10)},
 			},
 		}
 
@@ -1286,10 +1286,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "UDim2",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "XS", NoIndent: true, Text: encodeFloat(value.X.Scale)},
-				&Tag{StartName: "XO", NoIndent: true, Text: strconv.FormatInt(int64(value.X.Offset), 10)},
-				&Tag{StartName: "YS", NoIndent: true, Text: encodeFloat(value.Y.Scale)},
-				&Tag{StartName: "YO", NoIndent: true, Text: strconv.FormatInt(int64(value.Y.Offset), 10)},
+				{StartName: "XS", NoIndent: true, Text: encodeFloat(value.X.Scale)},
+				{StartName: "XO", NoIndent: true, Text: strconv.FormatInt(int64(value.X.Offset), 10)},
+				{StartName: "YS", NoIndent: true, Text: encodeFloat(value.Y.Scale)},
+				{StartName: "YO", NoIndent: true, Text: strconv.FormatInt(int64(value.Y.Offset), 10)},
 			},
 		}
 
@@ -1298,8 +1298,8 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Vector2",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
-				&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
+				{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
+				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
 			},
 		}
 
@@ -1308,8 +1308,8 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Vector2int16",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
-				&Tag{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
+				{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
+				{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
 			},
 		}
 
@@ -1318,9 +1318,9 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Vector3",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
-				&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
-				&Tag{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Z)},
+				{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
+				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
+				{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Z)},
 			},
 		}
 
@@ -1329,9 +1329,9 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Vector3int16",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
-				&Tag{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
-				&Tag{StartName: "Z", NoIndent: true, Text: strconv.FormatInt(int64(value.Z), 10)},
+				{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
+				{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
+				{StartName: "Z", NoIndent: true, Text: strconv.FormatInt(int64(value.Z), 10)},
 			},
 		}
 
@@ -1388,18 +1388,18 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			StartName: "Rect2D",
 			Attr:      attr,
 			Tags: []*Tag{
-				&Tag{
+				{
 					StartName: "min",
 					Tags: []*Tag{
-						&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.Min.X)},
-						&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Min.Y)},
+						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Min.X)},
+						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Min.Y)},
 					},
 				},
-				&Tag{
+				{
 					StartName: "max",
 					Tags: []*Tag{
-						&Tag{StartName: "X", NoIndent: true, Text: encodeFloat(value.Max.X)},
-						&Tag{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Max.Y)},
+						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Max.X)},
+						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Max.Y)},
 					},
 				},
 			},
@@ -1411,12 +1411,12 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 				StartName: "PhysicalProperties",
 				Attr:      attr,
 				Tags: []*Tag{
-					&Tag{StartName: "CustomPhysics", Text: "true"},
-					&Tag{StartName: "Density", Text: encodeFloat(value.Density)},
-					&Tag{StartName: "Friction", Text: encodeFloat(value.Friction)},
-					&Tag{StartName: "Elasticity", Text: encodeFloat(value.Elasticity)},
-					&Tag{StartName: "FrictionWeight", Text: encodeFloat(value.FrictionWeight)},
-					&Tag{StartName: "ElasticityWeight", Text: encodeFloat(value.ElasticityWeight)},
+					{StartName: "CustomPhysics", Text: "true"},
+					{StartName: "Density", Text: encodeFloat(value.Density)},
+					{StartName: "Friction", Text: encodeFloat(value.Friction)},
+					{StartName: "Elasticity", Text: encodeFloat(value.Elasticity)},
+					{StartName: "FrictionWeight", Text: encodeFloat(value.FrictionWeight)},
+					{StartName: "ElasticityWeight", Text: encodeFloat(value.ElasticityWeight)},
 				},
 			}
 		} else {
@@ -1424,7 +1424,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 				StartName: "PhysicalProperties",
 				Attr:      attr,
 				Tags: []*Tag{
-					&Tag{StartName: "CustomPhysics", Text: "false"},
+					{StartName: "CustomPhysics", Text: "false"},
 				},
 			}
 		}
