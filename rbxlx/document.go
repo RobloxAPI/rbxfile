@@ -711,7 +711,7 @@ func (d *decoder) match(s string) bool {
 	return true
 }
 
-var entity = map[string]int{
+var entity = map[string]rune{
 	"lt":   '<',
 	"gt":   '>',
 	"amp":  '&',
