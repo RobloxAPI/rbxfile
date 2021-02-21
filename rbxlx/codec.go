@@ -1134,14 +1134,14 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueColor3:
-		r := uint64(value.R * 255)
-		g := uint64(value.G * 255)
-		b := uint64(value.B * 255)
 		return &Tag{
 			StartName: "Color3",
 			Attr:      attr,
-			NoIndent:  true,
-			Text:      strconv.FormatUint(0xFF<<24|r<<16|g<<8|b, 10),
+			Tags: []*Tag{
+				&Tag{StartName: "R", NoIndent: true, Text: encodeFloat(value.R)},
+				&Tag{StartName: "G", NoIndent: true, Text: encodeFloat(value.G)},
+				&Tag{StartName: "B", NoIndent: true, Text: encodeFloat(value.B)},
+			},
 		}
 
 	case rbxfile.ValueContent:
