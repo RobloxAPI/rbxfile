@@ -19,6 +19,61 @@ type fielder interface {
 	fieldGet(int, []byte)
 }
 
+// Interleave transforms an array of bytes by interleaving them based on a
+// given size. The size must be a divisor of the array length.
+//
+// The array is divided into groups, each `length` in size. The nth elements
+// of each group are then moved so that they are group together. For example:
+//
+//     Original:    abcd1234
+//     Interleaved: a1b2c3d4
+func interleave(bytes []byte, length int) error {
+	if length <= 0 {
+		return errors.New("length must be greater than 0")
+	}
+	if len(bytes)%length != 0 {
+		return errors.New("length must be a divisor of array length")
+	}
+
+	// Matrix transpose algorithm
+	cols := length
+	rows := len(bytes) / length
+	if rows == cols {
+		for r := 0; r < rows; r++ {
+			for c := 0; c < r; c++ {
+				bytes[r*cols+c], bytes[c*cols+r] = bytes[c*cols+r], bytes[r*cols+c]
+			}
+		}
+	} else {
+	loop:
+		for start := range bytes {
+			next := (start%rows)*cols + start/rows
+			if next <= start {
+				continue loop
+			}
+			for {
+				if next = (next%rows)*cols + next/rows; next < start {
+					continue loop
+				} else if next == start {
+					break
+				}
+			}
+			for next, tmp := start, bytes[start]; ; {
+				i := (next%rows)*cols + next/rows
+				if i == start {
+					bytes[next] = tmp
+				} else {
+					bytes[next] = bytes[i]
+				}
+				if next = i; next <= start {
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // Encodes Values that implement the fielder interface.
 func interleaveFields(id Type, a []Value) (b []byte, err error) {
 	if len(a) == 0 {
@@ -76,134 +131,6 @@ func interleaveFields(id Type, a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-// Decodes Values that implement the fielder interface.
-func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
-	if len(b) == 0 {
-		return a, nil
-	}
-
-	if !id.Valid() {
-		return nil, fmt.Errorf("type identifier 0x%X is not a valid Type.", id)
-	}
-
-	// Number of bytes per field
-	nbytes := NewValue(id).(fielder).fieldLen()
-	// Number fields per value
-	nfields := len(nbytes)
-
-	// Total bytes per value
-	tbytes := 0
-	for _, n := range nbytes {
-		tbytes += n
-	}
-
-	if len(b)%tbytes != 0 {
-		return nil, fmt.Errorf("length of array (%d) is not divisible by value byte size (%d)", len(b), tbytes)
-	}
-
-	// Number of values
-	nvalues := len(b) / tbytes
-	// Offset of each field slice.
-	ofields := make([]int, maxFieldLen+1)[:len(nbytes)+1]
-	for i, n := range nbytes {
-		ofields[i+1] = ofields[i] + n*nvalues
-	}
-
-	a = make([]Value, nvalues)
-
-	// List of each field slice
-	fields := make([][]byte, maxFieldLen)[:nfields]
-	for i := range fields {
-		fields[i] = b[ofields[i]:ofields[i+1]]
-	}
-
-	// Deinterleave each field slice independently
-	for i, field := range fields {
-		if err = deinterleave(field, nbytes[i]); err != nil {
-			return nil, err
-		}
-	}
-
-	for i := range a {
-		v := NewValue(id)
-		vf := v.(fielder)
-		for f, field := range fields {
-			n := nbytes[f]
-			fb := field[i*n : i*n+n]
-			vf.fieldSet(f, fb)
-		}
-		a[i] = v
-	}
-
-	return a, nil
-}
-
-// Interleave transforms an array of bytes by interleaving them based on a
-// given size. The size must be a divisor of the array length.
-//
-// The array is divided into groups, each `length` in size. The nth elements
-// of each group are then moved so that they are group together. For example:
-//
-//     Original:    abcd1234
-//     Interleaved: a1b2c3d4
-func interleave(bytes []byte, length int) error {
-	if length <= 0 {
-		return errors.New("length must be greater than 0")
-	}
-	if len(bytes)%length != 0 {
-		return errors.New("length must be a divisor of array length")
-	}
-
-	// Matrix transpose algorithm
-	cols := length
-	rows := len(bytes) / length
-	if rows == cols {
-		for r := 0; r < rows; r++ {
-			for c := 0; c < r; c++ {
-				bytes[r*cols+c], bytes[c*cols+r] = bytes[c*cols+r], bytes[r*cols+c]
-			}
-		}
-	} else {
-	loop:
-		for start := range bytes {
-			next := (start%rows)*cols + start/rows
-			if next <= start {
-				continue loop
-			}
-			for {
-				if next = (next%rows)*cols + next/rows; next < start {
-					continue loop
-				} else if next == start {
-					break
-				}
-			}
-			for next, tmp := start, bytes[start]; ; {
-				i := (next%rows)*cols + next/rows
-				if i == start {
-					bytes[next] = tmp
-				} else {
-					bytes[next] = bytes[i]
-				}
-				if next = i; next <= start {
-					break
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func deinterleave(bytes []byte, size int) error {
-	if size <= 0 {
-		return errors.New("size must be greater than 0")
-	}
-	if len(bytes)%size != 0 {
-		return errors.New("size must be a divisor of array length")
-	}
-
-	return interleave(bytes, len(bytes)/size)
-}
-
 // Appends the bytes of a list of Values into a byte array.
 func appendValueBytes(id Type, a []Value) []byte {
 	n := 0
@@ -220,45 +147,6 @@ func appendValueBytes(id Type, a []Value) []byte {
 	return b
 }
 
-// appendByteValues reads a byte array as an array of Values of a certain type.
-// If id.Size() is less than 0, then values are assumed to be of variable
-// length. The first 4 bytes of a value is read as length N of the value.
-// id.FieldSize() indicates the size of each field in the value, so the next
-// N*field bytes are read as the full value.
-func appendByteValues(id Type, b []byte) (a []Value, err error) {
-	if size := id.Size(); size >= 0 {
-		for i := 0; i+size <= len(b); i += size {
-			v := NewValue(id)
-			if err := v.FromBytes(b[i : i+size]); err != nil {
-				return nil, err
-			}
-			a = append(a, v)
-		}
-		return a, nil
-	}
-	// Variable length; get size from first 4 bytes.
-	field := id.FieldSize()
-	ba := b
-	for len(ba) > 0 {
-		if len(ba) < 4 {
-			return nil, errors.New("expected 4 more bytes in array")
-		}
-		size := int(binary.LittleEndian.Uint32(ba))
-		if len(ba[4:]) < size*field {
-			return nil, fmt.Errorf("expected %d more bytes in array", size*field)
-		}
-
-		v := NewValue(id)
-		if err := v.FromBytes(ba[:4+size*field]); err != nil {
-			return nil, err
-		}
-		a = append(a, v)
-
-		ba = ba[4+size*field:]
-	}
-	return a, nil
-}
-
 // Append each value as bytes, then interleave to improve compression.
 func interleaveAppend(t Type, a []Value, size int) (b []byte, err error) {
 	b = appendValueBytes(t, a)
@@ -266,17 +154,6 @@ func interleaveAppend(t Type, a []Value, size int) (b []byte, err error) {
 		return nil, err
 	}
 	return b, nil
-}
-
-// Deinterleave, then append from given size.
-func deinterleaveAppend(t Type, b []byte) (a []Value, err error) {
-	bc := make([]byte, len(b))
-	copy(bc, b)
-	size := t.Size()
-	if err = deinterleave(bc, size); err != nil {
-		return nil, err
-	}
-	return appendByteValues(t, bc)
 }
 
 // ValuesToBytes encodes a slice of values into binary form, according to t.
@@ -452,6 +329,129 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 	default:
 		return b, nil
 	}
+}
+
+func deinterleave(bytes []byte, size int) error {
+	if size <= 0 {
+		return errors.New("size must be greater than 0")
+	}
+	if len(bytes)%size != 0 {
+		return errors.New("size must be a divisor of array length")
+	}
+
+	return interleave(bytes, len(bytes)/size)
+}
+
+// Decodes Values that implement the fielder interface.
+func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
+	if len(b) == 0 {
+		return a, nil
+	}
+
+	if !id.Valid() {
+		return nil, fmt.Errorf("type identifier 0x%X is not a valid Type.", id)
+	}
+
+	// Number of bytes per field
+	nbytes := NewValue(id).(fielder).fieldLen()
+	// Number fields per value
+	nfields := len(nbytes)
+
+	// Total bytes per value
+	tbytes := 0
+	for _, n := range nbytes {
+		tbytes += n
+	}
+
+	if len(b)%tbytes != 0 {
+		return nil, fmt.Errorf("length of array (%d) is not divisible by value byte size (%d)", len(b), tbytes)
+	}
+
+	// Number of values
+	nvalues := len(b) / tbytes
+	// Offset of each field slice.
+	ofields := make([]int, maxFieldLen+1)[:len(nbytes)+1]
+	for i, n := range nbytes {
+		ofields[i+1] = ofields[i] + n*nvalues
+	}
+
+	a = make([]Value, nvalues)
+
+	// List of each field slice
+	fields := make([][]byte, maxFieldLen)[:nfields]
+	for i := range fields {
+		fields[i] = b[ofields[i]:ofields[i+1]]
+	}
+
+	// Deinterleave each field slice independently
+	for i, field := range fields {
+		if err = deinterleave(field, nbytes[i]); err != nil {
+			return nil, err
+		}
+	}
+
+	for i := range a {
+		v := NewValue(id)
+		vf := v.(fielder)
+		for f, field := range fields {
+			n := nbytes[f]
+			fb := field[i*n : i*n+n]
+			vf.fieldSet(f, fb)
+		}
+		a[i] = v
+	}
+
+	return a, nil
+}
+
+// appendByteValues reads a byte array as an array of Values of a certain type.
+// If id.Size() is less than 0, then values are assumed to be of variable
+// length. The first 4 bytes of a value is read as length N of the value.
+// id.FieldSize() indicates the size of each field in the value, so the next
+// N*field bytes are read as the full value.
+func appendByteValues(id Type, b []byte) (a []Value, err error) {
+	if size := id.Size(); size >= 0 {
+		for i := 0; i+size <= len(b); i += size {
+			v := NewValue(id)
+			if err := v.FromBytes(b[i : i+size]); err != nil {
+				return nil, err
+			}
+			a = append(a, v)
+		}
+		return a, nil
+	}
+	// Variable length; get size from first 4 bytes.
+	field := id.FieldSize()
+	ba := b
+	for len(ba) > 0 {
+		if len(ba) < 4 {
+			return nil, errors.New("expected 4 more bytes in array")
+		}
+		size := int(binary.LittleEndian.Uint32(ba))
+		if len(ba[4:]) < size*field {
+			return nil, fmt.Errorf("expected %d more bytes in array", size*field)
+		}
+
+		v := NewValue(id)
+		if err := v.FromBytes(ba[:4+size*field]); err != nil {
+			return nil, err
+		}
+		a = append(a, v)
+
+		ba = ba[4+size*field:]
+	}
+	return a, nil
+}
+
+// Deinterleave, then append from given size.
+func deinterleaveAppend(t Type, b []byte) (a []Value, err error) {
+	bc := make([]byte, len(b))
+	copy(bc, b)
+	size := t.Size()
+	if err = deinterleave(bc, size); err != nil {
+		return nil, err
+	}
+	return appendByteValues(t, bc)
 }
 
 // ValuesFromBytes decodes b according to t, into a slice of values, the type of
