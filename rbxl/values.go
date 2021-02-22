@@ -468,17 +468,16 @@ func checklen(v Value, b []byte) error {
 
 // checkvarlen checks the buffer's length to make sure it can be decoded into
 // the value. The first 4 bytes are decoded as the number of fields of the
-// value, and the remaining length of the buffer is expected to be field*length.
-// Returns the remaining buffer and the number of fields. Returns an error if
-// the buffer is too short.
-func checkvarlen(v Value, b []byte, field uint32) ([]byte, int, error) {
+// value, and the remaining length of the buffer is expected to be
+// v.Type().FieldSize()*length. Returns the remaining buffer and the number of
+// fields. Returns an error if the buffer is too short.
+func checkvarlen(v Value, b []byte) ([]byte, int, error) {
 	const lensize = 4
 	if len(b) < lensize {
 		return b, 0, buflenError{typ: v.Type(), exp: lensize, got: len(b)}
 	}
 	length := binary.LittleEndian.Uint32(b[:lensize])
-	// field is uint32 to ensure that n cannot overflow.
-	if n := lensize + uint64(field)*uint64(length); uint64(len(b)) < n {
+	if n := lensize + uint64(v.Type().FieldSize())*uint64(length); uint64(len(b)) < n {
 		return b, 0, buflenError{typ: v.Type(), exp: n, got: len(b)}
 	}
 	return b[lensize:], int(length), nil
@@ -502,7 +501,7 @@ func (v ValueString) Bytes(b []byte) {
 }
 
 func (v *ValueString) FromBytes(b []byte) error {
-	b, n, err := checkvarlen(v, b, 1)
+	b, n, err := checkvarlen(v, b)
 	if err != nil {
 		return err
 	}
@@ -520,7 +519,7 @@ func (ValueBool) Type() Type {
 }
 
 func (v ValueBool) BytesLen() int {
-	return 1
+	return v.Type().Size()
 }
 
 func (v ValueBool) Bytes(b []byte) {
@@ -548,7 +547,7 @@ func (ValueInt) Type() Type {
 }
 
 func (v ValueInt) BytesLen() int {
-	return 4
+	return v.Type().Size()
 }
 
 func (v ValueInt) Bytes(b []byte) {
@@ -572,7 +571,7 @@ func (ValueFloat) Type() Type {
 }
 
 func (v ValueFloat) BytesLen() int {
-	return 4
+	return v.Type().Size()
 }
 
 func (v ValueFloat) Bytes(b []byte) {
@@ -596,7 +595,7 @@ func (ValueDouble) Type() Type {
 }
 
 func (v ValueDouble) BytesLen() int {
-	return 8
+	return v.Type().Size()
 }
 
 func (v ValueDouble) Bytes(b []byte) {
@@ -623,7 +622,7 @@ func (ValueUDim) Type() Type {
 }
 
 func (v ValueUDim) BytesLen() int {
-	return 8
+	return v.Type().Size()
 }
 
 func (v ValueUDim) Bytes(b []byte) {
@@ -678,7 +677,7 @@ func (ValueUDim2) Type() Type {
 }
 
 func (v ValueUDim2) BytesLen() int {
-	return 16
+	return v.Type().Size()
 }
 
 func (v ValueUDim2) Bytes(b []byte) {
@@ -746,7 +745,7 @@ func (ValueRay) Type() Type {
 }
 
 func (v ValueRay) BytesLen() int {
-	return 24
+	return v.Type().Size()
 }
 
 func (v ValueRay) Bytes(b []byte) {
@@ -782,7 +781,7 @@ func (ValueFaces) Type() Type {
 }
 
 func (v ValueFaces) BytesLen() int {
-	return 1
+	return v.Type().Size()
 }
 
 func (v ValueFaces) Bytes(b []byte) {
@@ -819,7 +818,7 @@ func (ValueAxes) Type() Type {
 }
 
 func (v ValueAxes) BytesLen() int {
-	return 1
+	return v.Type().Size()
 }
 
 func (v ValueAxes) Bytes(b []byte) {
@@ -851,7 +850,7 @@ func (ValueBrickColor) Type() Type {
 }
 
 func (v ValueBrickColor) BytesLen() int {
-	return 4
+	return v.Type().Size()
 }
 
 func (v ValueBrickColor) Bytes(b []byte) {
@@ -877,7 +876,7 @@ func (ValueColor3) Type() Type {
 }
 
 func (v ValueColor3) BytesLen() int {
-	return 12
+	return v.Type().Size()
 }
 
 func (v ValueColor3) Bytes(b []byte) {
@@ -934,7 +933,7 @@ func (ValueVector2) Type() Type {
 }
 
 func (v ValueVector2) BytesLen() int {
-	return 8
+	return v.Type().Size()
 }
 
 func (v ValueVector2) Bytes(b []byte) {
@@ -985,7 +984,7 @@ func (ValueVector3) Type() Type {
 }
 
 func (v ValueVector3) BytesLen() int {
-	return 12
+	return v.Type().Size()
 }
 
 func (v ValueVector3) Bytes(b []byte) {
@@ -1042,7 +1041,7 @@ func (ValueVector2int16) Type() Type {
 }
 
 func (v ValueVector2int16) BytesLen() int {
-	return 4
+	return v.Type().Size()
 }
 
 func (v ValueVector2int16) Bytes(b []byte) {
@@ -1234,7 +1233,7 @@ func (ValueToken) Type() Type {
 }
 
 func (v ValueToken) BytesLen() int {
-	return 4
+	return v.Type().Size()
 }
 
 func (v ValueToken) Bytes(b []byte) {
@@ -1258,7 +1257,7 @@ func (ValueReference) Type() Type {
 }
 
 func (v ValueReference) BytesLen() int {
-	return 4
+	return v.Type().Size()
 }
 
 func (v ValueReference) Bytes(b []byte) {
@@ -1284,7 +1283,7 @@ func (ValueVector3int16) Type() Type {
 }
 
 func (v ValueVector3int16) BytesLen() int {
-	return 6
+	return v.Type().Size()
 }
 
 func (v ValueVector3int16) Bytes(b []byte) {
@@ -1333,7 +1332,7 @@ func (v ValueNumberSequence) Bytes(b []byte) {
 }
 
 func (v *ValueNumberSequence) FromBytes(b []byte) error {
-	b, n, err := checkvarlen(v, b, sizeNSK)
+	b, n, err := checkvarlen(v, b)
 	if err != nil {
 		return err
 	}
@@ -1384,7 +1383,7 @@ func (v ValueColorSequence) Bytes(b []byte) {
 }
 
 func (v *ValueColorSequence) FromBytes(b []byte) error {
-	b, n, err := checkvarlen(v, b, sizeCSK)
+	b, n, err := checkvarlen(v, b)
 	if err != nil {
 		return err
 	}
@@ -1418,7 +1417,7 @@ func (ValueNumberRange) Type() Type {
 }
 
 func (v ValueNumberRange) BytesLen() int {
-	return 8
+	return v.Type().Size()
 }
 
 func (v ValueNumberRange) Bytes(b []byte) {
@@ -1446,7 +1445,7 @@ func (ValueRect2D) Type() Type {
 }
 
 func (v ValueRect2D) BytesLen() int {
-	return 16
+	return v.Type().Size()
 }
 
 func (v ValueRect2D) Bytes(b []byte) {
@@ -1565,7 +1564,7 @@ func (ValueColor3uint8) Type() Type {
 }
 
 func (v ValueColor3uint8) BytesLen() int {
-	return 3
+	return v.Type().Size()
 }
 
 func (v ValueColor3uint8) Bytes(b []byte) {
@@ -1620,7 +1619,7 @@ func (ValueInt64) Type() Type {
 }
 
 func (v ValueInt64) BytesLen() int {
-	return 8
+	return v.Type().Size()
 }
 
 func (v ValueInt64) Bytes(b []byte) {
@@ -1644,7 +1643,7 @@ func (ValueSharedString) Type() Type {
 }
 
 func (v ValueSharedString) BytesLen() int {
-	return 4
+	return v.Type().Size()
 }
 
 func (v ValueSharedString) Bytes(b []byte) {

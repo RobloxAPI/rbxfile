@@ -220,33 +220,13 @@ func appendValueBytes(id Type, a []Value) []byte {
 	return b
 }
 
-// Reads a byte array as an array of Values of a certain type. Size is the
-// byte size of each Value. If size is less than 0, then values are assumed to
-// be of variable length. The first 4 bytes of a value is read as length N of
-// the value. Field then indicates the size of each field in the value, so the
-// next N*field bytes are read as the full value.
-func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err error) {
-	if size < 0 {
-		// Variable length; get size from first 4 bytes.
-		ba := b
-		for len(ba) > 0 {
-			if len(ba) < 4 {
-				return nil, errors.New("expected 4 more bytes in array")
-			}
-			size := int(binary.LittleEndian.Uint32(ba))
-			if len(ba[4:]) < size*field {
-				return nil, fmt.Errorf("expected %d more bytes in array", size*field)
-			}
-
-			v := NewValue(id)
-			if err := v.FromBytes(ba[:4+size*field]); err != nil {
-				return nil, err
-			}
-			a = append(a, v)
-
-			ba = ba[4+size*field:]
-		}
-	} else {
+// appendByteValues reads a byte array as an array of Values of a certain type.
+// If id.Size() is less than 0, then values are assumed to be of variable
+// length. The first 4 bytes of a value is read as length N of the value.
+// id.FieldSize() indicates the size of each field in the value, so the next
+// N*field bytes are read as the full value.
+func appendByteValues(id Type, b []byte) (a []Value, err error) {
+	if size := id.Size(); size >= 0 {
 		for i := 0; i+size <= len(b); i += size {
 			v := NewValue(id)
 			if err := v.FromBytes(b[i : i+size]); err != nil {
@@ -254,6 +234,27 @@ func appendByteValues(id Type, b []byte, size int, field int) (a []Value, err er
 			}
 			a = append(a, v)
 		}
+		return a, nil
+	}
+	// Variable length; get size from first 4 bytes.
+	field := id.FieldSize()
+	ba := b
+	for len(ba) > 0 {
+		if len(ba) < 4 {
+			return nil, errors.New("expected 4 more bytes in array")
+		}
+		size := int(binary.LittleEndian.Uint32(ba))
+		if len(ba[4:]) < size*field {
+			return nil, fmt.Errorf("expected %d more bytes in array", size*field)
+		}
+
+		v := NewValue(id)
+		if err := v.FromBytes(ba[:4+size*field]); err != nil {
+			return nil, err
+		}
+		a = append(a, v)
+
+		ba = ba[4+size*field:]
 	}
 	return a, nil
 }
@@ -268,13 +269,14 @@ func interleaveAppend(t Type, a []Value, size int) (b []byte, err error) {
 }
 
 // Deinterleave, then append from given size.
-func deinterleaveAppend(t Type, b []byte, size int) (a []Value, err error) {
+func deinterleaveAppend(t Type, b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
+	size := t.Size()
 	if err = deinterleave(bc, size); err != nil {
 		return nil, err
 	}
-	return appendByteValues(t, bc, size, 0)
+	return appendByteValues(t, bc)
 }
 
 // ValuesToBytes encodes a slice of values into binary form, according to t.
@@ -461,19 +463,19 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 
 	switch t {
 	case TypeString:
-		return appendByteValues(t, b, -1, 1)
+		return appendByteValues(t, b)
 
 	case TypeBool:
-		return appendByteValues(t, b, 1, 0)
+		return appendByteValues(t, b)
 
 	case TypeInt:
-		return deinterleaveAppend(t, b, 4)
+		return deinterleaveAppend(t, b)
 
 	case TypeFloat:
-		return deinterleaveAppend(t, b, 4)
+		return deinterleaveAppend(t, b)
 
 	case TypeDouble:
-		return appendByteValues(t, b, 8, 0)
+		return appendByteValues(t, b)
 
 	case TypeUDim:
 		return deinterleaveFields(t, b)
@@ -482,16 +484,16 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		return deinterleaveFields(t, b)
 
 	case TypeRay:
-		return appendByteValues(t, b, 24, 0)
+		return appendByteValues(t, b)
 
 	case TypeFaces:
-		return appendByteValues(t, b, 1, 0)
+		return appendByteValues(t, b)
 
 	case TypeAxes:
-		return appendByteValues(t, b, 1, 0)
+		return appendByteValues(t, b)
 
 	case TypeBrickColor:
-		return deinterleaveAppend(t, b, 4)
+		return deinterleaveAppend(t, b)
 
 	case TypeColor3:
 		return deinterleaveFields(t, b)
@@ -583,7 +585,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		return a, nil
 
 	case TypeToken:
-		return deinterleaveAppend(t, b, 4)
+		return deinterleaveAppend(t, b)
 
 	case TypeReference:
 		if len(b) == 0 {
@@ -612,16 +614,16 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		return a, nil
 
 	case TypeVector3int16:
-		return appendByteValues(t, b, 6, 0)
+		return appendByteValues(t, b)
 
 	case TypeNumberSequence:
-		return appendByteValues(t, b, -1, sizeNSK)
+		return appendByteValues(t, b)
 
 	case TypeColorSequence:
-		return appendByteValues(t, b, -1, sizeCSK)
+		return appendByteValues(t, b)
 
 	case TypeNumberRange:
-		return appendByteValues(t, b, 8, 0)
+		return appendByteValues(t, b)
 
 	case TypeRect2D:
 		return deinterleaveFields(t, b)
@@ -652,10 +654,10 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		return deinterleaveFields(t, b)
 
 	case TypeInt64:
-		return deinterleaveAppend(t, b, 4)
+		return deinterleaveAppend(t, b)
 
 	case TypeSharedString:
-		return deinterleaveAppend(t, b, 4)
+		return deinterleaveAppend(t, b)
 
 	default:
 		return a, nil
