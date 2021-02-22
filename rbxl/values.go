@@ -47,8 +47,98 @@ const (
 	TypeSharedString       Type = 0x1C
 )
 
+// Valid returns whether the type has a valid value.
 func (t Type) Valid() bool {
 	return TypeString <= t && t <= TypeSharedString
+}
+
+// Size returns the number of bytes required to hold a value of the type.
+// Returns < 0 if the size depends on the value, and 0 if the type is invalid.
+//
+// A Size() of < 0 with a non-zero FieldSize() indicates an array-like type,
+// where the first 4 bytes are the size of the array, and each element has a
+// size of FieldSize().
+//
+// A Size() of < 0 with a FieldSize() of 0 indicates a type with a customized
+// size.
+func (t Type) Size() int {
+	switch t {
+	case TypeString:
+		return -1
+	case TypeBool:
+		return 1
+	case TypeInt:
+		return 4
+	case TypeFloat:
+		return 4
+	case TypeDouble:
+		return 8
+	case TypeUDim:
+		return 8
+	case TypeUDim2:
+		return 16
+	case TypeRay:
+		return 24
+	case TypeFaces:
+		return 1
+	case TypeAxes:
+		return 1
+	case TypeBrickColor:
+		return 4
+	case TypeColor3:
+		return 12
+	case TypeVector2:
+		return 8
+	case TypeVector3:
+		return 12
+	case TypeVector2int16:
+		return 4
+	case TypeCFrame:
+		return -1
+	case TypeCFrameQuat:
+		return -1
+	case TypeToken:
+		return 4
+	case TypeReference:
+		return 4
+	case TypeVector3int16:
+		return 6
+	case TypeNumberSequence:
+		return -1
+	case TypeColorSequence:
+		return -1
+	case TypeNumberRange:
+		return 8
+	case TypeRect2D:
+		return 16
+	case TypePhysicalProperties:
+		return -1
+	case TypeColor3uint8:
+		return 3
+	case TypeInt64:
+		return 8
+	case TypeSharedString:
+		return 4
+	default:
+		return 0
+	}
+}
+
+// FieldSize returns the number of bytes of each field within a value of the
+// type, where the type is a variable-length array of fields. Returns 0 if the
+// type is invalid or not array-like.
+func (t Type) FieldSize() int {
+	// Must return value that does not overflow uint32.
+	switch t {
+	case TypeString:
+		return 1
+	case TypeNumberSequence:
+		return sizeNSK
+	case TypeColorSequence:
+		return sizeCSK
+	default:
+		return 0
+	}
 }
 
 // String returns a string representation of the type. If the type is not
