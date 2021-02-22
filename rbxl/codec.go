@@ -302,6 +302,23 @@ func DecodeValue(value Value) rbxfile.Value {
 
 		return cf
 
+	case *ValueCFrameQuat:
+		v := value.ToCFrame()
+		cf := rbxfile.ValueCFrame{
+			Position: rbxfile.ValueVector3{
+				X: float32(v.Position.X),
+				Y: float32(v.Position.Y),
+				Z: float32(v.Position.Z),
+			},
+			Rotation: v.Rotation,
+		}
+
+		if v.Special != 0 {
+			cf.Rotation = cframeSpecialMatrix[v.Special]
+		}
+
+		return cf
+
 	case *ValueToken:
 		return rbxfile.ValueToken(*value)
 

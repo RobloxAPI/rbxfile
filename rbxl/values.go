@@ -16,24 +16,24 @@ const maxFieldLen = 4
 type Type byte
 
 const (
-	TypeInvalid      Type = 0x0
-	TypeString       Type = 0x1
-	TypeBool         Type = 0x2
-	TypeInt          Type = 0x3
-	TypeFloat        Type = 0x4
-	TypeDouble       Type = 0x5
-	TypeUDim         Type = 0x6
-	TypeUDim2        Type = 0x7
-	TypeRay          Type = 0x8
-	TypeFaces        Type = 0x9
-	TypeAxes         Type = 0xA
-	TypeBrickColor   Type = 0xB
-	TypeColor3       Type = 0xC
-	TypeVector2      Type = 0xD
-	TypeVector3      Type = 0xE
-	TypeVector2int16 Type = 0xF
-	TypeCFrame       Type = 0x10
-	//TypeCFrameQuat Type = 0x11
+	TypeInvalid            Type = 0x0
+	TypeString             Type = 0x1
+	TypeBool               Type = 0x2
+	TypeInt                Type = 0x3
+	TypeFloat              Type = 0x4
+	TypeDouble             Type = 0x5
+	TypeUDim               Type = 0x6
+	TypeUDim2              Type = 0x7
+	TypeRay                Type = 0x8
+	TypeFaces              Type = 0x9
+	TypeAxes               Type = 0xA
+	TypeBrickColor         Type = 0xB
+	TypeColor3             Type = 0xC
+	TypeVector2            Type = 0xD
+	TypeVector3            Type = 0xE
+	TypeVector2int16       Type = 0xF
+	TypeCFrame             Type = 0x10
+	TypeCFrameQuat         Type = 0x11
 	TypeToken              Type = 0x12
 	TypeReference          Type = 0x13
 	TypeVector3int16       Type = 0x14
@@ -48,7 +48,7 @@ const (
 )
 
 func (t Type) Valid() bool {
-	return TypeString <= t && t <= TypeSharedString && t != 0x11
+	return TypeString <= t && t <= TypeSharedString
 }
 
 // String returns a string representation of the type. If the type is not
@@ -87,8 +87,8 @@ func (t Type) String() string {
 		return "Vector2int16"
 	case TypeCFrame:
 		return "CFrame"
-	// case TypeCFrameQuat:
-	// 	return "CFrameQuat"
+	case TypeCFrameQuat:
+		return "CFrameQuat"
 	case TypeToken:
 		return "Token"
 	case TypeReference:
@@ -150,6 +150,8 @@ func (t Type) ValueType() rbxfile.Type {
 	case TypeVector2int16:
 		return rbxfile.TypeVector2int16
 	case TypeCFrame:
+		return rbxfile.TypeCFrame
+	case TypeCFrameQuat:
 		return rbxfile.TypeCFrame
 	case TypeToken:
 		return rbxfile.TypeToken
@@ -294,8 +296,8 @@ func NewValue(typ Type) Value {
 		return new(ValueVector2int16)
 	case TypeCFrame:
 		return new(ValueCFrame)
-	// case TypeCFrameQuat:
-	// 	return new(ValueCFrameQuat)
+	case TypeCFrameQuat:
+		return new(ValueCFrameQuat)
 	case TypeToken:
 		return new(ValueToken)
 	case TypeReference:
@@ -1020,6 +1022,117 @@ func (v *ValueCFrame) FromBytes(b []byte) error {
 	}
 	v.Position.FromBytes(b[len(b)-12:])
 	return nil
+}
+
+func sqrt32(x float32) float32 {
+	return float32(math.Sqrt(float64(x)))
+}
+
+// ToCFrameQuat converts the value to a ValueCFrameQuat.
+func (v ValueCFrame) ToCFrameQuat() (q ValueCFrameQuat) {
+	if v.Special != 0 {
+		return ValueCFrameQuat{
+			Special:  v.Special,
+			Position: v.Position,
+		}
+	}
+	q.Position = v.Position
+	if v.Rotation[0]+v.Rotation[4]+v.Rotation[8] > 0 {
+		q.QW = sqrt32(1+v.Rotation[0]+v.Rotation[4]+v.Rotation[8]) * 0.5
+		q.QX = (v.Rotation[7] - v.Rotation[5]) / (4 * q.QW)
+		q.QY = (v.Rotation[2] - v.Rotation[6]) / (4 * q.QW)
+		q.QZ = (v.Rotation[3] - v.Rotation[1]) / (4 * q.QW)
+	} else if v.Rotation[0] > v.Rotation[4] && v.Rotation[0] > v.Rotation[8] {
+		q.QX = sqrt32(1+v.Rotation[0]-v.Rotation[4]-v.Rotation[8]) * 0.5
+		q.QY = (v.Rotation[3] + v.Rotation[1]) / (4 * q.QX)
+		q.QZ = (v.Rotation[6] + v.Rotation[2]) / (4 * q.QX)
+		q.QW = (v.Rotation[7] - v.Rotation[5]) / (4 * q.QX)
+	} else if v.Rotation[4] > v.Rotation[8] {
+		q.QY = sqrt32(1+v.Rotation[4]-v.Rotation[0]-v.Rotation[8]) * 0.5
+		q.QX = (v.Rotation[3] + v.Rotation[1]) / (4 * q.QY)
+		q.QZ = (v.Rotation[7] + v.Rotation[5]) / (4 * q.QY)
+		q.QW = (v.Rotation[2] - v.Rotation[6]) / (4 * q.QY)
+	} else {
+		q.QZ = sqrt32(1+v.Rotation[8]-v.Rotation[0]-v.Rotation[4]) * 0.5
+		q.QX = (v.Rotation[6] + v.Rotation[2]) / (4 * q.QZ)
+		q.QY = (v.Rotation[7] + v.Rotation[5]) / (4 * q.QZ)
+		q.QW = (v.Rotation[3] - v.Rotation[1]) / (4 * q.QZ)
+	}
+	return q
+}
+
+////////////////////////////////////////////////////////////////
+
+type ValueCFrameQuat struct {
+	Special        uint8
+	QX, QY, QZ, QW float32
+	Position       ValueVector3
+}
+
+func (ValueCFrameQuat) Type() Type {
+	return TypeCFrameQuat
+}
+
+func (v ValueCFrameQuat) BytesLen() int {
+	if v.Special == 0 {
+		return 29
+	}
+	return 13
+}
+
+func (v ValueCFrameQuat) Bytes(b []byte) {
+	n := 1
+	if v.Special == 0 {
+		b[0] = 0
+		binary.LittleEndian.PutUint32(b[1:5], math.Float32bits(v.QX))
+		binary.LittleEndian.PutUint32(b[5:9], math.Float32bits(v.QY))
+		binary.LittleEndian.PutUint32(b[9:13], math.Float32bits(v.QZ))
+		binary.LittleEndian.PutUint32(b[13:17], math.Float32bits(v.QW))
+		n += 16
+	} else {
+		b[0] = v.Special
+	}
+	v.Position.Bytes(b[n:])
+}
+
+func (v *ValueCFrameQuat) FromBytes(b []byte) error {
+	if b[0] == 0 && len(b) < 29 {
+		return buflenError{typ: v.Type(), exp: 29, got: len(b)}
+	} else if b[0] != 0 && len(b) != 13 {
+		return buflenError{typ: v.Type(), exp: 13, got: len(b)}
+	}
+	v.Special = b[0]
+	if b[0] == 0 {
+		v.QX = math.Float32frombits(binary.LittleEndian.Uint32(b[1:5]))
+		v.QY = math.Float32frombits(binary.LittleEndian.Uint32(b[5:9]))
+		v.QZ = math.Float32frombits(binary.LittleEndian.Uint32(b[9:13]))
+		v.QW = math.Float32frombits(binary.LittleEndian.Uint32(b[13:17]))
+	} else {
+		v.QX = 0
+		v.QY = 0
+		v.QZ = 0
+		v.QW = 0
+	}
+	v.Position.FromBytes(b[len(b)-12:])
+	return nil
+}
+
+// ToCFrame converts the value to a ValueCFrame.
+func (v ValueCFrameQuat) ToCFrame() ValueCFrame {
+	if v.Special != 0 {
+		return ValueCFrame{
+			Special:  v.Special,
+			Position: v.Position,
+		}
+	}
+	return ValueCFrame{
+		Position: v.Position,
+		Rotation: [9]float32{
+			1 - 2*(v.QY*v.QY+v.QZ*v.QZ), 2 * (v.QY*v.QX - v.QW*v.QZ), 2 * (v.QW*v.QY + v.QZ*v.QX),
+			2 * (v.QW*v.QZ + v.QY*v.QX), 1 - 2*(v.QX*v.QX+v.QZ*v.QZ), 2 * (v.QZ*v.QY - v.QW*v.QX),
+			2 * (v.QZ*v.QX - v.QW*v.QY), 2 * (v.QW*v.QX + v.QZ*v.QY), 1 - 2*(v.QX*v.QX+v.QY*v.QY),
+		},
+	}
 }
 
 ////////////////////////////////////////////////////////////////

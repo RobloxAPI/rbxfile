@@ -358,6 +358,25 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		b = append(b, pb...)
 		return b, nil
 
+	case TypeCFrameQuat:
+		p := make([]Value, len(a))
+		for i, cf := range a {
+			cf := cf.(*ValueCFrameQuat)
+			b = append(b, cf.Special)
+			if cf.Special == 0 {
+				r := make([]byte, 16)
+				binary.LittleEndian.PutUint32(r[0:4], math.Float32bits(cf.QX))
+				binary.LittleEndian.PutUint32(r[4:8], math.Float32bits(cf.QY))
+				binary.LittleEndian.PutUint32(r[8:12], math.Float32bits(cf.QZ))
+				binary.LittleEndian.PutUint32(r[12:16], math.Float32bits(cf.QW))
+				b = append(b, r...)
+			}
+			p[i] = &cf.Position
+		}
+		pb, _ := interleaveFields(TypeVector3, p)
+		b = append(b, pb...)
+		return b, nil
+
 	case TypeToken:
 		return interleaveAppend(t, a, 4)
 
@@ -523,6 +542,40 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		// Hack: use 'a' variable to receive Vector3 values, then replace them
 		// with CFrames. This lets us avoid needing to copy 'cfs' to 'a', and
 		// needing to create a second array.
+		for i, p := range a {
+			cfs[i].Position = *p.(*ValueVector3)
+			a[i] = cfs[i]
+		}
+		return a, nil
+
+	case TypeCFrameQuat:
+		cfs := make([]*ValueCFrame, 0)
+		i := 0
+		for n := 0; len(b)-i > n; n += 12 {
+			cf := new(ValueCFrameQuat)
+			cf.Special = b[i]
+			i++
+			if cf.Special == 0 {
+				const q = 16
+				r := b[i:]
+				if len(r) < q {
+					return nil, fmt.Errorf("expected %d more bytes in array", q)
+				}
+				cf.QX = math.Float32frombits(binary.LittleEndian.Uint32(r[0:4]))
+				cf.QY = math.Float32frombits(binary.LittleEndian.Uint32(r[4:8]))
+				cf.QZ = math.Float32frombits(binary.LittleEndian.Uint32(r[8:12]))
+				cf.QW = math.Float32frombits(binary.LittleEndian.Uint32(r[12:16]))
+				i += q
+			}
+			c := cf.ToCFrame()
+			cfs = append(cfs, &c)
+		}
+		if a, err = deinterleaveFields(TypeVector3, b[i:]); err != nil {
+			return nil, err
+		}
+		if len(a) != len(cfs) {
+			return nil, errors.New("number of positions does not match number of matrices")
+		}
 		for i, p := range a {
 			cfs[i].Position = *p.(*ValueVector3)
 			a[i] = cfs[i]
