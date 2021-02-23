@@ -513,10 +513,10 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		// byte array. n is the expected size of the position data, which
 		// increases every time another CFrame is read. As long as the number of
 		// remaining bytes is greater than n, then the next byte can be assumed
-		// to be matrix data. By the end, the number of remaining bytes should
-		// be exactly equal to n.
+		// to be matrix data.
 		i := 0
-		for n := 0; len(b)-i > n; n += 12 {
+		n := 0
+		for ; len(b)-i > n; n += 12 {
 			cf := new(ValueCFrame)
 			cf.Special = b[i]
 			i++
@@ -535,7 +535,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		}
 		// Read remaining position data using the Position field, which is a
 		// ValueVector3.
-		if a, err = deinterleaveFields(TypeVector3, b[i:]); err != nil {
+		if a, err = deinterleaveFields(TypeVector3, b[i:i+n]); err != nil {
 			return nil, err
 		}
 		if len(a) != len(cfs) {
@@ -553,7 +553,8 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 	case TypeCFrameQuat:
 		cfs := make([]*ValueCFrame, 0)
 		i := 0
-		for n := 0; len(b)-i > n; n += 12 {
+		n := 0
+		for ; len(b)-i > n; n += 12 {
 			cf := new(ValueCFrameQuat)
 			cf.Special = b[i]
 			i++
@@ -572,7 +573,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			c := cf.ToCFrame()
 			cfs = append(cfs, &c)
 		}
-		if a, err = deinterleaveFields(TypeVector3, b[i:]); err != nil {
+		if a, err = deinterleaveFields(TypeVector3, b[i:i+n]); err != nil {
 			return nil, err
 		}
 		if len(a) != len(cfs) {
