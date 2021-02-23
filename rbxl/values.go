@@ -1158,9 +1158,12 @@ func (v ValueCFrame) Bytes(b []byte) {
 }
 
 func (v *ValueCFrame) FromBytes(b []byte) error {
+	if len(b) < zCFrameSp {
+		return buflenError{typ: v.Type(), exp: zCFrameSp, got: len(b)}
+	}
 	if b[0] == 0 && len(b) < zCFrameFull {
 		return buflenError{typ: v.Type(), exp: zCFrameFull, got: len(b)}
-	} else if b[0] != 0 && len(b) != zCFrameShort {
+	} else if b[0] != 0 && len(b) < zCFrameShort {
 		return buflenError{typ: v.Type(), exp: zCFrameShort, got: len(b)}
 	}
 	v.Special = b[0]
@@ -1268,9 +1271,12 @@ func (v *ValueCFrameQuat) quatFromBytes(b []byte) {
 }
 
 func (v *ValueCFrameQuat) FromBytes(b []byte) error {
+	if len(b) < zCFrameQuatSp {
+		return buflenError{typ: v.Type(), exp: zCFrameQuatSp, got: len(b)}
+	}
 	if b[0] == 0 && len(b) < zCFrameQuatFull {
 		return buflenError{typ: v.Type(), exp: zCFrameQuatFull, got: len(b)}
-	} else if b[0] != 0 && len(b) != zCFrameQuatShort {
+	} else if b[0] != 0 && len(b) < zCFrameQuatShort {
 		return buflenError{typ: v.Type(), exp: zCFrameQuatShort, got: len(b)}
 	}
 	v.Special = b[0]
