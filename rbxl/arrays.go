@@ -148,9 +148,9 @@ func appendValueBytes(id Type, a []Value) []byte {
 }
 
 // Append each value as bytes, then interleave to improve compression.
-func interleaveAppend(t Type, a []Value, size int) (b []byte, err error) {
+func interleaveAppend(t Type, a []Value) (b []byte, err error) {
 	b = appendValueBytes(t, a)
-	if err = interleave(b, size); err != nil {
+	if err = interleave(b, t.Size()); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -176,10 +176,10 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		return appendValueBytes(t, a), nil
 
 	case TypeInt:
-		return interleaveAppend(t, a, 4)
+		return interleaveAppend(t, a)
 
 	case TypeFloat:
-		return interleaveAppend(t, a, 4)
+		return interleaveAppend(t, a)
 
 	case TypeDouble:
 		return appendValueBytes(t, a), nil
@@ -200,7 +200,7 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		return appendValueBytes(t, a), nil
 
 	case TypeBrickColor:
-		return interleaveAppend(t, a, 4)
+		return interleaveAppend(t, a)
 
 	case TypeColor3:
 		return interleaveFields(t, a)
@@ -257,7 +257,7 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		return b, nil
 
 	case TypeToken:
-		return interleaveAppend(t, a, 4)
+		return interleaveAppend(t, a)
 
 	case TypeReference:
 		// Because values are generated in sequence, they are likely to be
@@ -321,10 +321,10 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		return interleaveFields(t, a)
 
 	case TypeInt64:
-		return interleaveAppend(t, a, 8)
+		return interleaveAppend(t, a)
 
 	case TypeSharedString:
-		return interleaveAppend(t, a, 4)
+		return interleaveAppend(t, a)
 
 	default:
 		return b, nil
