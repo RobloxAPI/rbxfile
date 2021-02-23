@@ -1163,12 +1163,13 @@ func (v *ValueCFrame) FromBytes(b []byte) error {
 		for i := range v.Rotation {
 			v.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*zf32 : i*zf32+zf32]))
 		}
+		v.Position.FromBytes(b[zCFrameSp+zCFrameRo:])
 	} else {
 		for i := range v.Rotation {
 			v.Rotation[i] = 0
 		}
+		v.Position.FromBytes(b[zCFrameSp:])
 	}
-	v.Position.FromBytes(b[len(b)-zVector3:])
 	return nil
 }
 
@@ -1269,13 +1270,14 @@ func (v *ValueCFrameQuat) FromBytes(b []byte) error {
 	v.Special = b[0]
 	if b[0] == 0 {
 		v.quatFromBytes(b[zCFrameQuatSp:])
+		v.Position.FromBytes(b[zCFrameQuatSp+zCFrameQuatQ:])
 	} else {
 		v.QX = 0
 		v.QY = 0
 		v.QZ = 0
 		v.QW = 0
+		v.Position.FromBytes(b[zCFrameQuatSp:])
 	}
-	v.Position.FromBytes(b[len(b)-zVector3:])
 	return nil
 }
 
