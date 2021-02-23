@@ -12,6 +12,30 @@ import (
 // maximum of all implementations.
 const maxFieldLen = 4
 
+const (
+	// Primitive sizes.
+	zb   = 1 // byte
+	zi8  = 1 // int8
+	zu8  = 1 // uint8
+	zi16 = 2 // int16
+	zu16 = 2 // uint16
+	zi32 = 4 // int32
+	zu32 = 4 // uint32
+	zf32 = 4 // float32
+	zi64 = 8 // int64
+	zu64 = 8 // uint64
+	zf64 = 8 // float64
+
+	// Number of bytes used to contain length of array-like type.
+	zArrayLen = 4
+
+	// Variable size.
+	zVar = -1
+
+	// Invalid size.
+	zInvalid = 0
+)
+
 // Type represents a type that can be serialized.
 type Type byte
 
@@ -64,63 +88,63 @@ func (t Type) Valid() bool {
 func (t Type) Size() int {
 	switch t {
 	case TypeString:
-		return -1
+		return zString
 	case TypeBool:
-		return 1
+		return zBool
 	case TypeInt:
-		return 4
+		return zInt
 	case TypeFloat:
-		return 4
+		return zFloat
 	case TypeDouble:
-		return 8
+		return zDouble
 	case TypeUDim:
-		return 8
+		return zUDim
 	case TypeUDim2:
-		return 16
+		return zUDim2
 	case TypeRay:
-		return 24
+		return zRay
 	case TypeFaces:
-		return 1
+		return zFaces
 	case TypeAxes:
-		return 1
+		return zAxes
 	case TypeBrickColor:
-		return 4
+		return zBrickColor
 	case TypeColor3:
-		return 12
+		return zColor3
 	case TypeVector2:
-		return 8
+		return zVector2
 	case TypeVector3:
-		return 12
+		return zVector3
 	case TypeVector2int16:
-		return 4
+		return zVector2int16
 	case TypeCFrame:
-		return -1
+		return zCFrame
 	case TypeCFrameQuat:
-		return -1
+		return zCFrameQuat
 	case TypeToken:
-		return 4
+		return zToken
 	case TypeReference:
-		return 4
+		return zReference
 	case TypeVector3int16:
-		return 6
+		return zVector3int16
 	case TypeNumberSequence:
-		return -1
+		return zNumberSequence
 	case TypeColorSequence:
-		return -1
+		return zColorSequence
 	case TypeNumberRange:
-		return 8
+		return zNumberRange
 	case TypeRect2D:
-		return 16
+		return zRect2D
 	case TypePhysicalProperties:
-		return -1
+		return zPhysicalProperties
 	case TypeColor3uint8:
-		return 3
+		return zColor3uint8
 	case TypeInt64:
-		return 8
+		return zInt64
 	case TypeSharedString:
-		return 4
+		return zSharedString
 	default:
-		return 0
+		return zInvalid
 	}
 }
 
@@ -131,13 +155,13 @@ func (t Type) FieldSize() int {
 	// Must return value that does not overflow uint32.
 	switch t {
 	case TypeString:
-		return 1
+		return zb
 	case TypeNumberSequence:
-		return sizeNSK
+		return zNumberSequenceKeypoint
 	case TypeColorSequence:
-		return sizeCSK
+		return zColorSequenceKeypoint
 	default:
-		return 0
+		return zInvalid
 	}
 }
 
@@ -472,18 +496,19 @@ func checklen(v Value, b []byte) error {
 // v.Type().FieldSize()*length. Returns the remaining buffer and the number of
 // fields. Returns an error if the buffer is too short.
 func checkvarlen(v Value, b []byte) ([]byte, int, error) {
-	const lensize = 4
-	if len(b) < lensize {
-		return b, 0, buflenError{typ: v.Type(), exp: lensize, got: len(b)}
+	if len(b) < zArrayLen {
+		return b, 0, buflenError{typ: v.Type(), exp: zArrayLen, got: len(b)}
 	}
-	length := binary.LittleEndian.Uint32(b[:lensize])
-	if n := lensize + uint64(v.Type().FieldSize())*uint64(length); uint64(len(b)) < n {
+	length := binary.LittleEndian.Uint32(b[:zArrayLen])
+	if n := zArrayLen + uint64(v.Type().FieldSize())*uint64(length); uint64(len(b)) < n {
 		return b, 0, buflenError{typ: v.Type(), exp: n, got: len(b)}
 	}
-	return b[lensize:], int(length), nil
+	return b[zArrayLen:], int(length), nil
 }
 
 ////////////////////////////////////////////////////////////////
+
+const zString = zVar
 
 type ValueString []byte
 
@@ -492,12 +517,12 @@ func (ValueString) Type() Type {
 }
 
 func (v ValueString) BytesLen() int {
-	return len(v) + 4
+	return zArrayLen + len(v)
 }
 
 func (v ValueString) Bytes(b []byte) {
 	binary.LittleEndian.PutUint32(b, uint32(len(v)))
-	copy(b[4:], v)
+	copy(b[zArrayLen:], v)
 }
 
 func (v *ValueString) FromBytes(b []byte) error {
@@ -512,6 +537,8 @@ func (v *ValueString) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zBool = zb
+
 type ValueBool bool
 
 func (ValueBool) Type() Type {
@@ -519,7 +546,7 @@ func (ValueBool) Type() Type {
 }
 
 func (v ValueBool) BytesLen() int {
-	return v.Type().Size()
+	return zBool
 }
 
 func (v ValueBool) Bytes(b []byte) {
@@ -540,6 +567,8 @@ func (v *ValueBool) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zInt = zi32
+
 type ValueInt int32
 
 func (ValueInt) Type() Type {
@@ -547,7 +576,7 @@ func (ValueInt) Type() Type {
 }
 
 func (v ValueInt) BytesLen() int {
-	return v.Type().Size()
+	return zInt
 }
 
 func (v ValueInt) Bytes(b []byte) {
@@ -564,6 +593,8 @@ func (v *ValueInt) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zFloat = zf32
+
 type ValueFloat float32
 
 func (ValueFloat) Type() Type {
@@ -571,7 +602,7 @@ func (ValueFloat) Type() Type {
 }
 
 func (v ValueFloat) BytesLen() int {
-	return v.Type().Size()
+	return zFloat
 }
 
 func (v ValueFloat) Bytes(b []byte) {
@@ -588,6 +619,8 @@ func (v *ValueFloat) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zDouble = zf64
+
 type ValueDouble float64
 
 func (ValueDouble) Type() Type {
@@ -595,7 +628,7 @@ func (ValueDouble) Type() Type {
 }
 
 func (v ValueDouble) BytesLen() int {
-	return v.Type().Size()
+	return zDouble
 }
 
 func (v ValueDouble) Bytes(b []byte) {
@@ -612,6 +645,8 @@ func (v *ValueDouble) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zUDim = zFloat + zInt
+
 type ValueUDim struct {
 	Scale  ValueFloat
 	Offset ValueInt
@@ -622,7 +657,7 @@ func (ValueUDim) Type() Type {
 }
 
 func (v ValueUDim) BytesLen() int {
-	return v.Type().Size()
+	return zUDim
 }
 
 func (v ValueUDim) Bytes(b []byte) {
@@ -665,6 +700,8 @@ func (v ValueUDim) fieldGet(i int, b []byte) {
 
 ////////////////////////////////////////////////////////////////
 
+const zUDim2 = zFloat*2 + zInt*2
+
 type ValueUDim2 struct {
 	ScaleX  ValueFloat
 	ScaleY  ValueFloat
@@ -677,7 +714,7 @@ func (ValueUDim2) Type() Type {
 }
 
 func (v ValueUDim2) BytesLen() int {
-	return v.Type().Size()
+	return zUDim2
 }
 
 func (v ValueUDim2) Bytes(b []byte) {
@@ -731,6 +768,8 @@ func (v ValueUDim2) fieldGet(i int, b []byte) {
 
 ////////////////////////////////////////////////////////////////
 
+const zRay = zf32 * 6
+
 type ValueRay struct {
 	OriginX    float32
 	OriginY    float32
@@ -745,7 +784,7 @@ func (ValueRay) Type() Type {
 }
 
 func (v ValueRay) BytesLen() int {
-	return v.Type().Size()
+	return zRay
 }
 
 func (v ValueRay) Bytes(b []byte) {
@@ -772,6 +811,8 @@ func (v *ValueRay) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zFaces = zu8
+
 type ValueFaces struct {
 	Right, Top, Back, Left, Bottom, Front bool
 }
@@ -781,7 +822,7 @@ func (ValueFaces) Type() Type {
 }
 
 func (v ValueFaces) BytesLen() int {
-	return v.Type().Size()
+	return zFaces
 }
 
 func (v ValueFaces) Bytes(b []byte) {
@@ -809,6 +850,8 @@ func (v *ValueFaces) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zAxes = zu8
+
 type ValueAxes struct {
 	X, Y, Z bool
 }
@@ -818,7 +861,7 @@ func (ValueAxes) Type() Type {
 }
 
 func (v ValueAxes) BytesLen() int {
-	return v.Type().Size()
+	return zAxes
 }
 
 func (v ValueAxes) Bytes(b []byte) {
@@ -843,6 +886,8 @@ func (v *ValueAxes) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zBrickColor = zu32
+
 type ValueBrickColor uint32
 
 func (ValueBrickColor) Type() Type {
@@ -850,7 +895,7 @@ func (ValueBrickColor) Type() Type {
 }
 
 func (v ValueBrickColor) BytesLen() int {
-	return v.Type().Size()
+	return zBrickColor
 }
 
 func (v ValueBrickColor) Bytes(b []byte) {
@@ -867,6 +912,8 @@ func (v *ValueBrickColor) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zColor3 = zFloat * 3
+
 type ValueColor3 struct {
 	R, G, B ValueFloat
 }
@@ -876,7 +923,7 @@ func (ValueColor3) Type() Type {
 }
 
 func (v ValueColor3) BytesLen() int {
-	return v.Type().Size()
+	return zColor3
 }
 
 func (v ValueColor3) Bytes(b []byte) {
@@ -924,6 +971,8 @@ func (v ValueColor3) fieldGet(i int, b []byte) {
 
 ////////////////////////////////////////////////////////////////
 
+const zVector2 = zFloat * 2
+
 type ValueVector2 struct {
 	X, Y ValueFloat
 }
@@ -933,7 +982,7 @@ func (ValueVector2) Type() Type {
 }
 
 func (v ValueVector2) BytesLen() int {
-	return v.Type().Size()
+	return zVector2
 }
 
 func (v ValueVector2) Bytes(b []byte) {
@@ -975,6 +1024,8 @@ func (v ValueVector2) fieldGet(i int, b []byte) {
 
 ////////////////////////////////////////////////////////////////
 
+const zVector3 = zFloat * 3
+
 type ValueVector3 struct {
 	X, Y, Z ValueFloat
 }
@@ -984,7 +1035,7 @@ func (ValueVector3) Type() Type {
 }
 
 func (v ValueVector3) BytesLen() int {
-	return v.Type().Size()
+	return zVector3
 }
 
 func (v ValueVector3) Bytes(b []byte) {
@@ -1032,6 +1083,8 @@ func (v ValueVector3) fieldGet(i int, b []byte) {
 
 ////////////////////////////////////////////////////////////////
 
+const zVector2int16 = zi16 * 2
+
 type ValueVector2int16 struct {
 	X, Y int16
 }
@@ -1041,7 +1094,7 @@ func (ValueVector2int16) Type() Type {
 }
 
 func (v ValueVector2int16) BytesLen() int {
-	return v.Type().Size()
+	return zVector2int16
 }
 
 func (v ValueVector2int16) Bytes(b []byte) {
@@ -1060,6 +1113,12 @@ func (v *ValueVector2int16) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zCFrame = zVar
+const zCFrameSp = zu8
+const zCFrameRo = zf32 * 9
+const zCFrameFull = zCFrameSp + zCFrameRo + zVector3
+const zCFrameShort = zCFrameSp + zVector3
+
 type ValueCFrame struct {
 	Special  uint8
 	Rotation [9]float32
@@ -1072,20 +1131,20 @@ func (ValueCFrame) Type() Type {
 
 func (v ValueCFrame) BytesLen() int {
 	if v.Special == 0 {
-		return 49
+		return zCFrameFull
 	}
-	return 13
+	return zCFrameShort
 }
 
 func (v ValueCFrame) Bytes(b []byte) {
 	n := 1
 	if v.Special == 0 {
 		b[0] = 0
-		r := b[1:]
+		r := b[zCFrameSp:]
 		for i, f := range v.Rotation {
-			binary.LittleEndian.PutUint32(r[i*4:i*4+4], math.Float32bits(f))
+			binary.LittleEndian.PutUint32(r[i*zf32:i*zf32+zf32], math.Float32bits(f))
 		}
-		n += len(v.Rotation) * 4
+		n += len(v.Rotation) * zf32
 	} else {
 		b[0] = v.Special
 	}
@@ -1093,23 +1152,23 @@ func (v ValueCFrame) Bytes(b []byte) {
 }
 
 func (v *ValueCFrame) FromBytes(b []byte) error {
-	if b[0] == 0 && len(b) < 49 {
-		return buflenError{typ: v.Type(), exp: 49, got: len(b)}
-	} else if b[0] != 0 && len(b) != 13 {
-		return buflenError{typ: v.Type(), exp: 13, got: len(b)}
+	if b[0] == 0 && len(b) < zCFrameFull {
+		return buflenError{typ: v.Type(), exp: zCFrameFull, got: len(b)}
+	} else if b[0] != 0 && len(b) != zCFrameShort {
+		return buflenError{typ: v.Type(), exp: zCFrameShort, got: len(b)}
 	}
 	v.Special = b[0]
 	if b[0] == 0 {
-		r := b[1:]
+		r := b[zCFrameSp:]
 		for i := range v.Rotation {
-			v.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
+			v.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*zf32 : i*zf32+zf32]))
 		}
 	} else {
 		for i := range v.Rotation {
 			v.Rotation[i] = 0
 		}
 	}
-	v.Position.FromBytes(b[len(b)-12:])
+	v.Position.FromBytes(b[len(b)-zVector3:])
 	return nil
 }
 
@@ -1152,6 +1211,12 @@ func (v ValueCFrame) ToCFrameQuat() (q ValueCFrameQuat) {
 
 ////////////////////////////////////////////////////////////////
 
+const zCFrameQuat = -1
+const zCFrameQuatSp = zu8
+const zCFrameQuatQ = zf32 * 4
+const zCFrameQuatFull = zCFrameQuatSp + zCFrameQuatQ + zVector3
+const zCFrameQuatShort = zCFrameQuatSp + zVector3
+
 type ValueCFrameQuat struct {
 	Special        uint8
 	QX, QY, QZ, QW float32
@@ -1162,15 +1227,11 @@ func (ValueCFrameQuat) Type() Type {
 	return TypeCFrameQuat
 }
 
-func (v ValueCFrameQuat) quatBytesLen() int {
-	return 16
-}
-
 func (v ValueCFrameQuat) BytesLen() int {
 	if v.Special == 0 {
-		return 29
+		return zCFrameQuatFull
 	}
-	return 13
+	return zCFrameQuatShort
 }
 
 func (v ValueCFrameQuat) quatBytes(b []byte) {
@@ -1184,8 +1245,8 @@ func (v ValueCFrameQuat) Bytes(b []byte) {
 	n := 1
 	if v.Special == 0 {
 		b[0] = 0
-		v.quatBytes(b[1:])
-		n += v.quatBytesLen()
+		v.quatBytes(b[zCFrameQuatSp:])
+		n += zCFrameQuatQ
 	} else {
 		b[0] = v.Special
 	}
@@ -1200,21 +1261,21 @@ func (v *ValueCFrameQuat) quatFromBytes(b []byte) {
 }
 
 func (v *ValueCFrameQuat) FromBytes(b []byte) error {
-	if b[0] == 0 && len(b) < 29 {
-		return buflenError{typ: v.Type(), exp: 29, got: len(b)}
-	} else if b[0] != 0 && len(b) != 13 {
-		return buflenError{typ: v.Type(), exp: 13, got: len(b)}
+	if b[0] == 0 && len(b) < zCFrameQuatFull {
+		return buflenError{typ: v.Type(), exp: zCFrameQuatFull, got: len(b)}
+	} else if b[0] != 0 && len(b) != zCFrameQuatShort {
+		return buflenError{typ: v.Type(), exp: zCFrameQuatShort, got: len(b)}
 	}
 	v.Special = b[0]
 	if b[0] == 0 {
-		v.quatFromBytes(b[1:])
+		v.quatFromBytes(b[zCFrameQuatSp:])
 	} else {
 		v.QX = 0
 		v.QY = 0
 		v.QZ = 0
 		v.QW = 0
 	}
-	v.Position.FromBytes(b[len(b)-12:])
+	v.Position.FromBytes(b[len(b)-zVector3:])
 	return nil
 }
 
@@ -1238,6 +1299,8 @@ func (v ValueCFrameQuat) ToCFrame() ValueCFrame {
 
 ////////////////////////////////////////////////////////////////
 
+const zToken = zu32
+
 type ValueToken uint32
 
 func (ValueToken) Type() Type {
@@ -1245,7 +1308,7 @@ func (ValueToken) Type() Type {
 }
 
 func (v ValueToken) BytesLen() int {
-	return v.Type().Size()
+	return zToken
 }
 
 func (v ValueToken) Bytes(b []byte) {
@@ -1262,6 +1325,8 @@ func (v *ValueToken) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zReference = zi32
+
 type ValueReference int32
 
 func (ValueReference) Type() Type {
@@ -1269,7 +1334,7 @@ func (ValueReference) Type() Type {
 }
 
 func (v ValueReference) BytesLen() int {
-	return v.Type().Size()
+	return zReference
 }
 
 func (v ValueReference) Bytes(b []byte) {
@@ -1286,6 +1351,8 @@ func (v *ValueReference) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zVector3int16 = zi16 * 3
+
 type ValueVector3int16 struct {
 	X, Y, Z int16
 }
@@ -1295,7 +1362,7 @@ func (ValueVector3int16) Type() Type {
 }
 
 func (v ValueVector3int16) BytesLen() int {
-	return v.Type().Size()
+	return zVector3int16
 }
 
 func (v ValueVector3int16) Bytes(b []byte) {
@@ -1316,11 +1383,13 @@ func (v *ValueVector3int16) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-const sizeNSK = 3 * 4 // unsafe.Sizeof(ValueNumberSequenceKeypoint{})
+const zNumberSequenceKeypoint = zf32 * 3
 
 type ValueNumberSequenceKeypoint struct {
 	Time, Value, Envelope float32
 }
+
+const zNumberSequence = zVar
 
 type ValueNumberSequence []ValueNumberSequenceKeypoint
 
@@ -1329,14 +1398,14 @@ func (ValueNumberSequence) Type() Type {
 }
 
 func (v ValueNumberSequence) BytesLen() int {
-	return 4 + len(v)*sizeNSK
+	return zArrayLen + len(v)*zNumberSequenceKeypoint
 }
 
 func (v ValueNumberSequence) Bytes(b []byte) {
 	binary.LittleEndian.PutUint32(b, uint32(len(v)))
-	ba := b[4:]
+	ba := b[zArrayLen:]
 	for i, nsk := range v {
-		bk := ba[i*sizeNSK:]
+		bk := ba[i*zNumberSequenceKeypoint:]
 		binary.LittleEndian.PutUint32(bk[0:4], math.Float32bits(nsk.Time))
 		binary.LittleEndian.PutUint32(bk[4:8], math.Float32bits(nsk.Value))
 		binary.LittleEndian.PutUint32(bk[8:12], math.Float32bits(nsk.Envelope))
@@ -1350,7 +1419,7 @@ func (v *ValueNumberSequence) FromBytes(b []byte) error {
 	}
 	a := make(ValueNumberSequence, n)
 	for i := 0; i < n; i++ {
-		bk := b[i*sizeNSK:]
+		bk := b[i*zNumberSequenceKeypoint:]
 		a[i] = ValueNumberSequenceKeypoint{
 			Time:     math.Float32frombits(binary.LittleEndian.Uint32(bk[0:4])),
 			Value:    math.Float32frombits(binary.LittleEndian.Uint32(bk[4:8])),
@@ -1363,13 +1432,15 @@ func (v *ValueNumberSequence) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-const sizeCSK = 4 + 3*4 + 4 // unsafe.Sizeof(ValueColorSequenceKeypoint{})
+const zColorSequenceKeypoint = zf32 + zColor3 + zf32
 
 type ValueColorSequenceKeypoint struct {
 	Time     float32
 	Value    ValueColor3
 	Envelope float32
 }
+
+const zColorSequence = zVar
 
 type ValueColorSequence []ValueColorSequenceKeypoint
 
@@ -1378,14 +1449,14 @@ func (ValueColorSequence) Type() Type {
 }
 
 func (v ValueColorSequence) BytesLen() int {
-	return 4 + len(v)*sizeCSK
+	return zArrayLen + len(v)*zColorSequenceKeypoint
 }
 
 func (v ValueColorSequence) Bytes(b []byte) {
 	binary.LittleEndian.PutUint32(b, uint32(len(v)))
-	ba := b[4:]
+	ba := b[zArrayLen:]
 	for i, csk := range v {
-		bk := ba[i*sizeCSK:]
+		bk := ba[i*zColorSequenceKeypoint:]
 		binary.LittleEndian.PutUint32(bk[0:4], math.Float32bits(csk.Time))
 		binary.LittleEndian.PutUint32(bk[4:8], math.Float32bits(float32(csk.Value.R)))
 		binary.LittleEndian.PutUint32(bk[8:12], math.Float32bits(float32(csk.Value.G)))
@@ -1401,7 +1472,7 @@ func (v *ValueColorSequence) FromBytes(b []byte) error {
 	}
 	a := make(ValueColorSequence, n)
 	for i := 0; i < n; i++ {
-		bk := b[i*sizeCSK:]
+		bk := b[i*zColorSequenceKeypoint:]
 		c3 := *new(ValueColor3)
 		c3.FromBytes(bk[4:16])
 		a[i] = ValueColorSequenceKeypoint{
@@ -1420,6 +1491,8 @@ func (v *ValueColorSequence) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zNumberRange = zf32 * 2
+
 type ValueNumberRange struct {
 	Min, Max float32
 }
@@ -1429,7 +1502,7 @@ func (ValueNumberRange) Type() Type {
 }
 
 func (v ValueNumberRange) BytesLen() int {
-	return v.Type().Size()
+	return zNumberRange
 }
 
 func (v ValueNumberRange) Bytes(b []byte) {
@@ -1448,6 +1521,8 @@ func (v *ValueNumberRange) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zRect2D = zVector2 * 2
+
 type ValueRect2D struct {
 	Min, Max ValueVector2
 }
@@ -1457,7 +1532,7 @@ func (ValueRect2D) Type() Type {
 }
 
 func (v ValueRect2D) BytesLen() int {
-	return v.Type().Size()
+	return zRect2D
 }
 
 func (v ValueRect2D) Bytes(b []byte) {
@@ -1507,6 +1582,12 @@ func (v ValueRect2D) fieldGet(i int, b []byte) {
 
 ////////////////////////////////////////////////////////////////
 
+const zPhysicalProperties = zVar
+const zPhysicalPropertiesCP = zb
+const zPhysicalPropertiesFields = zf32 * 5
+const zPhysicalPropertiesShort = zPhysicalPropertiesCP
+const zPhysicalPropertiesFull = zPhysicalPropertiesCP + zPhysicalPropertiesFields
+
 type ValuePhysicalProperties struct {
 	CustomPhysics    byte
 	Density          float32
@@ -1520,24 +1601,19 @@ func (ValuePhysicalProperties) Type() Type {
 	return TypePhysicalProperties
 }
 
-func (v ValuePhysicalProperties) ppBytesLen() int {
-	return 20
-}
-
 func (v ValuePhysicalProperties) BytesLen() int {
 	if v.CustomPhysics == 0 {
-		return 1
+		return zPhysicalPropertiesShort
 	}
-	return 21
+	return zPhysicalPropertiesFull
 }
 
 func (v ValuePhysicalProperties) ppBytes(b []byte) {
-	const s = 4 // sizeof float32
-	binary.LittleEndian.PutUint32(b[0*s:0*s+s], math.Float32bits(v.Density))
-	binary.LittleEndian.PutUint32(b[1*s:1*s+s], math.Float32bits(v.Friction))
-	binary.LittleEndian.PutUint32(b[2*s:2*s+s], math.Float32bits(v.Elasticity))
-	binary.LittleEndian.PutUint32(b[3*s:3*s+s], math.Float32bits(v.FrictionWeight))
-	binary.LittleEndian.PutUint32(b[4*s:s*s+s], math.Float32bits(v.ElasticityWeight))
+	binary.LittleEndian.PutUint32(b[0*zf32:0*zf32+zf32], math.Float32bits(v.Density))
+	binary.LittleEndian.PutUint32(b[1*zf32:1*zf32+zf32], math.Float32bits(v.Friction))
+	binary.LittleEndian.PutUint32(b[2*zf32:2*zf32+zf32], math.Float32bits(v.Elasticity))
+	binary.LittleEndian.PutUint32(b[3*zf32:3*zf32+zf32], math.Float32bits(v.FrictionWeight))
+	binary.LittleEndian.PutUint32(b[4*zf32:4*zf32+zf32], math.Float32bits(v.ElasticityWeight))
 }
 
 func (v ValuePhysicalProperties) Bytes(b []byte) {
@@ -1546,27 +1622,27 @@ func (v ValuePhysicalProperties) Bytes(b []byte) {
 		return
 	}
 	b[0] = v.CustomPhysics
-	v.ppBytes(b[1:])
+	v.ppBytes(b[zPhysicalPropertiesCP:])
 }
 
 func (v *ValuePhysicalProperties) ppFromBytes(b []byte) {
-	const s = 4 // sizeof float32
-	v.Density = math.Float32frombits(binary.LittleEndian.Uint32(b[0*s : 0*s+s]))
-	v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(b[1*s : 1*s+s]))
-	v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(b[2*s : 2*s+s]))
-	v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[3*s : 3*s+s]))
-	v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[4*s : s*s+s]))
+	v.Density = math.Float32frombits(binary.LittleEndian.Uint32(b[0*zf32 : 0*zf32+zf32]))
+	v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(b[1*zf32 : 1*zf32+zf32]))
+	v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(b[2*zf32 : 2*zf32+zf32]))
+	v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[3*zf32 : 3*zf32+zf32]))
+	v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[4*zf32 : 4*zf32+zf32]))
 }
 
 func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
-	if b[0] == 0 && len(b) < 21 {
-		return buflenError{typ: v.Type(), exp: 21, got: len(b)}
-	} else if b[0] != 0 && len(b) < 1 {
-		return buflenError{typ: v.Type(), exp: 1, got: len(b)}
+	if len(b) < zPhysicalPropertiesCP {
+		return buflenError{typ: v.Type(), exp: zPhysicalPropertiesCP, got: len(b)}
+	}
+	if b[0] != 0 && len(b) < zPhysicalPropertiesFull {
+		return buflenError{typ: v.Type(), exp: zPhysicalPropertiesFull, got: len(b)}
 	}
 	v.CustomPhysics = b[0]
 	if v.CustomPhysics != 0 {
-		v.ppFromBytes(b[1:])
+		v.ppFromBytes(b[zPhysicalPropertiesCP:])
 	} else {
 		v.Density = 0
 		v.Friction = 0
@@ -1579,6 +1655,8 @@ func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zColor3uint8 = zb * 3
+
 type ValueColor3uint8 struct {
 	R, G, B byte
 }
@@ -1588,7 +1666,7 @@ func (ValueColor3uint8) Type() Type {
 }
 
 func (v ValueColor3uint8) BytesLen() int {
-	return v.Type().Size()
+	return zColor3uint8
 }
 
 func (v ValueColor3uint8) Bytes(b []byte) {
@@ -1636,6 +1714,8 @@ func (v ValueColor3uint8) fieldGet(i int, b []byte) {
 
 ////////////////////////////////////////////////////////////////
 
+const zInt64 = zu64
+
 type ValueInt64 int64
 
 func (ValueInt64) Type() Type {
@@ -1643,7 +1723,7 @@ func (ValueInt64) Type() Type {
 }
 
 func (v ValueInt64) BytesLen() int {
-	return v.Type().Size()
+	return zInt64
 }
 
 func (v ValueInt64) Bytes(b []byte) {
@@ -1660,6 +1740,8 @@ func (v *ValueInt64) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
+const zSharedString = zu32
+
 type ValueSharedString uint32
 
 func (ValueSharedString) Type() Type {
@@ -1667,7 +1749,7 @@ func (ValueSharedString) Type() Type {
 }
 
 func (v ValueSharedString) BytesLen() int {
-	return v.Type().Size()
+	return zSharedString
 }
 
 func (v ValueSharedString) Bytes(b []byte) {

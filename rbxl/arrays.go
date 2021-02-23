@@ -223,9 +223,9 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 			b = append(b, cf.Special)
 			if cf.Special == 0 {
 				// Write all components.
-				r := make([]byte, len(cf.Rotation)*4)
+				r := make([]byte, len(cf.Rotation)*zf32)
 				for i, f := range cf.Rotation {
-					binary.LittleEndian.PutUint32(r[i*4:i*4+4], math.Float32bits(f))
+					binary.LittleEndian.PutUint32(r[i*zf32:i*zf32+zf32], math.Float32bits(f))
 				}
 				b = append(b, r...)
 			}
@@ -243,7 +243,7 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 			cf := cf.(*ValueCFrameQuat)
 			b = append(b, cf.Special)
 			if cf.Special == 0 {
-				r := make([]byte, cf.quatBytesLen())
+				r := make([]byte, zCFrameQuatQ)
 				cf.quatBytes(r)
 				b = append(b, r...)
 			}
@@ -263,20 +263,19 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		if len(a) == 0 {
 			return b, nil
 		}
-		const size = 4
-		b = make([]byte, len(a)*size)
+		b = make([]byte, len(a)*zReference)
 		var prev ValueReference
 		for i, ref := range a {
 			ref := ref.(*ValueReference)
 			if i == 0 {
-				ref.Bytes(b[i*size : i*size+size])
+				ref.Bytes(b[i*zReference : i*zReference+zReference])
 			} else {
 				// Convert absolute ref to relative ref.
-				(*ref - prev).Bytes(b[i*size : i*size+size])
+				(*ref - prev).Bytes(b[i*zReference : i*zReference+zReference])
 			}
 			prev = *ref
 		}
-		if err = interleave(b, size); err != nil {
+		if err = interleave(b, zReference); err != nil {
 			return nil, err
 		}
 		return b, nil
@@ -298,7 +297,7 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 
 	case TypePhysicalProperties:
 		// The bytes of each value can vary in length.
-		q := make([]byte, ValuePhysicalProperties{}.ppBytesLen())
+		q := make([]byte, zPhysicalPropertiesFields)
 		for _, pp := range a {
 			pp := pp.(*ValuePhysicalProperties)
 			b = append(b, pp.CustomPhysics)
@@ -417,21 +416,21 @@ func appendByteValues(id Type, b []byte) (a []Value, err error) {
 	field := id.FieldSize()
 	ba := b
 	for len(ba) > 0 {
-		if len(ba) < 4 {
+		if len(ba) < zArrayLen {
 			return nil, errors.New("expected 4 more bytes in array")
 		}
 		size := int(binary.LittleEndian.Uint32(ba))
-		if len(ba[4:]) < size*field {
+		if len(ba[zArrayLen:]) < size*field {
 			return nil, fmt.Errorf("expected %d more bytes in array", size*field)
 		}
 
 		v := NewValue(id)
-		if err := v.FromBytes(ba[:4+size*field]); err != nil {
+		if err := v.FromBytes(ba[:zArrayLen+size*field]); err != nil {
 			return nil, err
 		}
 		a = append(a, v)
 
-		ba = ba[4+size*field:]
+		ba = ba[zArrayLen+size*field:]
 	}
 	return a, nil
 }
@@ -509,18 +508,18 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		// to be matrix data.
 		i := 0
 		n := 0
-		for ; len(b)-i > n; n += 12 {
+		for ; len(b)-i > n; n += zVector3 {
 			cf := new(ValueCFrame)
 			cf.Special = b[i]
 			i++
 			if cf.Special == 0 {
-				q := len(cf.Rotation) * 4
+				q := len(cf.Rotation) * zf32
 				r := b[i:]
 				if len(r) < q {
 					return nil, fmt.Errorf("expected %d more bytes in array", q)
 				}
 				for i := range cf.Rotation {
-					cf.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*4 : i*4+4]))
+					cf.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*zf32 : i*zf32+zf32]))
 				}
 				i += q
 			}
@@ -547,18 +546,17 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		cfs := make([]*ValueCFrame, 0)
 		i := 0
 		n := 0
-		for ; len(b)-i > n; n += 12 {
+		for ; len(b)-i > n; n += zVector3 {
 			cf := new(ValueCFrameQuat)
 			cf.Special = b[i]
 			i++
 			if cf.Special == 0 {
-				var q = cf.quatBytesLen()
 				r := b[i:]
-				if len(r) < q {
-					return nil, fmt.Errorf("expected %d more bytes in array", q)
+				if len(r) < zCFrameQuatQ {
+					return nil, fmt.Errorf("expected %d more bytes in array", zCFrameQuatQ)
 				}
 				cf.quatFromBytes(r)
-				i += q
+				i += zCFrameQuatQ
 			}
 			c := cf.ToCFrame()
 			cfs = append(cfs, &c)
@@ -582,19 +580,18 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		if len(b) == 0 {
 			return a, nil
 		}
-		const size = 4
-		if len(b)%size != 0 {
-			return nil, fmt.Errorf("array must be divisible by %d", size)
+		if len(b)%zReference != 0 {
+			return nil, fmt.Errorf("array must be divisible by %d", zReference)
 		}
 		bc := make([]byte, len(b))
 		copy(bc, b)
-		if err = deinterleave(bc, size); err != nil {
+		if err = deinterleave(bc, zReference); err != nil {
 			return nil, err
 		}
-		a = make([]Value, len(bc)/size)
-		for i := 0; i < len(bc)/size; i++ {
+		a = make([]Value, len(bc)/zReference)
+		for i := 0; i < len(bc)/zReference; i++ {
 			ref := new(ValueReference)
-			ref.FromBytes(bc[i*size : i*size+size])
+			ref.FromBytes(bc[i*zReference : i*zReference+zReference])
 			if i > 0 {
 				// Convert relative ref to absolute ref.
 				r := *a[i-1].(*ValueReference)
@@ -625,12 +622,11 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			pp.CustomPhysics = b[i]
 			i++
 			if pp.CustomPhysics != 0 {
-				var size = pp.ppBytesLen()
-				if len(b[i:]) < size {
-					return nil, fmt.Errorf("expected %d more bytes in array", size)
+				if len(b[i:]) < zPhysicalPropertiesFields {
+					return nil, fmt.Errorf("expected %d more bytes in array", zPhysicalPropertiesFields)
 				}
 				pp.ppFromBytes(b[i:])
-				i += size
+				i += zPhysicalPropertiesFields
 			}
 			a = append(a, pp)
 		}

@@ -23,6 +23,9 @@ type RobloxCodec struct {
 	Mode Mode
 }
 
+// Reference value indicating a nil instance.
+const nilInstance = -1
+
 func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) {
 	if model == nil {
 		return nil, fmt.Errorf("FormatModel is nil")
@@ -33,7 +36,7 @@ func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) 
 
 	groupLookup := make(map[int32]*ChunkInstance, model.ClassCount)
 	instLookup := make(map[int32]*rbxfile.Instance, model.InstanceCount+1)
-	instLookup[-1] = nil
+	instLookup[nilInstance] = nil
 
 	var sharedStrings []SharedString
 	var chunkType string
@@ -153,7 +156,7 @@ loop:
 					continue
 				}
 
-				if chunk.Parents[i] == -1 {
+				if chunk.Parents[i] == nilInstance {
 					root.Instances = append(root.Instances, child)
 					continue
 				}
@@ -420,8 +423,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	// A map used to ensure that an instance is counted only once. Also used
 	// to link ValueReferences.
 	refs := map[*rbxfile.Instance]int{
-		// In general, -1 indicates a nil value.
-		nil: -1,
+		nil: nilInstance,
 	}
 
 	// Set of shared strings mapped to indexes.
@@ -518,7 +520,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 
 		// Check to see if all existing properties types match.
 		for name, propChunk := range propChunkMap {
-			var instRef int32 = -1
+			var instRef int32 = nilInstance
 			dataType := rbxfile.TypeInvalid
 			matches := true
 			for _, ref := range instChunk.InstanceIDs {
@@ -568,7 +570,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 						if !ok {
 							// References that map to some instance not under the
 							// Root should be nil.
-							ref = -1
+							ref = nilInstance
 						}
 
 						v := int32(ref)
@@ -634,7 +636,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 			parentChunk.Children[i] = instRef
 			parentRef, ok := refs[parent]
 			if !ok {
-				parentRef = -1
+				parentRef = nilInstance
 			}
 			parentChunk.Parents[i] = int32(parentRef)
 			i++
