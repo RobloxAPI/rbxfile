@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 
 	"github.com/robloxapi/rbxfile"
 )
@@ -430,7 +430,7 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			return nil
 		}
 		buf := bytes.NewReader([]byte(v))
-		b, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, buf))
+		b, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, buf))
 		if err != nil {
 			return rbxfile.ValueBinaryString(v)
 		}
@@ -701,7 +701,7 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			return nil
 		}
 		buf := bytes.NewReader([]byte(v))
-		b, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, buf))
+		b, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, buf))
 		if err != nil {
 			return rbxfile.ValueSharedString(v)
 		}

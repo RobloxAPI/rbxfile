@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sort"
 	"strconv"
 	"strings"
@@ -91,11 +90,11 @@ func (dec *rdecoder) decode() error {
 				if !ok {
 					continue
 				}
-				key, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(hash)))
+				key, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(hash)))
 				if err != nil {
 					continue
 				}
-				value, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
+				value, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
 				if err != nil {
 					continue
 				}
@@ -310,7 +309,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 
 	case "BinaryString":
 		d := base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag)))
-		v, err := ioutil.ReadAll(d)
+		v, err := io.ReadAll(d)
 		if err != nil {
 			if dec.codec.DiscardInvalidProperties {
 				return nil, false
@@ -800,7 +799,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 		return rbxfile.ValueInt64(v), true
 
 	case "SharedString":
-		v, err := ioutil.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
+		v, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
 		if err != nil {
 			if dec.codec.DiscardInvalidProperties {
 				return nil, false

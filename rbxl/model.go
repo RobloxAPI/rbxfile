@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/bkaradzic/go-lz4"
 )
@@ -116,7 +115,7 @@ func (f *formatReader) readall() (data []byte, failed bool) {
 		return nil, true
 	}
 
-	data, f.err = ioutil.ReadAll(f.r)
+	data, f.err = io.ReadAll(f.r)
 	f.n += int64(len(data))
 
 	if f.err != nil {
