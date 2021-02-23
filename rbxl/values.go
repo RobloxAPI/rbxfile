@@ -299,6 +299,12 @@ func FromValueType(t rbxfile.Type) Type {
 	switch t {
 	case rbxfile.TypeString:
 		return TypeString
+	case rbxfile.TypeBinaryString:
+		return TypeString
+	case rbxfile.TypeProtectedString:
+		return TypeString
+	case rbxfile.TypeContent:
+		return TypeString
 	case rbxfile.TypeBool:
 		return TypeBool
 	case rbxfile.TypeInt:
