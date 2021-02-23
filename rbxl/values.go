@@ -1162,6 +1162,10 @@ func (ValueCFrameQuat) Type() Type {
 	return TypeCFrameQuat
 }
 
+func (v ValueCFrameQuat) quatBytesLen() int {
+	return 16
+}
+
 func (v ValueCFrameQuat) BytesLen() int {
 	if v.Special == 0 {
 		return 29
@@ -1169,19 +1173,30 @@ func (v ValueCFrameQuat) BytesLen() int {
 	return 13
 }
 
+func (v ValueCFrameQuat) quatBytes(b []byte) {
+	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.QX))
+	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.QY))
+	binary.LittleEndian.PutUint32(b[8:12], math.Float32bits(v.QZ))
+	binary.LittleEndian.PutUint32(b[12:16], math.Float32bits(v.QW))
+}
+
 func (v ValueCFrameQuat) Bytes(b []byte) {
 	n := 1
 	if v.Special == 0 {
 		b[0] = 0
-		binary.LittleEndian.PutUint32(b[1:5], math.Float32bits(v.QX))
-		binary.LittleEndian.PutUint32(b[5:9], math.Float32bits(v.QY))
-		binary.LittleEndian.PutUint32(b[9:13], math.Float32bits(v.QZ))
-		binary.LittleEndian.PutUint32(b[13:17], math.Float32bits(v.QW))
-		n += 16
+		v.quatBytes(b[1:])
+		n += v.quatBytesLen()
 	} else {
 		b[0] = v.Special
 	}
 	v.Position.Bytes(b[n:])
+}
+
+func (v *ValueCFrameQuat) quatFromBytes(b []byte) {
+	v.QX = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
+	v.QY = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
+	v.QZ = math.Float32frombits(binary.LittleEndian.Uint32(b[8:12]))
+	v.QW = math.Float32frombits(binary.LittleEndian.Uint32(b[12:16]))
 }
 
 func (v *ValueCFrameQuat) FromBytes(b []byte) error {
@@ -1192,10 +1207,7 @@ func (v *ValueCFrameQuat) FromBytes(b []byte) error {
 	}
 	v.Special = b[0]
 	if b[0] == 0 {
-		v.QX = math.Float32frombits(binary.LittleEndian.Uint32(b[1:5]))
-		v.QY = math.Float32frombits(binary.LittleEndian.Uint32(b[5:9]))
-		v.QZ = math.Float32frombits(binary.LittleEndian.Uint32(b[9:13]))
-		v.QW = math.Float32frombits(binary.LittleEndian.Uint32(b[13:17]))
+		v.quatFromBytes(b[1:])
 	} else {
 		v.QX = 0
 		v.QY = 0

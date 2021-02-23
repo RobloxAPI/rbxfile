@@ -243,11 +243,8 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 			cf := cf.(*ValueCFrameQuat)
 			b = append(b, cf.Special)
 			if cf.Special == 0 {
-				r := make([]byte, 16)
-				binary.LittleEndian.PutUint32(r[0:4], math.Float32bits(cf.QX))
-				binary.LittleEndian.PutUint32(r[4:8], math.Float32bits(cf.QY))
-				binary.LittleEndian.PutUint32(r[8:12], math.Float32bits(cf.QZ))
-				binary.LittleEndian.PutUint32(r[12:16], math.Float32bits(cf.QW))
+				r := make([]byte, cf.quatBytesLen())
+				cf.quatBytes(r)
 				b = append(b, r...)
 			}
 			p[i] = &cf.Position
@@ -559,15 +556,12 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			cf.Special = b[i]
 			i++
 			if cf.Special == 0 {
-				const q = 16
+				var q = cf.quatBytesLen()
 				r := b[i:]
 				if len(r) < q {
 					return nil, fmt.Errorf("expected %d more bytes in array", q)
 				}
-				cf.QX = math.Float32frombits(binary.LittleEndian.Uint32(r[0:4]))
-				cf.QY = math.Float32frombits(binary.LittleEndian.Uint32(r[4:8]))
-				cf.QZ = math.Float32frombits(binary.LittleEndian.Uint32(r[8:12]))
-				cf.QW = math.Float32frombits(binary.LittleEndian.Uint32(r[12:16]))
+				cf.quatFromBytes(r)
 				i += q
 			}
 			c := cf.ToCFrame()
