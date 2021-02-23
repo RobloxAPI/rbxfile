@@ -527,6 +527,7 @@ func (v ValueString) BytesLen() int {
 }
 
 func (v ValueString) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint32(b, uint32(len(v)))
 	copy(b[zArrayLen:], v)
 }
@@ -556,6 +557,7 @@ func (v ValueBool) BytesLen() int {
 }
 
 func (v ValueBool) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	if v {
 		b[0] = 1
 	} else {
@@ -586,6 +588,7 @@ func (v ValueInt) BytesLen() int {
 }
 
 func (v ValueInt) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.BigEndian.PutUint32(b, encodeZigzag32(int32(v)))
 }
 
@@ -612,6 +615,7 @@ func (v ValueFloat) BytesLen() int {
 }
 
 func (v ValueFloat) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.BigEndian.PutUint32(b, encodeRobloxFloat(float32(v)))
 }
 
@@ -638,6 +642,7 @@ func (v ValueDouble) BytesLen() int {
 }
 
 func (v ValueDouble) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint64(b, math.Float64bits(float64(v)))
 }
 
@@ -667,6 +672,7 @@ func (v ValueUDim) BytesLen() int {
 }
 
 func (v ValueUDim) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	v.Scale.Bytes(b[0:4])
 	v.Offset.Bytes(b[4:8])
 }
@@ -724,6 +730,7 @@ func (v ValueUDim2) BytesLen() int {
 }
 
 func (v ValueUDim2) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	v.ScaleX.Bytes(b[0:4])
 	v.ScaleY.Bytes(b[4:8])
 	v.OffsetX.Bytes(b[8:12])
@@ -794,6 +801,7 @@ func (v ValueRay) BytesLen() int {
 }
 
 func (v ValueRay) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.OriginX))
 	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.OriginY))
 	binary.LittleEndian.PutUint32(b[8:12], math.Float32bits(v.OriginZ))
@@ -832,6 +840,7 @@ func (v ValueFaces) BytesLen() int {
 }
 
 func (v ValueFaces) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	flags := [6]bool{v.Right, v.Top, v.Back, v.Left, v.Bottom, v.Front}
 	b[0] = 0
 	for i, flag := range flags {
@@ -871,6 +880,7 @@ func (v ValueAxes) BytesLen() int {
 }
 
 func (v ValueAxes) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	flags := [3]bool{v.X, v.Y, v.Z}
 	b[0] = 0
 	for i, flag := range flags {
@@ -905,6 +915,7 @@ func (v ValueBrickColor) BytesLen() int {
 }
 
 func (v ValueBrickColor) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.BigEndian.PutUint32(b, uint32(v))
 }
 
@@ -933,6 +944,7 @@ func (v ValueColor3) BytesLen() int {
 }
 
 func (v ValueColor3) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	v.R.Bytes(b[0:4])
 	v.G.Bytes(b[4:8])
 	v.B.Bytes(b[8:12])
@@ -992,6 +1004,7 @@ func (v ValueVector2) BytesLen() int {
 }
 
 func (v ValueVector2) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	v.X.Bytes(b[0:4])
 	v.Y.Bytes(b[4:8])
 }
@@ -1045,6 +1058,7 @@ func (v ValueVector3) BytesLen() int {
 }
 
 func (v ValueVector3) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	v.X.Bytes(b[0:4])
 	v.Y.Bytes(b[4:8])
 	v.Z.Bytes(b[8:12])
@@ -1104,6 +1118,7 @@ func (v ValueVector2int16) BytesLen() int {
 }
 
 func (v ValueVector2int16) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint16(b[0:2], uint16(v.X))
 	binary.LittleEndian.PutUint16(b[2:4], uint16(v.Y))
 }
@@ -1143,6 +1158,7 @@ func (v ValueCFrame) BytesLen() int {
 }
 
 func (v ValueCFrame) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	n := 1
 	if v.Special == 0 {
 		b[0] = 0
@@ -1252,6 +1268,7 @@ func (v ValueCFrameQuat) quatBytes(b []byte) {
 }
 
 func (v ValueCFrameQuat) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	n := 1
 	if v.Special == 0 {
 		b[0] = 0
@@ -1326,6 +1343,7 @@ func (v ValueToken) BytesLen() int {
 }
 
 func (v ValueToken) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.BigEndian.PutUint32(b, uint32(v))
 }
 
@@ -1352,6 +1370,7 @@ func (v ValueReference) BytesLen() int {
 }
 
 func (v ValueReference) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.BigEndian.PutUint32(b, encodeZigzag32(int32(v)))
 }
 
@@ -1380,6 +1399,7 @@ func (v ValueVector3int16) BytesLen() int {
 }
 
 func (v ValueVector3int16) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint16(b[0:2], uint16(v.X))
 	binary.LittleEndian.PutUint16(b[2:4], uint16(v.Y))
 	binary.LittleEndian.PutUint16(b[4:6], uint16(v.Z))
@@ -1416,6 +1436,7 @@ func (v ValueNumberSequence) BytesLen() int {
 }
 
 func (v ValueNumberSequence) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint32(b, uint32(len(v)))
 	ba := b[zArrayLen:]
 	for i, nsk := range v {
@@ -1467,6 +1488,7 @@ func (v ValueColorSequence) BytesLen() int {
 }
 
 func (v ValueColorSequence) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint32(b, uint32(len(v)))
 	ba := b[zArrayLen:]
 	for i, csk := range v {
@@ -1520,6 +1542,7 @@ func (v ValueNumberRange) BytesLen() int {
 }
 
 func (v ValueNumberRange) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.Min))
 	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.Max))
 }
@@ -1550,6 +1573,7 @@ func (v ValueRect) BytesLen() int {
 }
 
 func (v ValueRect) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	v.Min.Bytes(b[0:8])
 	v.Max.Bytes(b[8:16])
 }
@@ -1631,6 +1655,7 @@ func (v ValuePhysicalProperties) ppBytes(b []byte) {
 }
 
 func (v ValuePhysicalProperties) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	if v.CustomPhysics == 0 {
 		b[0] = 1
 		return
@@ -1684,6 +1709,7 @@ func (v ValueColor3uint8) BytesLen() int {
 }
 
 func (v ValueColor3uint8) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	b[0] = v.R
 	b[1] = v.G
 	b[2] = v.B
@@ -1741,6 +1767,7 @@ func (v ValueInt64) BytesLen() int {
 }
 
 func (v ValueInt64) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.BigEndian.PutUint64(b, encodeZigzag64(int64(v)))
 }
 
@@ -1767,6 +1794,7 @@ func (v ValueSharedString) BytesLen() int {
 }
 
 func (v ValueSharedString) Bytes(b []byte) {
+	_ = b[v.BytesLen()-1]
 	binary.BigEndian.PutUint32(b, uint32(v))
 }
 
