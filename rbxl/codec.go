@@ -361,8 +361,8 @@ func DecodeValue(value Value) rbxfile.Value {
 	case *ValueNumberRange:
 		return rbxfile.ValueNumberRange(*value)
 
-	case *ValueRect2D:
-		return rbxfile.ValueRect2D{
+	case *ValueRect:
+		return rbxfile.ValueRect{
 			Min: rbxfile.ValueVector2{
 				X: float32(value.Min.X),
 				Y: float32(value.Min.Y),
@@ -897,8 +897,8 @@ func EncodeValue(value rbxfile.Value) Value {
 	case rbxfile.ValueNumberRange:
 		return (*ValueNumberRange)(&value)
 
-	case rbxfile.ValueRect2D:
-		return &ValueRect2D{
+	case rbxfile.ValueRect:
+		return &ValueRect{
 			Min: ValueVector2{
 				X: ValueFloat(value.Min.X),
 				Y: ValueFloat(value.Min.Y),

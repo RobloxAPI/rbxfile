@@ -378,7 +378,7 @@ func ValueToJSONInterface(value rbxfile.Value, refs rbxfile.References) interfac
 			"min": float64(value.Min),
 			"max": float64(value.Max),
 		}
-	case rbxfile.ValueRect2D:
+	case rbxfile.ValueRect:
 		return map[string]interface{}{
 			"min": ValueToJSONInterface(value.Min, refs),
 			"max": ValueToJSONInterface(value.Max, refs),
@@ -656,12 +656,12 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			Min: float32(v["min"].(float64)),
 			Max: float32(v["max"].(float64)),
 		}
-	case rbxfile.TypeRect2D:
+	case rbxfile.TypeRect:
 		v, ok := ivalue.(map[string]interface{})
 		if !ok {
 			return nil
 		}
-		return rbxfile.ValueRect2D{
+		return rbxfile.ValueRect{
 			Min: ValueFromJSONInterface(rbxfile.TypeVector2, v["min"]).(rbxfile.ValueVector2),
 			Max: ValueFromJSONInterface(rbxfile.TypeVector2, v["max"]).(rbxfile.ValueVector2),
 		}

@@ -292,7 +292,7 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 	case TypeNumberRange:
 		return appendValueBytes(t, a), nil
 
-	case TypeRect2D:
+	case TypeRect:
 		return interleaveFields(t, a)
 
 	case TypePhysicalProperties:
@@ -613,7 +613,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 	case TypeNumberRange:
 		return appendByteValues(t, b)
 
-	case TypeRect2D:
+	case TypeRect:
 		return deinterleaveFields(t, b)
 
 	case TypePhysicalProperties:

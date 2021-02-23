@@ -64,7 +64,7 @@ const (
 	TypeNumberSequence     Type = 0x15
 	TypeColorSequence      Type = 0x16
 	TypeNumberRange        Type = 0x17
-	TypeRect2D             Type = 0x18
+	TypeRect               Type = 0x18
 	TypePhysicalProperties Type = 0x19
 	TypeColor3uint8        Type = 0x1A
 	TypeInt64              Type = 0x1B
@@ -133,8 +133,8 @@ func (t Type) Size() int {
 		return zColorSequence
 	case TypeNumberRange:
 		return zNumberRange
-	case TypeRect2D:
-		return zRect2D
+	case TypeRect:
+		return zRect
 	case TypePhysicalProperties:
 		return zPhysicalProperties
 	case TypeColor3uint8:
@@ -215,8 +215,8 @@ func (t Type) String() string {
 		return "ColorSequence"
 	case TypeNumberRange:
 		return "NumberRange"
-	case TypeRect2D:
-		return "Rect2D"
+	case TypeRect:
+		return "Rect"
 	case TypePhysicalProperties:
 		return "PhysicalProperties"
 	case TypeColor3uint8:
@@ -279,8 +279,8 @@ func (t Type) ValueType() rbxfile.Type {
 		return rbxfile.TypeColorSequence
 	case TypeNumberRange:
 		return rbxfile.TypeNumberRange
-	case TypeRect2D:
-		return rbxfile.TypeRect2D
+	case TypeRect:
+		return rbxfile.TypeRect
 	case TypePhysicalProperties:
 		return rbxfile.TypePhysicalProperties
 	case TypeColor3uint8:
@@ -341,8 +341,8 @@ func FromValueType(t rbxfile.Type) Type {
 		return TypeColorSequence
 	case rbxfile.TypeNumberRange:
 		return TypeNumberRange
-	case rbxfile.TypeRect2D:
-		return TypeRect2D
+	case rbxfile.TypeRect:
+		return TypeRect
 	case rbxfile.TypePhysicalProperties:
 		return TypePhysicalProperties
 	case rbxfile.TypeColor3uint8:
@@ -424,8 +424,8 @@ func NewValue(typ Type) Value {
 		return new(ValueColorSequence)
 	case TypeNumberRange:
 		return new(ValueNumberRange)
-	case TypeRect2D:
-		return new(ValueRect2D)
+	case TypeRect:
+		return new(ValueRect)
 	case TypePhysicalProperties:
 		return new(ValuePhysicalProperties)
 	case TypeColor3uint8:
@@ -1523,26 +1523,26 @@ func (v *ValueNumberRange) FromBytes(b []byte) error {
 
 ////////////////////////////////////////////////////////////////
 
-const zRect2D = zVector2 * 2
+const zRect = zVector2 * 2
 
-type ValueRect2D struct {
+type ValueRect struct {
 	Min, Max ValueVector2
 }
 
-func (ValueRect2D) Type() Type {
-	return TypeRect2D
+func (ValueRect) Type() Type {
+	return TypeRect
 }
 
-func (v ValueRect2D) BytesLen() int {
-	return zRect2D
+func (v ValueRect) BytesLen() int {
+	return zRect
 }
 
-func (v ValueRect2D) Bytes(b []byte) {
+func (v ValueRect) Bytes(b []byte) {
 	v.Min.Bytes(b[0:8])
 	v.Max.Bytes(b[8:16])
 }
 
-func (v *ValueRect2D) FromBytes(b []byte) error {
+func (v *ValueRect) FromBytes(b []byte) error {
 	if err := checklen(v, b); err != nil {
 		return err
 	}
@@ -1551,11 +1551,11 @@ func (v *ValueRect2D) FromBytes(b []byte) error {
 	return nil
 }
 
-func (ValueRect2D) fieldLen() []int {
+func (ValueRect) fieldLen() []int {
 	return []int{4, 4, 4, 4}
 }
 
-func (v *ValueRect2D) fieldSet(i int, b []byte) (err error) {
+func (v *ValueRect) fieldSet(i int, b []byte) (err error) {
 	switch i {
 	case 0:
 		err = v.Min.X.FromBytes(b)
@@ -1569,7 +1569,7 @@ func (v *ValueRect2D) fieldSet(i int, b []byte) (err error) {
 	return
 }
 
-func (v ValueRect2D) fieldGet(i int, b []byte) {
+func (v ValueRect) fieldGet(i int, b []byte) {
 	switch i {
 	case 0:
 		v.Min.X.Bytes(b)

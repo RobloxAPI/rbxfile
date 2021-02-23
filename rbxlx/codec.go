@@ -694,9 +694,9 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			if dec.codec.DiscardInvalidProperties {
 				return nil, false
 			}
-			return rbxfile.ValueRect2D{}, true
+			return rbxfile.ValueRect{}, true
 		}
-		var v rbxfile.ValueRect2D
+		var v rbxfile.ValueRect
 		ok = components{
 			"X": &v.Min.X,
 			"Y": &v.Min.Y,
@@ -705,7 +705,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			if dec.codec.DiscardInvalidProperties {
 				return nil, false
 			}
-			return rbxfile.ValueRect2D{}, true
+			return rbxfile.ValueRect{}, true
 		}
 		ok = components{
 			"X": &v.Max.X,
@@ -715,7 +715,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 			if dec.codec.DiscardInvalidProperties {
 				return nil, false
 			}
-			return rbxfile.ValueRect2D{}, true
+			return rbxfile.ValueRect{}, true
 		}
 		return v, true
 
@@ -1383,7 +1383,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			Text:      string(b),
 		}
 
-	case rbxfile.ValueRect2D:
+	case rbxfile.ValueRect:
 		return &Tag{
 			StartName: "Rect2D",
 			Attr:      attr,
@@ -1581,7 +1581,7 @@ func isCanonType(t string, v rbxfile.Value) bool {
 		return t == "ColorSequence"
 	case rbxfile.ValueNumberRange:
 		return t == "NumberRange"
-	case rbxfile.ValueRect2D:
+	case rbxfile.ValueRect:
 		return t == "Rect2D"
 	case rbxfile.ValuePhysicalProperties:
 		return t == "PhysicalProperties"

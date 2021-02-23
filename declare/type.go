@@ -46,7 +46,7 @@ const (
 	NumberSequence
 	ColorSequence
 	NumberRange
-	Rect2D
+	Rect
 	PhysicalProperties
 	Color3uint8
 	Int64
@@ -91,7 +91,7 @@ var typeStrings = map[Type]string{
 	NumberSequence:     "NumberSequence",
 	ColorSequence:      "ColorSequence",
 	NumberRange:        "NumberRange",
-	Rect2D:             "Rect2D",
+	Rect:               "Rect",
 	PhysicalProperties: "PhysicalProperties",
 	Color3uint8:        "Color3uint8",
 	Int64:              "Int64",
@@ -372,8 +372,8 @@ func assertValue(t Type, v interface{}) (value rbxfile.Value, ok bool) {
 		value, ok = v.(rbxfile.ValueColorSequence)
 	case NumberRange:
 		value, ok = v.(rbxfile.ValueNumberRange)
-	case Rect2D:
-		value, ok = v.(rbxfile.ValueRect2D)
+	case Rect:
+		value, ok = v.(rbxfile.ValueRect)
 	case PhysicalProperties:
 		value, ok = v.(rbxfile.ValuePhysicalProperties)
 	case Color3uint8:
@@ -661,17 +661,17 @@ func (t Type) value(refs rbxfile.References, v []interface{}) rbxfile.Value {
 				Max: normFloat32(v[1]),
 			}
 		}
-	case Rect2D:
+	case Rect:
 		switch len(v) {
 		case 2:
 			min, _ := v[0].(rbxfile.ValueVector2)
 			max, _ := v[0].(rbxfile.ValueVector2)
-			return rbxfile.ValueRect2D{
+			return rbxfile.ValueRect{
 				Min: min,
 				Max: max,
 			}
 		case 4:
-			return rbxfile.ValueRect2D{
+			return rbxfile.ValueRect{
 				Min: rbxfile.ValueVector2{
 					X: normFloat32(v[0]),
 					Y: normFloat32(v[1]),

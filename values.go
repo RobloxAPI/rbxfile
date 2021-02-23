@@ -45,7 +45,7 @@ const (
 	TypeNumberSequence
 	TypeColorSequence
 	TypeNumberRange
-	TypeRect2D
+	TypeRect
 	TypePhysicalProperties
 	TypeColor3uint8
 	TypeInt64
@@ -89,7 +89,7 @@ var typeStrings = map[Type]string{
 	TypeNumberSequence:     "NumberSequence",
 	TypeColorSequence:      "ColorSequence",
 	TypeNumberRange:        "NumberRange",
-	TypeRect2D:             "Rect2D",
+	TypeRect:               "Rect",
 	TypePhysicalProperties: "PhysicalProperties",
 	TypeColor3uint8:        "Color3uint8",
 	TypeInt64:              "Int64",
@@ -147,7 +147,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeNumberSequence:     newValueNumberSequence,
 	TypeColorSequence:      newValueColorSequence,
 	TypeNumberRange:        newValueNumberRange,
-	TypeRect2D:             newValueRect2D,
+	TypeRect:               newValueRect,
 	TypePhysicalProperties: newValuePhysicalProperties,
 	TypeColor3uint8:        newValueColor3uint8,
 	TypeInt64:              newValueInt64,
@@ -799,18 +799,18 @@ func (t ValueNumberRange) Copy() Value {
 
 ////////////////
 
-type ValueRect2D struct {
+type ValueRect struct {
 	Min, Max ValueVector2
 }
 
-func newValueRect2D() Value {
-	return *new(ValueRect2D)
+func newValueRect() Value {
+	return *new(ValueRect)
 }
 
-func (ValueRect2D) Type() Type {
-	return TypeRect2D
+func (ValueRect) Type() Type {
+	return TypeRect
 }
-func (t ValueRect2D) String() string {
+func (t ValueRect) String() string {
 	return joinstr(
 		strconv.FormatFloat(float64(t.Min.X), 'f', -1, 32),
 		", ",
@@ -821,7 +821,7 @@ func (t ValueRect2D) String() string {
 		strconv.FormatFloat(float64(t.Max.Y), 'f', -1, 32),
 	)
 }
-func (t ValueRect2D) Copy() Value {
+func (t ValueRect) Copy() Value {
 	return t
 }
 

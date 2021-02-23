@@ -277,7 +277,7 @@ func (property) element() {}
 //     NumberRange:
 //         2 numbers, corresponding to the Min and Max fields.
 //
-//     Rect2D:
+//     Rect:
 //         1) 2 rbxfile.ValueVector2s, corresponding to the Min and Max
 //            fields.
 //         2) 4 numbers, corresponding to the Min.X, Min.Y, Max.X, and Max.Y
