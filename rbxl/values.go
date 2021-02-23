@@ -1412,7 +1412,7 @@ func (ValueNumberSequence) Type() Type {
 }
 
 func (v ValueNumberSequence) BytesLen() int {
-	return zArrayLen + len(v)*zNumberSequenceKeypoint
+	return zArrayLen + zNumberSequenceKeypoint*len(v)
 }
 
 func (v ValueNumberSequence) Bytes(b []byte) {
@@ -1463,7 +1463,7 @@ func (ValueColorSequence) Type() Type {
 }
 
 func (v ValueColorSequence) BytesLen() int {
-	return zArrayLen + len(v)*zColorSequenceKeypoint
+	return zArrayLen + zColorSequenceKeypoint*len(v)
 }
 
 func (v ValueColorSequence) Bytes(b []byte) {
