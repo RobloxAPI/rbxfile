@@ -100,7 +100,7 @@ func interleaveFields(id Type, a []Value) (b []byte, err error) {
 	// Total bytes per value
 	tbytes := 0
 	// Offset of each field slice
-	ofields := make([]int, maxFieldLen)[:len(nbytes)+1]
+	ofields := make([]int, maxFieldLen+1)[:len(nbytes)+1]
 	for i, n := range nbytes {
 		tbytes += n
 		ofields[i+1] = ofields[i] + n*nvalues
