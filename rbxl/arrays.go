@@ -298,17 +298,13 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 
 	case TypePhysicalProperties:
 		// The bytes of each value can vary in length.
-		q := make([]byte, 20)
+		q := make([]byte, ValuePhysicalProperties{}.ppBytesLen())
 		for _, pp := range a {
 			pp := pp.(*ValuePhysicalProperties)
 			b = append(b, pp.CustomPhysics)
 			if pp.CustomPhysics != 0 {
 				// Write all fields.
-				binary.LittleEndian.PutUint32(q[0*4:0*4+4], math.Float32bits(pp.Density))
-				binary.LittleEndian.PutUint32(q[1*4:1*4+4], math.Float32bits(pp.Friction))
-				binary.LittleEndian.PutUint32(q[2*4:2*4+4], math.Float32bits(pp.Elasticity))
-				binary.LittleEndian.PutUint32(q[3*4:3*4+4], math.Float32bits(pp.FrictionWeight))
-				binary.LittleEndian.PutUint32(q[4*4:4*4+4], math.Float32bits(pp.ElasticityWeight))
+				pp.ppBytes(q)
 				b = append(b, q...)
 			}
 		}
@@ -629,16 +625,11 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			pp.CustomPhysics = b[i]
 			i++
 			if pp.CustomPhysics != 0 {
-				const size = 5 * 4
-				p := b[i:]
-				if len(p) < size {
+				var size = pp.ppBytesLen()
+				if len(b[i:]) < size {
 					return nil, fmt.Errorf("expected %d more bytes in array", size)
 				}
-				pp.Density = math.Float32frombits(binary.LittleEndian.Uint32(p[0*4 : 0*4+4]))
-				pp.Friction = math.Float32frombits(binary.LittleEndian.Uint32(p[1*4 : 1*4+4]))
-				pp.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(p[2*4 : 2*4+4]))
-				pp.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[3*4 : 3*4+4]))
-				pp.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(p[4*4 : 4*4+4]))
+				pp.ppFromBytes(b[i:])
 				i += size
 			}
 			a = append(a, pp)

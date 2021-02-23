@@ -1520,11 +1520,24 @@ func (ValuePhysicalProperties) Type() Type {
 	return TypePhysicalProperties
 }
 
+func (v ValuePhysicalProperties) ppBytesLen() int {
+	return 20
+}
+
 func (v ValuePhysicalProperties) BytesLen() int {
 	if v.CustomPhysics == 0 {
 		return 1
 	}
 	return 21
+}
+
+func (v ValuePhysicalProperties) ppBytes(b []byte) {
+	const s = 4 // sizeof float32
+	binary.LittleEndian.PutUint32(b[0*s:0*s+s], math.Float32bits(v.Density))
+	binary.LittleEndian.PutUint32(b[1*s:1*s+s], math.Float32bits(v.Friction))
+	binary.LittleEndian.PutUint32(b[2*s:2*s+s], math.Float32bits(v.Elasticity))
+	binary.LittleEndian.PutUint32(b[3*s:3*s+s], math.Float32bits(v.FrictionWeight))
+	binary.LittleEndian.PutUint32(b[4*s:s*s+s], math.Float32bits(v.ElasticityWeight))
 }
 
 func (v ValuePhysicalProperties) Bytes(b []byte) {
@@ -1533,12 +1546,16 @@ func (v ValuePhysicalProperties) Bytes(b []byte) {
 		return
 	}
 	b[0] = v.CustomPhysics
-	q := b[1:]
-	binary.LittleEndian.PutUint32(q[0*4:0*4+4], math.Float32bits(v.Density))
-	binary.LittleEndian.PutUint32(q[1*4:1*4+4], math.Float32bits(v.Friction))
-	binary.LittleEndian.PutUint32(q[2*4:2*4+4], math.Float32bits(v.Elasticity))
-	binary.LittleEndian.PutUint32(q[3*4:3*4+4], math.Float32bits(v.FrictionWeight))
-	binary.LittleEndian.PutUint32(q[4*4:4*4+4], math.Float32bits(v.ElasticityWeight))
+	v.ppBytes(b[1:])
+}
+
+func (v *ValuePhysicalProperties) ppFromBytes(b []byte) {
+	const s = 4 // sizeof float32
+	v.Density = math.Float32frombits(binary.LittleEndian.Uint32(b[0*s : 0*s+s]))
+	v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(b[1*s : 1*s+s]))
+	v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(b[2*s : 2*s+s]))
+	v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[3*s : 3*s+s]))
+	v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[4*s : s*s+s]))
 }
 
 func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
@@ -1549,12 +1566,7 @@ func (v *ValuePhysicalProperties) FromBytes(b []byte) error {
 	}
 	v.CustomPhysics = b[0]
 	if v.CustomPhysics != 0 {
-		b = b[1:]
-		v.Density = math.Float32frombits(binary.LittleEndian.Uint32(b[0*4 : 0*4+4]))
-		v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(b[1*4 : 1*4+4]))
-		v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(b[2*4 : 2*4+4]))
-		v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[3*4 : 3*4+4]))
-		v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[4*4 : 4*4+4]))
+		v.ppFromBytes(b[1:])
 	} else {
 		v.Density = 0
 		v.Friction = 0
