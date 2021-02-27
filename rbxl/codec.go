@@ -519,41 +519,37 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 		}
 
 		// Check to see if all existing properties types match.
+	checkPropType:
 		for name, propChunk := range propChunkMap {
 			var instRef int32 = nilInstance
-			dataType := rbxfile.TypeInvalid
-			matches := true
+			dataType := TypeInvalid
 			for _, ref := range instChunk.InstanceIDs {
 				inst := instList[ref]
 				prop, ok := inst.Properties[name]
 				if !ok {
 					continue
 				}
-				if dataType == rbxfile.TypeInvalid {
+				if dataType == TypeInvalid {
 					// Set data type to the first valid property.
-					dataType = prop.Type()
+					dataType = FromValueType(prop.Type())
+					if dataType == TypeInvalid {
+						addWarn("unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(dataType), instList[instRef].ClassName, name, instRef)
+						continue checkPropType
+					}
 					instRef = ref
 					continue
 				}
-				if prop.Type() != dataType {
+				if t := FromValueType(prop.Type()); t != dataType {
 					// If at least one property type does not match with the
 					// rest, then stop.
-					matches = false
-					break
+					delete(propChunkMap, name)
+					addWarn("mismatched types %s and %s for property %s.%s, chunk skipped", t, dataType, instList[instRef].ClassName, name)
+					continue checkPropType
 				}
 			}
-			if !matches {
-				delete(propChunkMap, name)
-				addWarn("mismatched types for property %s.%s, chunk skipped", instList[instRef].ClassName, name)
-				continue
-			}
-			btype := FromValueType(dataType)
-			if btype == TypeInvalid {
-				delete(propChunkMap, name)
-				addWarn("unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(dataType), instList[instRef].ClassName, name, instRef)
-				continue
-			}
-			propChunk.DataType = btype
+			// Because propChunkMap was populated from InstanceIDs, dataType
+			// should always be a valid value by this point.
+			propChunk.DataType = dataType
 		}
 
 		// Set the values for each property chunk.
