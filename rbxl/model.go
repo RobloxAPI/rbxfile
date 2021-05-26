@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/anaminus/parse"
 	"github.com/bkaradzic/go-lz4"
 )
 
@@ -72,116 +73,18 @@ var (
 
 ////////////////////////////////////////////////////////////////
 
-// Returns the size of an integer.
-func intDataSize(data interface{}) int {
-	switch data.(type) {
-	case int8, *int8, uint8, *uint8:
-		return 1
-	case int16, *int16, uint16, *uint16:
-		return 2
-	case int32, *int32, uint32, *uint32:
-		return 4
-	case int64, *int64, uint64, *uint64:
-		return 8
-	}
-	return 0
-}
-
-// Reader wrapper that keeps track of the number of bytes written.
-type formatReader struct {
-	r   io.Reader
-	n   int64
-	err error
-}
-
-func (f *formatReader) read(p []byte) (failed bool) {
-	if f.err != nil {
-		return true
-	}
-
-	var n int
-	n, f.err = io.ReadFull(f.r, p)
-	f.n += int64(n)
-
-	if f.err != nil {
-		return true
-	}
-
-	return false
-}
-
-func (f *formatReader) readall() (data []byte, failed bool) {
-	if f.err != nil {
-		return nil, true
-	}
-
-	data, f.err = io.ReadAll(f.r)
-	f.n += int64(len(data))
-
-	if f.err != nil {
-		return nil, true
-	}
-
-	return data, false
-}
-
-func (f *formatReader) end() (n int64, err error) {
-	return f.n, f.err
-}
-
-func (f *formatReader) readNumber(order binary.ByteOrder, data interface{}) (failed bool) {
-	if f.err != nil {
-		return true
-	}
-
-	if m := intDataSize(data); m != 0 {
-		var b [8]byte
-		bs := b[:m]
-
-		if f.read(bs) {
-			return true
-		}
-
-		switch data := data.(type) {
-		case *int8:
-			*data = int8(b[0])
-		case *uint8:
-			*data = b[0]
-		case *int16:
-			*data = int16(order.Uint16(bs))
-		case *uint16:
-			*data = order.Uint16(bs)
-		case *int32:
-			*data = int32(order.Uint32(bs))
-		case *uint32:
-			*data = order.Uint32(bs)
-		case *int64:
-			*data = int64(order.Uint64(bs))
-		case *uint64:
-			*data = order.Uint64(bs)
-		default:
-			goto invalid
-		}
-
-		return false
-	}
-
-invalid:
-	panic("invalid type")
-}
-
-func (f *formatReader) readString(data *string) (failed bool) {
-	if f.err != nil {
+func readString(f *parse.BinaryReader, data *string) (failed bool) {
+	if f.Err() != nil {
 		return true
 	}
 
 	var length uint32
-	if f.readNumber(binary.LittleEndian, &length) {
+	if f.Number(&length) {
 		return true
 	}
 
 	s := make([]byte, length)
-	if f.read(s) {
+	if f.Bytes(s) {
 		return true
 	}
 
@@ -190,79 +93,16 @@ func (f *formatReader) readString(data *string) (failed bool) {
 	return false
 }
 
-// Writer wrapper that keeps track of the number of bytes written.
-type formatWriter struct {
-	w   io.Writer
-	n   int64
-	err error
-}
-
-func (f *formatWriter) write(p []byte) (failed bool) {
-	if f.err != nil {
+func writeString(f *parse.BinaryWriter, data string) (failed bool) {
+	if f.Err() != nil {
 		return true
 	}
 
-	var n int
-	n, f.err = f.w.Write(p)
-	f.n += int64(n)
-
-	if n < len(p) {
+	if f.Number(uint32(len(data))) {
 		return true
 	}
 
-	return false
-}
-
-func (f *formatWriter) end() (n int64, err error) {
-	return f.n, f.err
-}
-
-func (f *formatWriter) writeNumber(order binary.ByteOrder, data interface{}) (failed bool) {
-	if f.err != nil {
-		return true
-	}
-
-	if m := intDataSize(data); m != 0 {
-		b := make([]byte, 8)
-
-		switch data := data.(type) {
-		case int8:
-			b[0] = uint8(data)
-		case uint8:
-			b[0] = data
-		case int16:
-			order.PutUint16(b, uint16(data))
-		case uint16:
-			order.PutUint16(b, data)
-		case int32:
-			order.PutUint32(b, uint32(data))
-		case uint32:
-			order.PutUint32(b, data)
-		case int64:
-			order.PutUint64(b, uint64(data))
-		case uint64:
-			order.PutUint64(b, data)
-		default:
-			goto invalid
-		}
-
-		return f.write(b[:m])
-	}
-
-invalid:
-	panic("invalid type")
-}
-
-func (f *formatWriter) writeString(data string) (failed bool) {
-	if f.err != nil {
-		return true
-	}
-
-	if f.writeNumber(binary.LittleEndian, uint32(len(data))) {
-		return true
-	}
-
-	return f.write([]byte(data))
+	return f.Bytes([]byte(data))
 }
 
 ////////////////////////////////////////////////////////////////
@@ -336,37 +176,37 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 		return 0, errors.New("reader is nil")
 	}
 
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
 	sig := make([]byte, len(RobloxSig+BinaryMarker))
-	if fr.read(sig) {
-		return fr.end()
+	if fr.Bytes(sig) {
+		return fr.End()
 	}
 
 	if !bytes.Equal(sig, []byte(RobloxSig+BinaryMarker)) {
-		fr.err = ErrInvalidSig
-		return fr.end()
+		fr.Add(0, ErrInvalidSig)
+		return fr.End()
 	}
 
 	header := make([]byte, len(BinaryHeader))
-	if fr.read(header) {
-		return fr.end()
+	if fr.Bytes(header) {
+		return fr.End()
 	}
 
 	if !bytes.Equal(header, []byte(BinaryHeader)) {
-		fr.err = ErrCorruptHeader
-		return fr.end()
+		fr.Add(0, ErrCorruptHeader)
+		return fr.End()
 	}
 
 	var version uint16
-	if fr.readNumber(binary.LittleEndian, &version) {
-		return fr.end()
+	if fr.Number(&version) {
+		return fr.End()
 	}
 
 	switch version {
 	default:
-		fr.err = ErrUnrecognizedVersion(version)
-		return fr.end()
+		fr.Add(0, ErrUnrecognizedVersion(version))
+		return fr.End()
 	case 0:
 	}
 
@@ -376,17 +216,17 @@ func (f *FormatModel) ReadFrom(r io.Reader) (n int64, err error) {
 	f.Warnings = f.Warnings[:0]
 	f.Chunks = f.Chunks[:0]
 
-	if fr.readNumber(binary.LittleEndian, &f.ClassCount) {
-		return fr.end()
+	if fr.Number(&f.ClassCount) {
+		return fr.End()
 	}
 
-	if fr.readNumber(binary.LittleEndian, &f.InstanceCount) {
-		return fr.end()
+	if fr.Number(&f.InstanceCount) {
+		return fr.End()
 	}
 
 	var reserved uint64
-	if fr.readNumber(binary.LittleEndian, &reserved) {
-		return fr.end()
+	if fr.Number(&reserved) {
+		return fr.End()
 	}
 	if reserved != 0 {
 		f.Warnings = append(f.Warnings, WarnReserveNonZero)
@@ -396,7 +236,7 @@ loop:
 	for {
 		rawChunk := new(rawChunk)
 		if rawChunk.ReadFrom(fr) {
-			return fr.end()
+			return fr.End()
 		}
 
 		newChunk := chunkGenerators(f.Version, rawChunk.signature)
@@ -409,8 +249,8 @@ loop:
 		if _, err := chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); err != nil {
 			err = ErrChunk{Sig: rawChunk.signature, Err: err}
 			if f.Strict {
-				fr.err = err
-				return fr.end()
+				fr.Add(0, err)
+				return fr.End()
 			}
 			f.Warnings = append(f.Warnings, err)
 			continue loop
@@ -434,7 +274,7 @@ loop:
 		}
 	}
 
-	return fr.end()
+	return fr.End()
 }
 
 // WriteTo encodes the FormatModel as bytes to w.
@@ -445,27 +285,27 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 
 	f.Warnings = f.Warnings[:0]
 
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	if fw.write([]byte(RobloxSig + BinaryMarker + BinaryHeader)) {
-		return fw.end()
+	if fw.Bytes([]byte(RobloxSig + BinaryMarker + BinaryHeader)) {
+		return fw.End()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, f.Version) {
-		return fw.end()
+	if fw.Number(f.Version) {
+		return fw.End()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, f.ClassCount) {
-		return fw.end()
+	if fw.Number(f.ClassCount) {
+		return fw.End()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, f.InstanceCount) {
-		return fw.end()
+	if fw.Number(f.InstanceCount) {
+		return fw.End()
 	}
 
 	// reserved
-	if fw.writeNumber(binary.LittleEndian, uint64(0)) {
-		return fw.end()
+	if fw.Number(uint64(0)) {
+		return fw.End()
 	}
 
 	for i, chunk := range f.Chunks {
@@ -494,18 +334,18 @@ func (f *FormatModel) WriteTo(w io.Writer) (n int64, err error) {
 		rawChunk.compressed = chunk.Compressed()
 
 		buf := new(bytes.Buffer)
-		if _, fw.err = chunk.WriteTo(buf); fw.err != nil {
-			return fw.end()
+		if fw.Add(chunk.WriteTo(buf)) {
+			return fw.End()
 		}
 
 		rawChunk.payload = buf.Bytes()
 
 		if rawChunk.WriteTo(fw) {
-			return fw.end()
+			return fw.End()
 		}
 	}
 
-	return fw.end()
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -540,23 +380,23 @@ type rawChunk struct {
 }
 
 // Reads out a raw chunk from a stream, decompressing the chunk if necessary.
-func (c *rawChunk) ReadFrom(fr *formatReader) bool {
-	if fr.read(c.signature[:]) {
+func (c *rawChunk) ReadFrom(fr *parse.BinaryReader) bool {
+	if fr.Bytes(c.signature[:]) {
 		return true
 	}
 
 	var compressedLength uint32
-	if fr.readNumber(binary.LittleEndian, &compressedLength) {
+	if fr.Number(&compressedLength) {
 		return true
 	}
 
 	var decompressedLength uint32
-	if fr.readNumber(binary.LittleEndian, &decompressedLength) {
+	if fr.Number(&decompressedLength) {
 		return true
 	}
 
 	var reserved uint32
-	if fr.readNumber(binary.LittleEndian, &reserved) {
+	if fr.Number(&reserved) {
 		return true
 	}
 
@@ -564,7 +404,7 @@ func (c *rawChunk) ReadFrom(fr *formatReader) bool {
 	// If compressed length is 0, then the data is not compressed.
 	if compressedLength == 0 {
 		c.compressed = false
-		if fr.read(c.payload) {
+		if fr.Bytes(c.payload) {
 			return true
 		}
 	} else {
@@ -575,7 +415,7 @@ func (c *rawChunk) ReadFrom(fr *formatReader) bool {
 		compressedData := make([]byte, compressedLength+4)
 		binary.LittleEndian.PutUint32(compressedData, decompressedLength)
 
-		if fr.read(compressedData[4:]) {
+		if fr.Bytes(compressedData[4:]) {
 			return true
 		}
 
@@ -584,7 +424,7 @@ func (c *rawChunk) ReadFrom(fr *formatReader) bool {
 		// validation, though the error message isn't the same.
 
 		if _, err := lz4.Decode(c.payload, compressedData); err != nil {
-			fr.err = fmt.Errorf("lz4: %s", err.Error())
+			fr.Add(0, fmt.Errorf("lz4: %s", err.Error()))
 			return true
 		}
 	}
@@ -593,15 +433,15 @@ func (c *rawChunk) ReadFrom(fr *formatReader) bool {
 }
 
 // Writes a raw chunk payload to a stream, compressing if necessary.
-func (c *rawChunk) WriteTo(fw *formatWriter) bool {
-	if fw.write(c.signature[:]) {
+func (c *rawChunk) WriteTo(fw *parse.BinaryWriter) bool {
+	if fw.Bytes(c.signature[:]) {
 		return true
 	}
 
 	if c.compressed {
 		var compressedData []byte
-		compressedData, fw.err = lz4.Encode(compressedData, c.payload)
-		if fw.err != nil {
+		compressedData, err := lz4.Encode(compressedData, c.payload)
+		if fw.Add(0, err) {
 			return true
 		}
 
@@ -614,40 +454,40 @@ func (c *rawChunk) WriteTo(fw *formatWriter) bool {
 		// payload, so it must be excluded.
 		compressedPayload := compressedData[4:]
 
-		if fw.writeNumber(binary.LittleEndian, uint32(len(compressedPayload))) {
+		if fw.Number(uint32(len(compressedPayload))) {
 			return true
 		}
 
 		// Decompressed length
-		if fw.writeNumber(binary.LittleEndian, uint32(len(c.payload))) {
+		if fw.Number(uint32(len(c.payload))) {
 			return true
 		}
 
 		// Reserved
-		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
+		if fw.Number(uint32(0)) {
 			return true
 		}
 
-		if fw.write(compressedPayload) {
+		if fw.Bytes(compressedPayload) {
 			return true
 		}
 	} else {
 		// If the data is not compressed, then the compressed length is 0
-		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
+		if fw.Number(uint32(0)) {
 			return true
 		}
 
 		// Decompressed length
-		if fw.writeNumber(binary.LittleEndian, uint32(len(c.payload))) {
+		if fw.Number(uint32(len(c.payload))) {
 			return true
 		}
 
 		// Reserved
-		if fw.writeNumber(binary.LittleEndian, uint32(0)) {
+		if fw.Number(uint32(0)) {
 			return true
 		}
 
-		if fw.write(c.payload) {
+		if fw.Bytes(c.payload) {
 			return true
 		}
 	}
@@ -686,19 +526,19 @@ func (c *ChunkUnknown) SetCompressed(b bool) {
 }
 
 func (c *ChunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
-	c.Bytes, _ = fr.readall()
+	c.Bytes, _ = fr.All()
 
-	return fr.end()
+	return fr.End()
 }
 
 func (c *ChunkUnknown) WriteTo(w io.Writer) (n int64, err error) {
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	fw.write(c.Bytes)
+	fw.Bytes(c.Bytes)
 
-	return fw.end()
+	return fw.End()
 }
 
 func (c *ChunkUnknown) Error() string {
@@ -758,37 +598,37 @@ func (c *ChunkInstance) SetCompressed(b bool) {
 }
 
 func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
-	if fr.readNumber(binary.LittleEndian, &c.ClassID) {
-		return fr.end()
+	if fr.Number(&c.ClassID) {
+		return fr.End()
 	}
 
-	if fr.readString(&c.ClassName) {
-		return fr.end()
+	if readString(fr, &c.ClassName) {
+		return fr.End()
 	}
 
 	var isService uint8
-	if fr.readNumber(binary.LittleEndian, &isService) {
-		return fr.end()
+	if fr.Number(&isService) {
+		return fr.End()
 	}
 	c.IsService = isService != 0
 
 	var groupLength uint32
-	if fr.readNumber(binary.LittleEndian, &groupLength) {
-		return fr.end()
+	if fr.Number(&groupLength) {
+		return fr.End()
 	}
 
 	c.InstanceIDs = make([]int32, groupLength)
 	if groupLength > 0 {
 		raw := make([]byte, groupLength*4)
-		if fr.read(raw) {
-			return fr.end()
+		if fr.Bytes(raw) {
+			return fr.End()
 		}
 
-		var values []Value
-		if values, fr.err = ValuesFromBytes(TypeReference, raw); fr.err != nil {
-			return fr.end()
+		values, err := ValuesFromBytes(TypeReference, raw)
+		if fr.Add(0, err) {
+			return fr.End()
 		}
 
 		for i, v := range values {
@@ -798,35 +638,35 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 
 	if c.IsService {
 		c.GetService = make([]byte, groupLength)
-		if fr.read(c.GetService) {
-			return fr.end()
+		if fr.Bytes(c.GetService) {
+			return fr.End()
 		}
 	}
 
-	return fr.end()
+	return fr.End()
 }
 
 func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	if fw.writeNumber(binary.LittleEndian, c.ClassID) {
-		return fw.end()
+	if fw.Number(c.ClassID) {
+		return fw.End()
 	}
 
-	if fw.writeString(c.ClassName) {
-		return fw.end()
+	if writeString(fw, c.ClassName) {
+		return fw.End()
 	}
 
 	var isService uint8 = 0
 	if c.IsService {
 		isService = 1
 	}
-	if fw.writeNumber(binary.LittleEndian, isService) {
-		return fw.end()
+	if fw.Number(isService) {
+		return fw.End()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, uint32(len(c.InstanceIDs))) {
-		return fw.end()
+	if fw.Number(uint32(len(c.InstanceIDs))) {
+		return fw.End()
 	}
 
 	if len(c.InstanceIDs) > 0 {
@@ -836,23 +676,23 @@ func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 			values[i] = (*ValueReference)(&n)
 		}
 
-		var raw []byte
-		if raw, fw.err = ValuesToBytes(TypeReference, values); fw.err != nil {
-			return fw.end()
+		raw, err := ValuesToBytes(TypeReference, values)
+		if fw.Add(0, err) {
+			return fw.End()
 		}
 
-		if fw.write(raw) {
-			return fw.end()
+		if fw.Bytes(raw) {
+			return fw.End()
 		}
 	}
 
 	if c.IsService {
-		if fw.write(c.GetService) {
-			return fw.end()
+		if fw.Bytes(c.GetService) {
+			return fw.End()
 		}
 	}
 
-	return fw.end()
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -887,19 +727,19 @@ func (c *ChunkEnd) SetCompressed(b bool) {
 }
 
 func (c *ChunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
-	c.Content, _ = fr.readall()
+	c.Content, _ = fr.All()
 
-	return fr.end()
+	return fr.End()
 }
 
 func (c *ChunkEnd) WriteTo(w io.Writer) (n int64, err error) {
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	fw.write(c.Content)
+	fw.Bytes(c.Content)
 
-	return fw.end()
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -943,27 +783,27 @@ func (c *ChunkParent) SetCompressed(b bool) {
 }
 
 func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
-	if fr.readNumber(binary.LittleEndian, &c.Version) {
-		return fr.end()
+	if fr.Number(&c.Version) {
+		return fr.End()
 	}
 
 	var instanceCount uint32
-	if fr.readNumber(binary.LittleEndian, &instanceCount) {
-		return fr.end()
+	if fr.Number(&instanceCount) {
+		return fr.End()
 	}
 
 	c.Children = make([]int32, instanceCount)
 	if instanceCount > 0 {
 		raw := make([]byte, instanceCount*4)
-		if fr.read(raw) {
-			return fr.end()
+		if fr.Bytes(raw) {
+			return fr.End()
 		}
 
-		var values []Value
-		if values, fr.err = ValuesFromBytes(TypeReference, raw); fr.err != nil {
-			return fr.end()
+		values, err := ValuesFromBytes(TypeReference, raw)
+		if fr.Add(0, err) {
+			return fr.End()
 		}
 
 		for i, v := range values {
@@ -974,13 +814,13 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 	c.Parents = make([]int32, instanceCount)
 	if instanceCount > 0 {
 		raw := make([]byte, instanceCount*4)
-		if fr.read(raw) {
-			return fr.end()
+		if fr.Bytes(raw) {
+			return fr.End()
 		}
 
-		var values []Value
-		if values, fr.err = ValuesFromBytes(TypeReference, raw); fr.err != nil {
-			return fr.end()
+		values, err := ValuesFromBytes(TypeReference, raw)
+		if fr.Add(0, err) {
+			return fr.End()
 		}
 
 		for i, v := range values {
@@ -988,19 +828,19 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 		}
 	}
 
-	return fr.end()
+	return fr.End()
 }
 
 func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	if fw.writeNumber(binary.LittleEndian, c.Version) {
-		return fw.end()
+	if fw.Number(c.Version) {
+		return fw.End()
 	}
 
 	var instanceCount = len(c.Children)
-	if fw.writeNumber(binary.LittleEndian, uint32(instanceCount)) {
-		return fw.end()
+	if fw.Number(uint32(instanceCount)) {
+		return fw.End()
 	}
 
 	if instanceCount > 0 {
@@ -1011,19 +851,19 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 			values[i] = (*ValueReference)(&n)
 		}
 
-		var raw []byte
-		if raw, fw.err = ValuesToBytes(TypeReference, values); fw.err != nil {
-			return fw.end()
+		raw, err := ValuesToBytes(TypeReference, values)
+		if fw.Add(0, err) {
+			return fw.End()
 		}
 
-		if fw.write(raw) {
-			return fw.end()
+		if fw.Bytes(raw) {
+			return fw.End()
 		}
 
 		// Parents
 		if len(c.Parents) != instanceCount {
-			fw.err = ErrChunkParentArray
-			return fw.end()
+			fw.Add(0, ErrChunkParentArray)
+			return fw.End()
 		}
 
 		for i, id := range c.Parents {
@@ -1031,16 +871,17 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 			values[i] = (*ValueReference)(&n)
 		}
 
-		if raw, fw.err = ValuesToBytes(TypeReference, values); fw.err != nil {
-			return fw.end()
+		raw, err = ValuesToBytes(TypeReference, values)
+		if fw.Add(0, err) {
+			return fw.End()
 		}
 
-		if fw.write(raw) {
-			return fw.end()
+		if fw.Bytes(raw) {
+			return fw.End()
 		}
 	}
 
-	return fw.end()
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1084,69 +925,68 @@ func (c *ChunkProperty) SetCompressed(b bool) {
 }
 
 func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
-	if fr.readNumber(binary.LittleEndian, &c.ClassID) {
-		return fr.end()
+	if fr.Number(&c.ClassID) {
+		return fr.End()
 	}
 
-	if fr.readString(&c.PropertyName) {
-		return fr.end()
+	if readString(fr, &c.PropertyName) {
+		return fr.End()
 	}
 
-	if fr.readNumber(binary.LittleEndian, (*uint8)(&c.DataType)) {
-		return fr.end()
+	if fr.Number((*uint8)(&c.DataType)) {
+		return fr.End()
 	}
 
-	rawBytes, failed := fr.readall()
+	rawBytes, failed := fr.All()
 	if failed {
-		return fr.end()
+		return fr.End()
 	}
 
 	if !c.DataType.Valid() {
-		fr.err = &ErrInvalidType{Chunk: c, Bytes: rawBytes}
-		return fr.end()
+		fr.Add(0, &ErrInvalidType{Chunk: c, Bytes: rawBytes})
+		return fr.End()
 	}
 
-	c.Properties, fr.err = ValuesFromBytes(c.DataType, rawBytes)
-	if fr.err != nil {
+	if c.Properties, err = ValuesFromBytes(c.DataType, rawBytes); err != nil {
 		errBytes := make([]byte, len(rawBytes))
 		copy(errBytes, rawBytes)
-		fr.err = ErrValue{Type: c.DataType, Bytes: errBytes, Err: fr.err}
-		return fr.end()
+		fr.Add(0, ErrValue{Type: c.DataType, Bytes: errBytes, Err: err})
+		return fr.End()
 	}
 
-	return fr.end()
+	return fr.End()
 }
 
 func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	if fw.writeNumber(binary.LittleEndian, c.ClassID) {
-		return fw.end()
+	if fw.Number(c.ClassID) {
+		return fw.End()
 	}
 
-	if fw.writeString(c.PropertyName) {
-		return fw.end()
+	if writeString(fw, c.PropertyName) {
+		return fw.End()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, uint8(c.DataType)) {
-		return fw.end()
+	if fw.Number(uint8(c.DataType)) {
+		return fw.End()
 	}
 
 	if !c.DataType.Valid() {
-		fw.err = &ErrInvalidType{Chunk: c}
-		return fw.end()
+		fw.Add(0, &ErrInvalidType{Chunk: c})
+		return fw.End()
 	}
 
-	var rawBytes []byte
-	if rawBytes, fw.err = ValuesToBytes(c.DataType, c.Properties); fw.err != nil {
-		return fw.end()
+	rawBytes, err := ValuesToBytes(c.DataType, c.Properties)
+	if fw.Add(0, err) {
+		return fw.End()
 	}
 
-	fw.write(rawBytes)
+	fw.Bytes(rawBytes)
 
-	return fw.end()
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1185,43 +1025,43 @@ func (err errRawBytes) Error() string {
 }
 
 func (c *ChunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
 	var size uint32
-	if fr.readNumber(binary.LittleEndian, &size) {
-		return fr.end()
+	if fr.Number(&size) {
+		return fr.End()
 	}
 	c.Values = make([][2]string, int(size))
 
 	for i := range c.Values {
-		if fr.readString(&c.Values[i][0]) {
-			return fr.end()
+		if readString(fr, &c.Values[i][0]) {
+			return fr.End()
 		}
-		if fr.readString(&c.Values[i][1]) {
-			return fr.end()
+		if readString(fr, &c.Values[i][1]) {
+			return fr.End()
 		}
 	}
 
-	return fr.end()
+	return fr.End()
 }
 
 func (c *ChunkMeta) WriteTo(w io.Writer) (n int64, err error) {
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	if fw.writeNumber(binary.LittleEndian, uint32(len(c.Values))) {
-		return fw.end()
+	if fw.Number(uint32(len(c.Values))) {
+		return fw.End()
 	}
 
 	for _, pair := range c.Values {
-		if fw.writeString(pair[0]) {
-			return fw.end()
+		if writeString(fw, pair[0]) {
+			return fw.End()
 		}
-		if fw.writeString(pair[1]) {
-			return fw.end()
+		if writeString(fw, pair[1]) {
+			return fw.End()
 		}
 	}
 
-	return fw.end()
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1257,55 +1097,55 @@ func (c *ChunkSharedStrings) SetCompressed(b bool) {
 }
 
 func (c *ChunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {
-	fr := &formatReader{r: r}
+	fr := parse.NewBinaryReader(r)
 
-	if fr.readNumber(binary.LittleEndian, &c.Version) {
-		return fr.end()
+	if fr.Number(&c.Version) {
+		return fr.End()
 	}
 	// TODO: validate version?
 
 	var length uint32
-	if fr.readNumber(binary.LittleEndian, &length) {
-		return fr.end()
+	if fr.Number(&length) {
+		return fr.End()
 	}
 	c.Values = make([]SharedString, int(length))
 
 	for i := range c.Values {
-		if fr.read(c.Values[i].Hash[:]) {
-			fr.end()
+		if fr.Bytes(c.Values[i].Hash[:]) {
+			fr.End()
 		}
 		var value string
-		if fr.readString(&value) {
-			return fr.end()
+		if readString(fr, &value) {
+			return fr.End()
 		}
 		c.Values[i].Value = []byte(value)
 		// TODO: validate hash?
 	}
 
-	return fr.end()
+	return fr.End()
 }
 
 func (c *ChunkSharedStrings) WriteTo(w io.Writer) (n int64, err error) {
-	fw := &formatWriter{w: w}
+	fw := parse.NewBinaryWriter(w)
 
-	if fw.writeNumber(binary.LittleEndian, c.Version) {
-		return fw.end()
+	if fw.Number(c.Version) {
+		return fw.End()
 	}
 
-	if fw.writeNumber(binary.LittleEndian, uint32(len(c.Values))) {
-		return fw.end()
+	if fw.Number(uint32(len(c.Values))) {
+		return fw.End()
 	}
 
 	for _, ss := range c.Values {
-		if fw.write(ss.Hash[:]) {
-			fw.end()
+		if fw.Bytes(ss.Hash[:]) {
+			fw.End()
 		}
-		if fw.writeString(string(ss.Value)) {
-			fw.end()
+		if writeString(fw, string(ss.Value)) {
+			fw.End()
 		}
 	}
 
-	return fw.end()
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
