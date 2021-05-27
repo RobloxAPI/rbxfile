@@ -1529,7 +1529,7 @@ func encodeDouble(f float64) string {
 }
 
 func encodeContent(tag *Tag, text string) {
-	if len(text) > 0 && strings.Index(text, "]]>") == -1 {
+	if strings.Index(text, "]]>") >= 0 {
 		tag.CData = []byte(text)
 		return
 	}
