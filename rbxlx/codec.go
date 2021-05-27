@@ -2,6 +2,7 @@ package rbxlx
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -933,31 +934,37 @@ func (t sortTagsByNameAttr) Swap(i, j int) {
 }
 
 type wrapWriter struct {
-	l  int
-	n  int
-	w  io.Writer
-	nl []byte
+	l int
+	c int
+	w io.Writer
 }
 
 func newWrapWriter(length int, w io.Writer) *wrapWriter {
-	return &wrapWriter{l: length, w: w, nl: []byte{'\n'}}
+	return &wrapWriter{l: length, w: w}
 }
 
 func (w *wrapWriter) Write(p []byte) (n int, err error) {
-	i := 0
-	if w.n+len(p) >= w.l {
-		i = w.l - w.n
-		if n, err = w.w.Write(p[:i]); err != nil {
+	for w.c+len(p) >= w.l {
+		i := w.l - w.c
+		nn, err := w.w.Write(p[:i])
+		n += nn
+		if err != nil {
 			return n, err
 		}
-		if n, err = w.w.Write(w.nl); err != nil {
+		nn, err = w.w.Write([]byte{'\n'})
+		if err != nil {
 			return n, err
 		}
-		w.n = 0
+		w.c = 0
+		p = p[i:]
 	}
-	n, err = w.w.Write(p[i:])
-	w.n += n
-	return n, err
+	if len(p) > 0 {
+		nn, err := w.w.Write(p)
+		n += nn
+		w.c += nn
+		return n, err
+	}
+	return n, nil
 }
 
 func (enc *rencoder) encode() {
