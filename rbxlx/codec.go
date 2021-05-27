@@ -1448,10 +1448,16 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueSharedString:
+		sum := md5.Sum(value)
+		hash := string(sum[:])
+		if _, ok := enc.sharedStrings[hash]; !ok {
+			enc.sharedStrings[hash] = []byte(value)
+		}
+
 		buf := new(bytes.Buffer)
 		sw := &lineSplit{w: buf, s: 72, n: 72}
 		bw := base64.NewEncoder(base64.StdEncoding, sw)
-		bw.Write([]byte(value))
+		bw.Write(sum[:])
 		bw.Close()
 		tag := &Tag{
 			StartName: "SharedString",
