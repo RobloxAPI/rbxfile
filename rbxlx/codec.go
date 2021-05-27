@@ -1013,6 +1013,7 @@ func (enc *rencoder) encode() {
 			}
 			s.Reset()
 		}
+		enc.document.Root.Tags = append(enc.document.Root.Tags, tag)
 	}
 }
 
