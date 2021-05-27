@@ -2,7 +2,6 @@ package rbxlx
 
 import (
 	"bytes"
-	"crypto/md5"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/robloxapi/rbxfile"
+	"golang.org/x/crypto/blake2b"
 )
 
 // RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
@@ -1456,8 +1456,8 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueSharedString:
-		sum := md5.Sum(value)
-		hash := string(sum[:])
+		sum := blake2b.Sum256(value)
+		hash := string(sum[:16])
 		if _, ok := enc.sharedStrings[hash]; !ok {
 			enc.sharedStrings[hash] = []byte(value)
 		}
@@ -1465,7 +1465,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		buf := new(bytes.Buffer)
 		sw := &lineSplit{w: buf, s: 72, n: 72}
 		bw := base64.NewEncoder(base64.StdEncoding, sw)
-		bw.Write(sum[:])
+		bw.Write(sum[:16])
 		bw.Close()
 		tag := &Tag{
 			StartName: "SharedString",

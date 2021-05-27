@@ -1,12 +1,12 @@
 package rbxl
 
 import (
-	"crypto/md5"
 	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/robloxapi/rbxfile"
+	"golang.org/x/crypto/blake2b"
 )
 
 // Mode indicates how RobloxCodec should interpret data.
@@ -572,12 +572,15 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 						v := int32(ref)
 						bvalue = (*ValueReference)(&v)
 					case rbxfile.ValueSharedString:
-						// TODO: verify that strings are compared by MD5 hash.
-						hash := md5.Sum([]byte(value))
+						// TODO: verify that strings are compared by hash.
+						sum := blake2b.Sum256([]byte(value))
+						var hash [16]byte
+						copy(hash[:], sum[:])
 						entry, ok := sharedStrings[hash]
 						if !ok {
 							entry.index = len(sharedStrings)
-							entry.value.Hash = hash
+							// No longer used; Roblox encodes with zeros.
+							entry.value.Hash = [16]byte{}
 							entry.value.Value = []byte(value)
 							sharedStrings[hash] = entry
 						}
