@@ -74,7 +74,7 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	}
 
 	// Run codec.
-	codec := RobloxCodec{Mode: d.Mode}
+	codec := robloxCodec{Mode: d.Mode}
 	root, err = codec.Decode(&f)
 	if err != nil {
 		return nil, errors.New("error decoding data: " + err.Error())

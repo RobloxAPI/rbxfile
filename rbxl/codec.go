@@ -9,16 +9,16 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
+// robloxCodec implements Decoder and Encoder to emulate Roblox's internal
 // codec as closely as possible.
-type RobloxCodec struct {
+type robloxCodec struct {
 	Mode Mode
 }
 
 // Reference value indicating a nil instance.
 const nilInstance = -1
 
-func (c RobloxCodec) Decode(model *formatModel) (root *rbxfile.Root, err error) {
+func (c robloxCodec) Decode(model *formatModel) (root *rbxfile.Root, err error) {
 	if model == nil {
 		return nil, fmt.Errorf("FormatModel is nil")
 	}
@@ -401,7 +401,7 @@ type sharedEntry struct {
 
 type sharedMap map[[16]byte]sharedEntry
 
-func (c RobloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) {
+func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) {
 	if root == nil {
 		return nil, errors.New("Root is nil")
 	}

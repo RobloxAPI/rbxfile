@@ -21,7 +21,7 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 		return errors.New("nil writer")
 	}
 
-	codec := RobloxCodec{Mode: e.Mode}
+	codec := robloxCodec{Mode: e.Mode}
 	f, err := codec.Encode(root)
 	if err != nil {
 		return errors.New("error encoding data: " + err.Error())
