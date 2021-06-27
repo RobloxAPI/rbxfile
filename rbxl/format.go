@@ -13,6 +13,14 @@ import (
 	"github.com/robloxapi/rbxfile"
 )
 
+// Mode indicates how the codec formats data.
+type Mode uint8
+
+const (
+	ModePlace Mode = iota // Data is handled as a Roblox place (RBXL) file.
+	ModeModel             // Data is handled as a Roblox model (RBXM) file.
+)
+
 // Deserialize decodes data from r into a Root structure using the default
 // decoder. Data is interpreted as a Roblox place file.
 func DeserializePlace(r io.Reader) (root *rbxfile.Root, err error) {

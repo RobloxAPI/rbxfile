@@ -9,14 +9,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// Mode indicates how RobloxCodec should interpret data.
-type Mode uint8
-
-const (
-	ModePlace Mode = iota // Data is decoded and encoded as a Roblox place (RBXL) file.
-	ModeModel             // Data is decoded and encoded as a Roblox model (RBXM) file.
-)
-
 // RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
 // codec as closely as possible.
 type RobloxCodec struct {
