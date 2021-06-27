@@ -1,9 +1,11 @@
 package rbxl
 
 import (
+	"bytes"
 	"errors"
 	"io"
 
+	"github.com/anaminus/parse"
 	"github.com/robloxapi/rbxfile"
 )
 
@@ -20,14 +22,72 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 	}
 
 	codec := RobloxCodec{Mode: e.Mode}
-	model, err := codec.Encode(root)
+	f, err := codec.Encode(root)
 	if err != nil {
 		return errors.New("error encoding data: " + err.Error())
 	}
 
-	if _, err = model.WriteTo(w); err != nil {
-		return errors.New("error encoding format: " + err.Error())
+	f.Warnings = f.Warnings[:0]
+
+	fw := parse.NewBinaryWriter(w)
+
+	if fw.Bytes([]byte(RobloxSig + BinaryMarker + BinaryHeader)) {
+		return fw.Err()
 	}
 
-	return nil
+	if fw.Number(f.Version) {
+		return fw.Err()
+	}
+
+	if fw.Number(f.ClassCount) {
+		return fw.Err()
+	}
+
+	if fw.Number(f.InstanceCount) {
+		return fw.Err()
+	}
+
+	// reserved
+	if fw.Number(uint64(0)) {
+		return fw.Err()
+	}
+
+	for i, chunk := range f.Chunks {
+		if !validChunk(f.Version, chunk.Signature()) {
+			f.Warnings = append(f.Warnings, &ChunkUnknown{
+				Sig: chunk.Signature(),
+			})
+		}
+
+		if endChunk, ok := chunk.(*ChunkEnd); ok {
+			if endChunk.IsCompressed {
+				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
+			}
+
+			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
+				f.Warnings = append(f.Warnings, WarnEndChunkContent)
+			}
+
+			if i != len(f.Chunks)-1 {
+				f.Warnings = append(f.Warnings, WarnEndChunkNotLast)
+			}
+		}
+
+		rawChunk := new(rawChunk)
+		rawChunk.signature = chunk.Signature()
+		rawChunk.compressed = chunk.Compressed()
+
+		buf := new(bytes.Buffer)
+		if fw.Add(chunk.WriteTo(buf)) {
+			return fw.Err()
+		}
+
+		rawChunk.payload = buf.Bytes()
+
+		if rawChunk.WriteTo(fw) {
+			return fw.Err()
+		}
+	}
+
+	return fw.Err()
 }

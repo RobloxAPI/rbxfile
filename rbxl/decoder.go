@@ -1,11 +1,11 @@
 package rbxl
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"io"
 
+	"github.com/anaminus/parse"
 	"github.com/robloxapi/rbxfile"
 	"github.com/robloxapi/rbxfile/rbxlx"
 )
@@ -27,38 +27,123 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 		return nil, errors.New("nil reader")
 	}
 
-	if !d.NoXML {
-		var buf *bufio.Reader
-		if br, ok := r.(*bufio.Reader); ok {
-			buf = br
-		} else {
-			buf = bufio.NewReader(r)
-		}
+	var f FormatModel
+	fr := parse.NewBinaryReader(r)
 
-		sig, err := buf.Peek(len(RobloxSig) + len(BinaryMarker))
-		if err != nil {
-			return nil, err
-		}
-		if !bytes.Equal(sig[:len(RobloxSig)], []byte(RobloxSig)) {
+	// Check signature.
+	sig := make([]byte, len(RobloxSig+BinaryMarker))
+	if fr.Bytes(sig) {
+		return nil, fr.Err()
+	}
+	if !bytes.Equal(sig[:len(RobloxSig)], []byte(RobloxSig)) {
+		return nil, ErrInvalidSig
+	}
+
+	// Check for legacy XML.
+	if !bytes.Equal(sig[len(RobloxSig):], []byte(BinaryMarker)) {
+		if d.NoXML {
 			return nil, ErrInvalidSig
-		}
-
-		if !bytes.Equal(sig[len(RobloxSig):], []byte(BinaryMarker)) {
+		} else {
+			// Reconstruct original reader.
+			buf := io.MultiReader(bytes.NewReader(sig), r)
 			return rbxlx.NewSerializer(rbxlx.RobloxCodec{}, nil).Deserialize(buf)
 		}
-		r = buf
 	}
 
-	model := new(FormatModel)
-	if _, err = model.ReadFrom(r); err != nil {
-		return nil, errors.New("error parsing format: " + err.Error())
+	// Check header magic.
+	header := make([]byte, len(BinaryHeader))
+	if fr.Bytes(header) {
+		return nil, fr.Err()
+	}
+	if !bytes.Equal(header, []byte(BinaryHeader)) {
+		return nil, ErrCorruptHeader
 	}
 
+	// Check version.
+	if fr.Number(&f.Version) {
+		return nil, fr.Err()
+	}
+	switch f.Version {
+	default:
+		return nil, ErrUnrecognizedVersion(f.Version)
+	case 0:
+		err = d.version0(fr, &f)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Run codec.
 	codec := RobloxCodec{Mode: d.Mode}
-	root, err = codec.Decode(model)
+	root, err = codec.Decode(&f)
 	if err != nil {
 		return nil, errors.New("error decoding data: " + err.Error())
 	}
 
 	return root, nil
+}
+
+func (d Decoder) version0(fr *parse.BinaryReader, f *FormatModel) (err error) {
+	f.Warnings = f.Warnings[:0]
+	f.Chunks = f.Chunks[:0]
+
+	if fr.Number(&f.ClassCount) {
+		return fr.Err()
+	}
+
+	if fr.Number(&f.InstanceCount) {
+		return fr.Err()
+	}
+
+	var reserved uint64
+	if fr.Number(&reserved) {
+		return fr.Err()
+	}
+	if reserved != 0 {
+		f.Warnings = append(f.Warnings, WarnReserveNonZero)
+	}
+
+loop:
+	for {
+		rawChunk := new(rawChunk)
+		if rawChunk.ReadFrom(fr) {
+			return fr.Err()
+		}
+
+		newChunk := chunkGenerators(f.Version, rawChunk.signature)
+		if newChunk == nil {
+			newChunk = newChunkUnknown
+		}
+		chunk := newChunk()
+		chunk.SetCompressed(rawChunk.compressed)
+
+		if _, err := chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); err != nil {
+			err = ErrChunk{Sig: rawChunk.signature, Err: err}
+			if f.Strict {
+				fr.Add(0, err)
+				return fr.Err()
+			}
+			f.Warnings = append(f.Warnings, err)
+			continue loop
+		}
+
+		f.Chunks = append(f.Chunks, chunk)
+
+		switch chunk := chunk.(type) {
+		case *ChunkUnknown:
+			f.Warnings = append(f.Warnings, chunk)
+		case *ChunkEnd:
+			if chunk.Compressed() {
+				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
+			}
+
+			if !bytes.Equal(chunk.Content, []byte("</roblox>")) {
+				f.Warnings = append(f.Warnings, WarnEndChunkContent)
+			}
+
+			break loop
+		}
+	}
+
+	return fr.Err()
 }
