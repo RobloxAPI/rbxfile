@@ -98,18 +98,18 @@ func initFormatModel() *FormatModel {
 	f.TypeCount = 3
 	f.InstanceCount = 6
 
-	names := []ValueString{
-		ValueString("intValue0"),
-		ValueString("intValue1"),
-		ValueString("Vector3Value0"),
-		ValueString("Vector3Value1"),
-		ValueString("Vector3Value2"),
-		ValueString("Workspace0"),
+	names := []valueString{
+		valueString("intValue0"),
+		valueString("intValue1"),
+		valueString("Vector3Value0"),
+		valueString("Vector3Value1"),
+		valueString("Vector3Value2"),
+		valueString("Workspace0"),
 	}
 
-	values := []ValueInt{
-		ValueInt(42),
-		ValueInt(-37),
+	values := []valueInt{
+		valueInt(42),
+		valueInt(-37),
 	}
 
 	f.Chunks = []Chunk{
@@ -174,9 +174,9 @@ func initFormatModel() *FormatModel {
 			PropertyName: "Value",
 			DataType:     typeVector3,
 			Properties: []Value{
-				&ValueVector3{X: 1, Y: 2, Z: 3},
-				&ValueVector3{X: 4, Y: 5, Z: 6},
-				&ValueVector3{X: 7, Y: 8, Z: 9},
+				&valueVector3{X: 1, Y: 2, Z: 3},
+				&valueVector3{X: 4, Y: 5, Z: 6},
+				&valueVector3{X: 7, Y: 8, Z: 9},
 			},
 		},
 		&ChunkProperty{

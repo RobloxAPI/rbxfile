@@ -75,7 +75,7 @@ func interleave(bytes []byte, length int) error {
 }
 
 // Encodes Values that implement the fielder interface.
-func interleaveFields(id typeID, a []Value) (b []byte, err error) {
+func interleaveFields(id typeID, a []value) (b []byte, err error) {
 	if len(a) == 0 {
 		return b, nil
 	}
@@ -132,7 +132,7 @@ func interleaveFields(id typeID, a []Value) (b []byte, err error) {
 }
 
 // Appends the bytes of a list of Values into a byte array.
-func appendValueBytes(id typeID, a []Value) []byte {
+func appendValueBytes(id typeID, a []value) []byte {
 	n := 0
 	for _, v := range a {
 		n += v.BytesLen()
@@ -148,7 +148,7 @@ func appendValueBytes(id typeID, a []Value) []byte {
 }
 
 // Append each value as bytes, then interleave to improve compression.
-func interleaveAppend(t typeID, a []Value) (b []byte, err error) {
+func interleaveAppend(t typeID, a []value) (b []byte, err error) {
 	b = appendValueBytes(t, a)
 	if err = interleave(b, t.Size()); err != nil {
 		return nil, err
@@ -156,9 +156,9 @@ func interleaveAppend(t typeID, a []Value) (b []byte, err error) {
 	return b, nil
 }
 
-// ValuesToBytes encodes a slice of values into binary form, according to t.
+// valuesToBytes encodes a slice of values into binary form, according to t.
 // Returns an error if a value cannot be encoded as t.
-func ValuesToBytes(t typeID, a []Value) (b []byte, err error) {
+func valuesToBytes(t typeID, a []value) (b []byte, err error) {
 	if !t.Valid() {
 		return nil, fmt.Errorf("invalid type (%02X)", t)
 	}
@@ -216,9 +216,9 @@ func ValuesToBytes(t typeID, a []Value) (b []byte, err error) {
 
 	case typeCFrame:
 		// The bytes of each value can vary in length.
-		p := make([]Value, len(a))
+		p := make([]value, len(a))
 		for i, cf := range a {
-			cf := cf.(*ValueCFrame)
+			cf := cf.(*valueCFrame)
 			// Build matrix part.
 			b = append(b, cf.Special)
 			if cf.Special == 0 {
@@ -238,9 +238,9 @@ func ValuesToBytes(t typeID, a []Value) (b []byte, err error) {
 		return b, nil
 
 	case typeCFrameQuat:
-		p := make([]Value, len(a))
+		p := make([]value, len(a))
 		for i, cf := range a {
-			cf := cf.(*ValueCFrameQuat)
+			cf := cf.(*valueCFrameQuat)
 			b = append(b, cf.Special)
 			if cf.Special == 0 {
 				r := make([]byte, zCFrameQuatQ)
@@ -264,9 +264,9 @@ func ValuesToBytes(t typeID, a []Value) (b []byte, err error) {
 			return b, nil
 		}
 		b = make([]byte, len(a)*zReference)
-		var prev ValueReference
+		var prev valueReference
 		for i, ref := range a {
-			ref := ref.(*ValueReference)
+			ref := ref.(*valueReference)
 			if i == 0 {
 				ref.Bytes(b[i*zReference : i*zReference+zReference])
 			} else {
@@ -299,7 +299,7 @@ func ValuesToBytes(t typeID, a []Value) (b []byte, err error) {
 		// The bytes of each value can vary in length.
 		q := make([]byte, zPhysicalPropertiesFields)
 		for _, pp := range a {
-			pp := pp.(*ValuePhysicalProperties)
+			pp := pp.(*valuePhysicalProperties)
 			b = append(b, pp.CustomPhysics)
 			if pp.CustomPhysics != 0 {
 				// Write all fields.
@@ -335,7 +335,7 @@ func deinterleave(bytes []byte, size int) error {
 }
 
 // Decodes Values that implement the fielder interface.
-func deinterleaveFields(id typeID, b []byte) (a []Value, err error) {
+func deinterleaveFields(id typeID, b []byte) (a []value, err error) {
 	if len(b) == 0 {
 		return a, nil
 	}
@@ -345,7 +345,7 @@ func deinterleaveFields(id typeID, b []byte) (a []Value, err error) {
 	}
 
 	// Number of bytes per field
-	nbytes := NewValue(id).(fielder).fieldLen()
+	nbytes := newValue(id).(fielder).fieldLen()
 	// Number fields per value
 	nfields := len(nbytes)
 
@@ -367,7 +367,7 @@ func deinterleaveFields(id typeID, b []byte) (a []Value, err error) {
 		ofields[i+1] = ofields[i] + n*nvalues
 	}
 
-	a = make([]Value, nvalues)
+	a = make([]value, nvalues)
 
 	// List of each field slice
 	fields := make([][]byte, maxFieldLen)[:nfields]
@@ -383,7 +383,7 @@ func deinterleaveFields(id typeID, b []byte) (a []Value, err error) {
 	}
 
 	for i := range a {
-		v := NewValue(id)
+		v := newValue(id)
 		vf := v.(fielder)
 		for f, field := range fields {
 			n := nbytes[f]
@@ -401,10 +401,10 @@ func deinterleaveFields(id typeID, b []byte) (a []Value, err error) {
 // length. The first 4 bytes of a value is read as length N of the value.
 // id.FieldSize() indicates the size of each field in the value, so the next
 // N*field bytes are read as the full value.
-func appendByteValues(id typeID, b []byte) (a []Value, err error) {
+func appendByteValues(id typeID, b []byte) (a []value, err error) {
 	if size := id.Size(); size >= 0 {
 		for i := 0; i+size <= len(b); i += size {
-			v := NewValue(id)
+			v := newValue(id)
 			if err := v.FromBytes(b[i : i+size]); err != nil {
 				return nil, err
 			}
@@ -424,7 +424,7 @@ func appendByteValues(id typeID, b []byte) (a []Value, err error) {
 			return nil, fmt.Errorf("expected %d more bytes in array", size*field)
 		}
 
-		v := NewValue(id)
+		v := newValue(id)
 		if err := v.FromBytes(ba[:zArrayLen+size*field]); err != nil {
 			return nil, err
 		}
@@ -436,7 +436,7 @@ func appendByteValues(id typeID, b []byte) (a []Value, err error) {
 }
 
 // Deinterleave, then append from given size.
-func deinterleaveAppend(t typeID, b []byte) (a []Value, err error) {
+func deinterleaveAppend(t typeID, b []byte) (a []value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	size := t.Size()
@@ -446,9 +446,9 @@ func deinterleaveAppend(t typeID, b []byte) (a []Value, err error) {
 	return appendByteValues(t, bc)
 }
 
-// ValuesFromBytes decodes b according to t, into a slice of values, the type of
+// valuesFromBytes decodes b according to t, into a slice of values, the type of
 // each corresponding to t.
-func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
+func valuesFromBytes(t typeID, b []byte) (a []value, err error) {
 	if !t.Valid() {
 		return nil, fmt.Errorf("invalid type (%02X)", t)
 	}
@@ -500,7 +500,7 @@ func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 		return nil, errors.New("not implemented")
 
 	case typeCFrame:
-		cfs := make([]*ValueCFrame, 0)
+		cfs := make([]*valueCFrame, 0)
 		// This loop reads the matrix data. i is the current position in the
 		// byte array. n is the expected size of the position data, which
 		// increases every time another CFrame is read. As long as the number of
@@ -509,7 +509,7 @@ func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 		i := 0
 		n := 0
 		for ; len(b)-i > n; n += zVector3 {
-			cf := new(ValueCFrame)
+			cf := new(valueCFrame)
 			cf.Special = b[i]
 			i++
 			if cf.Special == 0 {
@@ -526,7 +526,7 @@ func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 			cfs = append(cfs, cf)
 		}
 		// Read remaining position data using the Position field, which is a
-		// ValueVector3.
+		// valueVector3.
 		if a, err = deinterleaveFields(typeVector3, b[i:i+n]); err != nil {
 			return nil, err
 		}
@@ -537,17 +537,17 @@ func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 		// with CFrames. This lets us avoid needing to copy 'cfs' to 'a', and
 		// needing to create a second array.
 		for i, p := range a {
-			cfs[i].Position = *p.(*ValueVector3)
+			cfs[i].Position = *p.(*valueVector3)
 			a[i] = cfs[i]
 		}
 		return a, nil
 
 	case typeCFrameQuat:
-		cfs := make([]*ValueCFrame, 0)
+		cfs := make([]*valueCFrame, 0)
 		i := 0
 		n := 0
 		for ; len(b)-i > n; n += zVector3 {
-			cf := new(ValueCFrameQuat)
+			cf := new(valueCFrameQuat)
 			cf.Special = b[i]
 			i++
 			if cf.Special == 0 {
@@ -568,7 +568,7 @@ func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 			return nil, errors.New("number of positions does not match number of matrices")
 		}
 		for i, p := range a {
-			cfs[i].Position = *p.(*ValueVector3)
+			cfs[i].Position = *p.(*valueVector3)
 			a[i] = cfs[i]
 		}
 		return a, nil
@@ -588,13 +588,13 @@ func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 		if err = deinterleave(bc, zReference); err != nil {
 			return nil, err
 		}
-		a = make([]Value, len(bc)/zReference)
+		a = make([]value, len(bc)/zReference)
 		for i := 0; i < len(bc)/zReference; i++ {
-			ref := new(ValueReference)
+			ref := new(valueReference)
 			ref.FromBytes(bc[i*zReference : i*zReference+zReference])
 			if i > 0 {
 				// Convert relative ref to absolute ref.
-				r := *a[i-1].(*ValueReference)
+				r := *a[i-1].(*valueReference)
 				*ref = r + *ref
 			}
 			a[i] = ref
@@ -618,7 +618,7 @@ func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 
 	case typePhysicalProperties:
 		for i := 0; i < len(b); {
-			pp := new(ValuePhysicalProperties)
+			pp := new(valuePhysicalProperties)
 			pp.CustomPhysics = b[i]
 			i++
 			if pp.CustomPhysics != 0 {
