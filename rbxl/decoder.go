@@ -10,6 +10,7 @@ import (
 	"github.com/robloxapi/rbxfile/rbxlx"
 )
 
+// Decoder decodes a stream of bytes into an rbxfile.Root.
 type Decoder struct {
 	// Mode indicates which type of format is decoded.
 	Mode Mode
@@ -19,6 +20,8 @@ type Decoder struct {
 	NoXML bool
 }
 
+// Decode reads data from r and decodes it into root according to the rbxl
+// format.
 func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	if r == nil {
 		return nil, errors.New("nil reader")
