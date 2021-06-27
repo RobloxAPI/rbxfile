@@ -460,7 +460,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 
 		chunk.InstanceIDs = append(chunk.InstanceIDs, int32(ref))
 
-		if c.Mode == ModePlace && inst.IsService {
+		if c.Mode == Place && inst.IsService {
 			chunk.IsService = true
 			chunk.GetService = append(chunk.GetService, 1)
 		} else {

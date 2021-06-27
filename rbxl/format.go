@@ -17,30 +17,30 @@ import (
 type Mode uint8
 
 const (
-	ModePlace Mode = iota // Data is handled as a Roblox place (RBXL) file.
-	ModeModel             // Data is handled as a Roblox model (RBXM) file.
+	Place Mode = iota // Data is handled as a Roblox place (RBXL) file.
+	Model             // Data is handled as a Roblox model (RBXM) file.
 )
 
 // Deserialize decodes data from r into a Root structure using the default
 // decoder. Data is interpreted as a Roblox place file.
 func DeserializePlace(r io.Reader) (root *rbxfile.Root, err error) {
-	return Decoder{Mode: ModePlace}.Decode(r)
+	return Decoder{Mode: Place}.Decode(r)
 }
 
 // Serialize encodes data from a Root structure to w using the default
 // encoder. Data is interpreted as a Roblox place file.
 func SerializePlace(w io.Writer, root *rbxfile.Root) (err error) {
-	return Encoder{Mode: ModePlace}.Encode(w, root)
+	return Encoder{Mode: Place}.Encode(w, root)
 }
 
 // Deserialize decodes data from r into a Root structure using the default
 // decoder. Data is interpreted as a Roblox model file.
 func DeserializeModel(r io.Reader) (root *rbxfile.Root, err error) {
-	return Decoder{Mode: ModeModel}.Decode(r)
+	return Decoder{Mode: Model}.Decode(r)
 }
 
 // Serialize encodes data from a Root structure to w using the default
 // encoder. Data is interpreted as a Roblox model file.
 func SerializeModel(w io.Writer, root *rbxfile.Root) (err error) {
-	return Encoder{Mode: ModeModel}.Encode(w, root)
+	return Encoder{Mode: Model}.Encode(w, root)
 }
