@@ -18,7 +18,7 @@ type RobloxCodec struct {
 // Reference value indicating a nil instance.
 const nilInstance = -1
 
-func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) {
+func (c RobloxCodec) Decode(model *formatModel) (root *rbxfile.Root, err error) {
 	if model == nil {
 		return nil, fmt.Errorf("FormatModel is nil")
 	}
@@ -26,7 +26,7 @@ func (c RobloxCodec) Decode(model *FormatModel) (root *rbxfile.Root, err error) 
 
 	root = new(rbxfile.Root)
 
-	groupLookup := make(map[int32]*ChunkInstance, model.ClassCount)
+	groupLookup := make(map[int32]*chunkInstance, model.ClassCount)
 	instLookup := make(map[int32]*rbxfile.Instance, model.InstanceCount+1)
 	instLookup[nilInstance] = nil
 
@@ -46,7 +46,7 @@ loop:
 	for ic, chunk := range model.Chunks {
 		chunkNum = ic
 		switch chunk := chunk.(type) {
-		case *ChunkInstance:
+		case *chunkInstance:
 			chunkType = "instance"
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
 				err = fmt.Errorf("class index out of bounds: %d", model.ClassCount)
@@ -85,7 +85,7 @@ loop:
 			}
 			groupLookup[chunk.ClassID] = chunk
 
-		case *ChunkProperty:
+		case *chunkProperty:
 			chunkType = "property"
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
 				err = fmt.Errorf("class index out of bounds: %d", model.ClassCount)
@@ -124,7 +124,7 @@ loop:
 				inst.Properties[chunk.PropertyName] = value
 			}
 
-		case *ChunkParent:
+		case *chunkParent:
 			chunkType = "parent"
 			if chunk.Version != 0 {
 				err = fmt.Errorf("unrecognized parent link format %d", chunk.Version)
@@ -162,7 +162,7 @@ loop:
 				parent.Children = append(parent.Children, child)
 			}
 
-		case *ChunkMeta:
+		case *chunkMeta:
 			chunkType = "meta"
 			if root.Metadata == nil {
 				root.Metadata = make(map[string]string, len(chunk.Values))
@@ -171,12 +171,12 @@ loop:
 				root.Metadata[pair[0]] = pair[1]
 			}
 
-		case *ChunkSharedStrings:
+		case *chunkSharedStrings:
 			chunkType = "sharedstring"
 			// TODO: How are multiple chunks handled (overwrite or append)?
 			sharedStrings = chunk.Values
 
-		case *ChunkEnd:
+		case *chunkEnd:
 			chunkType = "end"
 			break loop
 		}
@@ -401,12 +401,12 @@ type sharedEntry struct {
 
 type sharedMap map[[16]byte]sharedEntry
 
-func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) {
+func (c RobloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) {
 	if root == nil {
 		return nil, errors.New("Root is nil")
 	}
 
-	model = new(FormatModel)
+	model = new(formatModel)
 
 	// A list of instances in the tree. The index serves as the instance's
 	// reference number.
@@ -445,12 +445,12 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	}
 
 	// Group instances of the same ClassName into single chunks.
-	instChunkMap := map[string]*ChunkInstance{}
+	instChunkMap := map[string]*chunkInstance{}
 	for ref, inst := range instList {
 
 		chunk, ok := instChunkMap[inst.ClassName]
 		if !ok {
-			chunk = &ChunkInstance{
+			chunk = &chunkInstance{
 				IsCompressed: true,
 				ClassName:    inst.ClassName,
 				InstanceIDs:  []int32{},
@@ -481,7 +481,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	}
 
 	// Make property chunks.
-	propChunkList := []*ChunkProperty{}
+	propChunkList := []*chunkProperty{}
 	for i, instChunk := range instChunkList {
 		instChunk.ClassID = int32(i)
 
@@ -492,7 +492,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 			model.Warnings = append(model.Warnings, fmt.Errorf("instance chunk #%d: "+format, q...))
 		}
 
-		propChunkMap := map[string]*ChunkProperty{}
+		propChunkMap := map[string]*chunkProperty{}
 
 		// Populate propChunkMap.
 		for _, ref := range instChunk.InstanceIDs {
@@ -501,7 +501,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 					// A chunk of the property name already exists.
 					continue
 				}
-				propChunkMap[name] = &ChunkProperty{
+				propChunkMap[name] = &chunkProperty{
 					IsCompressed: true,
 					ClassID:      instChunk.ClassID,
 					PropertyName: name,
@@ -608,7 +608,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	}
 
 	// Make parent chunk.
-	parentChunk := &ChunkParent{
+	parentChunk := &chunkParent{
 		IsCompressed: true,
 		Version:      0,
 		Children:     make([]int32, len(instList)),
@@ -638,7 +638,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	}
 
 	// Make end chunk.
-	endChunk := &ChunkEnd{
+	endChunk := &chunkEnd{
 		IsCompressed: false,
 		Content:      []byte("</roblox>"),
 	}
@@ -654,12 +654,12 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	if len(sharedStrings) > 0 {
 		chunkLength++
 	}
-	model.Chunks = make([]Chunk, 0, chunkLength)
+	model.Chunks = make([]chunk, 0, chunkLength)
 
 	if len(root.Metadata) > 0 {
 		// TODO: verify that chunk is omitted when zero values are encoded, and
 		// is not based on format (RBXM vs RBXL).
-		chunk := ChunkMeta{
+		chunk := chunkMeta{
 			IsCompressed: true,
 			Values:       make([][2]string, 0, len(root.Metadata)),
 		}
@@ -671,7 +671,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	}
 
 	if len(sharedStrings) > 0 {
-		chunk := ChunkSharedStrings{
+		chunk := chunkSharedStrings{
 			Version: 0,
 			Values:  make([]SharedString, len(sharedStrings)),
 		}
@@ -693,7 +693,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *FormatModel, err error) 
 	return
 }
 
-type sortInstChunks []*ChunkInstance
+type sortInstChunks []*chunkInstance
 
 func (c sortInstChunks) Len() int {
 	return len(c)
@@ -705,7 +705,7 @@ func (c sortInstChunks) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
 }
 
-type sortPropChunks []*ChunkProperty
+type sortPropChunks []*chunkProperty
 
 func (c sortPropChunks) Len() int {
 	return len(c)

@@ -27,20 +27,20 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 		return nil, errors.New("nil reader")
 	}
 
-	var f FormatModel
+	var f formatModel
 	fr := parse.NewBinaryReader(r)
 
 	// Check signature.
-	sig := make([]byte, len(RobloxSig+BinaryMarker))
+	sig := make([]byte, len(robloxSig+binaryMarker))
 	if fr.Bytes(sig) {
 		return nil, fr.Err()
 	}
-	if !bytes.Equal(sig[:len(RobloxSig)], []byte(RobloxSig)) {
+	if !bytes.Equal(sig[:len(robloxSig)], []byte(robloxSig)) {
 		return nil, ErrInvalidSig
 	}
 
 	// Check for legacy XML.
-	if !bytes.Equal(sig[len(RobloxSig):], []byte(BinaryMarker)) {
+	if !bytes.Equal(sig[len(robloxSig):], []byte(binaryMarker)) {
 		if d.NoXML {
 			return nil, ErrInvalidSig
 		} else {
@@ -51,11 +51,11 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	}
 
 	// Check header magic.
-	header := make([]byte, len(BinaryHeader))
+	header := make([]byte, len(binaryHeader))
 	if fr.Bytes(header) {
 		return nil, fr.Err()
 	}
-	if !bytes.Equal(header, []byte(BinaryHeader)) {
+	if !bytes.Equal(header, []byte(binaryHeader)) {
 		return nil, ErrCorruptHeader
 	}
 
@@ -83,7 +83,7 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	return root, nil
 }
 
-func (d Decoder) version0(fr *parse.BinaryReader, f *FormatModel) (err error) {
+func (d Decoder) version0(fr *parse.BinaryReader, f *formatModel) (err error) {
 	f.Warnings = f.Warnings[:0]
 	f.Chunks = f.Chunks[:0]
 
@@ -130,9 +130,9 @@ loop:
 		f.Chunks = append(f.Chunks, chunk)
 
 		switch chunk := chunk.(type) {
-		case *ChunkUnknown:
+		case *chunkUnknown:
 			f.Warnings = append(f.Warnings, chunk)
-		case *ChunkEnd:
+		case *chunkEnd:
 			if chunk.Compressed() {
 				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
 			}

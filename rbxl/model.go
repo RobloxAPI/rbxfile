@@ -12,14 +12,14 @@ import (
 
 ////////////////////////////////////////////////////////////////
 
-// RobloxSig is the signature a Roblox file (binary or XML).
-const RobloxSig = "<roblox"
+// robloxSig is the signature a Roblox file (binary or XML).
+const robloxSig = "<roblox"
 
-// BinaryMarker indicates the start of a binary file, rather than an XML file.
-const BinaryMarker = "!"
+// binaryMarker indicates the start of a binary file, rather than an XML file.
+const binaryMarker = "!"
 
-// BinaryHeader is the header magic of a binary file.
-const BinaryHeader = "\x89\xff\r\n\x1a\n"
+// binaryHeader is the header magic of a binary file.
+const binaryHeader = "\x89\xff\r\n\x1a\n"
 
 var (
 	ErrInvalidSig       = errors.New("invalid signature")
@@ -44,7 +44,7 @@ func (err ErrChunk) Error() string {
 }
 
 type ErrInvalidType struct {
-	Chunk *ChunkProperty
+	Chunk *chunkProperty
 	Bytes []byte
 }
 
@@ -108,7 +108,7 @@ func writeString(f *parse.BinaryWriter, data string) (failed bool) {
 
 // chunkGenerator is a function that initializes a type which implements a
 // Chunk.
-type chunkGenerator func() Chunk
+type chunkGenerator func() chunk
 
 // chunkGenerators returns a function that generates a chunk of the given
 // signature, which exists for the given format version.
@@ -141,9 +141,9 @@ func validChunk(version uint16, sig [4]byte) bool {
 	return chunkGenerators(version, sig) != nil
 }
 
-// FormatModel models Roblox's binary file format. Directly, it can be used to
+// formatModel models Roblox's binary file format. Directly, it can be used to
 // control exactly how a file is encoded.
-type FormatModel struct {
+type formatModel struct {
 	// Version indicates the version of the format model.
 	Version uint16
 
@@ -154,7 +154,7 @@ type FormatModel struct {
 	InstanceCount uint32
 
 	// Chunks is a list of Chunks present in the model.
-	Chunks []Chunk
+	Chunks []chunk
 
 	// If Strict is true, certain errors normally emitted as warnings are
 	// instead emitted as errors.
@@ -168,8 +168,8 @@ type FormatModel struct {
 
 ////////////////////////////////////////////////////////////////
 
-// Chunk is a portion of the model that contains distinct data.
-type Chunk interface {
+// chunk is a portion of the model that contains distinct data.
+type chunk interface {
 	// Signature returns a signature used to identify the chunk's type.
 	Signature() [4]byte
 
@@ -315,8 +315,8 @@ func (c *rawChunk) WriteTo(fw *parse.BinaryWriter) bool {
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkUnknown is a Chunk that is not known by the format.
-type ChunkUnknown struct {
+// chunkUnknown is a Chunk that is not known by the format.
+type chunkUnknown struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
@@ -327,23 +327,23 @@ type ChunkUnknown struct {
 	Bytes []byte
 }
 
-func newChunkUnknown() Chunk {
-	return new(ChunkUnknown)
+func newChunkUnknown() chunk {
+	return new(chunkUnknown)
 }
 
-func (c *ChunkUnknown) Signature() [4]byte {
+func (c *chunkUnknown) Signature() [4]byte {
 	return c.Sig
 }
 
-func (c *ChunkUnknown) Compressed() bool {
+func (c *chunkUnknown) Compressed() bool {
 	return c.IsCompressed
 }
 
-func (c *ChunkUnknown) SetCompressed(b bool) {
+func (c *chunkUnknown) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
-func (c *ChunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	c.Bytes, _ = fr.All()
@@ -351,7 +351,7 @@ func (c *ChunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
 	return fr.End()
 }
 
-func (c *ChunkUnknown) WriteTo(w io.Writer) (n int64, err error) {
+func (c *chunkUnknown) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
 	fw.Bytes(c.Bytes)
@@ -359,16 +359,16 @@ func (c *ChunkUnknown) WriteTo(w io.Writer) (n int64, err error) {
 	return fw.End()
 }
 
-func (c *ChunkUnknown) Error() string {
+func (c *chunkUnknown) Error() string {
 	return fmt.Sprintf("unknown chunk signature `%s`", c.Sig)
 }
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkInstance is a Chunk that contains information about the instances in
+// chunkInstance is a Chunk that contains information about the instances in
 // the file. Instances of the same ClassName are grouped together into this
 // kind of chunk, which are called "instance groups".
-type ChunkInstance struct {
+type chunkInstance struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
@@ -399,23 +399,23 @@ type ChunkInstance struct {
 	GetService []byte
 }
 
-func newChunkInstance() Chunk {
-	return new(ChunkInstance)
+func newChunkInstance() chunk {
+	return new(chunkInstance)
 }
 
-func (ChunkInstance) Signature() [4]byte {
+func (chunkInstance) Signature() [4]byte {
 	return [4]byte{0x49, 0x4E, 0x53, 0x54} // INST
 }
 
-func (c *ChunkInstance) Compressed() bool {
+func (c *chunkInstance) Compressed() bool {
 	return c.IsCompressed
 }
 
-func (c *ChunkInstance) SetCompressed(b bool) {
+func (c *chunkInstance) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
-func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.ClassID) {
@@ -464,7 +464,7 @@ func (c *ChunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 	return fr.End()
 }
 
-func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
+func (c *chunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
 	if fw.Number(c.ClassID) {
@@ -515,9 +515,9 @@ func (c *ChunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkEnd is a Chunk that signals the end of the file. It causes the decoder
+// chunkEnd is a Chunk that signals the end of the file. It causes the decoder
 // to stop reading chunks, so it should be the last chunk.
-type ChunkEnd struct {
+type chunkEnd struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
@@ -528,23 +528,23 @@ type ChunkEnd struct {
 	Content []byte
 }
 
-func newChunkEnd() Chunk {
-	return new(ChunkEnd)
+func newChunkEnd() chunk {
+	return new(chunkEnd)
 }
 
-func (ChunkEnd) Signature() [4]byte {
+func (chunkEnd) Signature() [4]byte {
 	return [4]byte{0x45, 0x4E, 0x44, 0x00} // END\0
 }
 
-func (c *ChunkEnd) Compressed() bool {
+func (c *chunkEnd) Compressed() bool {
 	return c.IsCompressed
 }
 
-func (c *ChunkEnd) SetCompressed(b bool) {
+func (c *chunkEnd) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
-func (c *ChunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	c.Content, _ = fr.All()
@@ -552,7 +552,7 @@ func (c *ChunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
 	return fr.End()
 }
 
-func (c *ChunkEnd) WriteTo(w io.Writer) (n int64, err error) {
+func (c *chunkEnd) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
 	fw.Bytes(c.Content)
@@ -562,9 +562,9 @@ func (c *ChunkEnd) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkParent is a Chunk that contains information about the parent-child
+// chunkParent is a Chunk that contains information about the parent-child
 // relationships between instances in the model.
-type ChunkParent struct {
+type chunkParent struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
@@ -584,23 +584,23 @@ type ChunkParent struct {
 	Parents []int32
 }
 
-func newChunkParent() Chunk {
-	return new(ChunkParent)
+func newChunkParent() chunk {
+	return new(chunkParent)
 }
 
-func (ChunkParent) Signature() [4]byte {
+func (chunkParent) Signature() [4]byte {
 	return [4]byte{0x50, 0x52, 0x4E, 0x54} // PRNT
 }
 
-func (c *ChunkParent) Compressed() bool {
+func (c *chunkParent) Compressed() bool {
 	return c.IsCompressed
 }
 
-func (c *ChunkParent) SetCompressed(b bool) {
+func (c *chunkParent) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
-func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.Version) {
@@ -649,7 +649,7 @@ func (c *ChunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 	return fr.End()
 }
 
-func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
+func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
 	if fw.Number(c.Version) {
@@ -704,9 +704,9 @@ func (c *ChunkParent) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkProperty is a Chunk that contains information about the properties of
+// chunkProperty is a Chunk that contains information about the properties of
 // a group of instances.
-type ChunkProperty struct {
+type chunkProperty struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
@@ -726,23 +726,23 @@ type ChunkProperty struct {
 	Properties []Value
 }
 
-func newChunkProperty() Chunk {
-	return new(ChunkProperty)
+func newChunkProperty() chunk {
+	return new(chunkProperty)
 }
 
-func (ChunkProperty) Signature() [4]byte {
+func (chunkProperty) Signature() [4]byte {
 	return [4]byte{0x50, 0x52, 0x4F, 0x50} // PROP
 }
 
-func (c *ChunkProperty) Compressed() bool {
+func (c *chunkProperty) Compressed() bool {
 	return c.IsCompressed
 }
 
-func (c *ChunkProperty) SetCompressed(b bool) {
+func (c *chunkProperty) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
-func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.ClassID) {
@@ -777,7 +777,7 @@ func (c *ChunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 	return fr.End()
 }
 
-func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
+func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
 	if fw.Number(c.ClassID) {
@@ -809,32 +809,32 @@ func (c *ChunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkMeta is a Chunk that contains file metadata.
-type ChunkMeta struct {
+// chunkMeta is a Chunk that contains file metadata.
+type chunkMeta struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
 	Values [][2]string
 }
 
-func newChunkMeta() Chunk {
-	return new(ChunkMeta)
+func newChunkMeta() chunk {
+	return new(chunkMeta)
 }
 
-func (ChunkMeta) Signature() [4]byte {
+func (chunkMeta) Signature() [4]byte {
 	return [4]byte{0x4D, 0x45, 0x54, 0x41} // META
 }
 
-func (c *ChunkMeta) Compressed() bool {
+func (c *chunkMeta) Compressed() bool {
 	return c.IsCompressed
 }
 
-func (c *ChunkMeta) SetCompressed(b bool) {
+func (c *chunkMeta) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
 type errRawBytes struct {
-	Chunk Chunk
+	Chunk chunk
 	Bytes []byte
 }
 
@@ -842,7 +842,7 @@ func (err errRawBytes) Error() string {
 	return "RAW BYTES"
 }
 
-func (c *ChunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	var size uint32
@@ -863,7 +863,7 @@ func (c *ChunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
 	return fr.End()
 }
 
-func (c *ChunkMeta) WriteTo(w io.Writer) (n int64, err error) {
+func (c *chunkMeta) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
 	if fw.Number(uint32(len(c.Values))) {
@@ -884,8 +884,8 @@ func (c *ChunkMeta) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-// ChunkSharedStrings is a Chunk that contains shared strings.
-type ChunkSharedStrings struct {
+// chunkSharedStrings is a Chunk that contains shared strings.
+type chunkSharedStrings struct {
 	// Whether the chunk is compressed.
 	IsCompressed bool
 
@@ -898,23 +898,23 @@ type SharedString struct {
 	Value []byte
 }
 
-func newChunkSharedStrings() Chunk {
-	return new(ChunkSharedStrings)
+func newChunkSharedStrings() chunk {
+	return new(chunkSharedStrings)
 }
 
-func (ChunkSharedStrings) Signature() [4]byte {
+func (chunkSharedStrings) Signature() [4]byte {
 	return [4]byte{0x53, 0x53, 0x54, 0x52} // SSTR
 }
 
-func (c *ChunkSharedStrings) Compressed() bool {
+func (c *chunkSharedStrings) Compressed() bool {
 	return c.IsCompressed
 }
 
-func (c *ChunkSharedStrings) SetCompressed(b bool) {
+func (c *chunkSharedStrings) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
-func (c *ChunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.Version) {
@@ -943,7 +943,7 @@ func (c *ChunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {
 	return fr.End()
 }
 
-func (c *ChunkSharedStrings) WriteTo(w io.Writer) (n int64, err error) {
+func (c *chunkSharedStrings) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
 	if fw.Number(c.Version) {

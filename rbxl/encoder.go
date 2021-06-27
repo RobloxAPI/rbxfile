@@ -31,7 +31,7 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 
 	fw := parse.NewBinaryWriter(w)
 
-	if fw.Bytes([]byte(RobloxSig + BinaryMarker + BinaryHeader)) {
+	if fw.Bytes([]byte(robloxSig + binaryMarker + binaryHeader)) {
 		return fw.Err()
 	}
 
@@ -54,12 +54,12 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 
 	for i, chunk := range f.Chunks {
 		if !validChunk(f.Version, chunk.Signature()) {
-			f.Warnings = append(f.Warnings, &ChunkUnknown{
+			f.Warnings = append(f.Warnings, &chunkUnknown{
 				Sig: chunk.Signature(),
 			})
 		}
 
-		if endChunk, ok := chunk.(*ChunkEnd); ok {
+		if endChunk, ok := chunk.(*chunkEnd); ok {
 			if endChunk.IsCompressed {
 				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
 			}
