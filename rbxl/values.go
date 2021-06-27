@@ -36,44 +36,44 @@ const (
 	zInvalid = 0
 )
 
-// Type represents a type that can be serialized.
-type Type byte
+// typeID represents a type that can be serialized.
+type typeID byte
 
 const (
-	TypeInvalid            Type = 0x0
-	TypeString             Type = 0x1
-	TypeBool               Type = 0x2
-	TypeInt                Type = 0x3
-	TypeFloat              Type = 0x4
-	TypeDouble             Type = 0x5
-	TypeUDim               Type = 0x6
-	TypeUDim2              Type = 0x7
-	TypeRay                Type = 0x8
-	TypeFaces              Type = 0x9
-	TypeAxes               Type = 0xA
-	TypeBrickColor         Type = 0xB
-	TypeColor3             Type = 0xC
-	TypeVector2            Type = 0xD
-	TypeVector3            Type = 0xE
-	TypeVector2int16       Type = 0xF
-	TypeCFrame             Type = 0x10
-	TypeCFrameQuat         Type = 0x11
-	TypeToken              Type = 0x12
-	TypeReference          Type = 0x13
-	TypeVector3int16       Type = 0x14
-	TypeNumberSequence     Type = 0x15
-	TypeColorSequence      Type = 0x16
-	TypeNumberRange        Type = 0x17
-	TypeRect               Type = 0x18
-	TypePhysicalProperties Type = 0x19
-	TypeColor3uint8        Type = 0x1A
-	TypeInt64              Type = 0x1B
-	TypeSharedString       Type = 0x1C
+	typeInvalid            typeID = 0x0
+	typeString             typeID = 0x1
+	typeBool               typeID = 0x2
+	typeInt                typeID = 0x3
+	typeFloat              typeID = 0x4
+	typeDouble             typeID = 0x5
+	typeUDim               typeID = 0x6
+	typeUDim2              typeID = 0x7
+	typeRay                typeID = 0x8
+	typeFaces              typeID = 0x9
+	typeAxes               typeID = 0xA
+	typeBrickColor         typeID = 0xB
+	typeColor3             typeID = 0xC
+	typeVector2            typeID = 0xD
+	typeVector3            typeID = 0xE
+	typeVector2int16       typeID = 0xF
+	typeCFrame             typeID = 0x10
+	typeCFrameQuat         typeID = 0x11
+	typeToken              typeID = 0x12
+	typeReference          typeID = 0x13
+	typeVector3int16       typeID = 0x14
+	typeNumberSequence     typeID = 0x15
+	typeColorSequence      typeID = 0x16
+	typeNumberRange        typeID = 0x17
+	typeRect               typeID = 0x18
+	typePhysicalProperties typeID = 0x19
+	typeColor3uint8        typeID = 0x1A
+	typeInt64              typeID = 0x1B
+	typeSharedString       typeID = 0x1C
 )
 
 // Valid returns whether the type has a valid value.
-func (t Type) Valid() bool {
-	return TypeString <= t && t <= TypeSharedString
+func (t typeID) Valid() bool {
+	return typeString <= t && t <= typeSharedString
 }
 
 // Size returns the number of bytes required to hold a value of the type.
@@ -85,63 +85,63 @@ func (t Type) Valid() bool {
 //
 // A Size() of < 0 with a FieldSize() of 0 indicates a type with a customized
 // size.
-func (t Type) Size() int {
+func (t typeID) Size() int {
 	switch t {
-	case TypeString:
+	case typeString:
 		return zString
-	case TypeBool:
+	case typeBool:
 		return zBool
-	case TypeInt:
+	case typeInt:
 		return zInt
-	case TypeFloat:
+	case typeFloat:
 		return zFloat
-	case TypeDouble:
+	case typeDouble:
 		return zDouble
-	case TypeUDim:
+	case typeUDim:
 		return zUDim
-	case TypeUDim2:
+	case typeUDim2:
 		return zUDim2
-	case TypeRay:
+	case typeRay:
 		return zRay
-	case TypeFaces:
+	case typeFaces:
 		return zFaces
-	case TypeAxes:
+	case typeAxes:
 		return zAxes
-	case TypeBrickColor:
+	case typeBrickColor:
 		return zBrickColor
-	case TypeColor3:
+	case typeColor3:
 		return zColor3
-	case TypeVector2:
+	case typeVector2:
 		return zVector2
-	case TypeVector3:
+	case typeVector3:
 		return zVector3
-	case TypeVector2int16:
+	case typeVector2int16:
 		return zVector2int16
-	case TypeCFrame:
+	case typeCFrame:
 		return zCFrame
-	case TypeCFrameQuat:
+	case typeCFrameQuat:
 		return zCFrameQuat
-	case TypeToken:
+	case typeToken:
 		return zToken
-	case TypeReference:
+	case typeReference:
 		return zReference
-	case TypeVector3int16:
+	case typeVector3int16:
 		return zVector3int16
-	case TypeNumberSequence:
+	case typeNumberSequence:
 		return zNumberSequence
-	case TypeColorSequence:
+	case typeColorSequence:
 		return zColorSequence
-	case TypeNumberRange:
+	case typeNumberRange:
 		return zNumberRange
-	case TypeRect:
+	case typeRect:
 		return zRect
-	case TypePhysicalProperties:
+	case typePhysicalProperties:
 		return zPhysicalProperties
-	case TypeColor3uint8:
+	case typeColor3uint8:
 		return zColor3uint8
-	case TypeInt64:
+	case typeInt64:
 		return zInt64
-	case TypeSharedString:
+	case typeSharedString:
 		return zSharedString
 	default:
 		return zInvalid
@@ -151,14 +151,14 @@ func (t Type) Size() int {
 // FieldSize returns the number of bytes of each field within a value of the
 // type, where the type is a variable-length array of fields. Returns 0 if the
 // type is invalid or not array-like.
-func (t Type) FieldSize() int {
+func (t typeID) FieldSize() int {
 	// Must return value that does not overflow uint32.
 	switch t {
-	case TypeString:
+	case typeString:
 		return zb
-	case TypeNumberSequence:
+	case typeNumberSequence:
 		return zNumberSequenceKeypoint
-	case TypeColorSequence:
+	case typeColorSequence:
 		return zColorSequenceKeypoint
 	default:
 		return zInvalid
@@ -167,63 +167,63 @@ func (t Type) FieldSize() int {
 
 // String returns a string representation of the type. If the type is not
 // valid, then the returned value will be "Invalid".
-func (t Type) String() string {
+func (t typeID) String() string {
 	switch t {
-	case TypeString:
+	case typeString:
 		return "String"
-	case TypeBool:
+	case typeBool:
 		return "Bool"
-	case TypeInt:
+	case typeInt:
 		return "Int"
-	case TypeFloat:
+	case typeFloat:
 		return "Float"
-	case TypeDouble:
+	case typeDouble:
 		return "Double"
-	case TypeUDim:
+	case typeUDim:
 		return "UDim"
-	case TypeUDim2:
+	case typeUDim2:
 		return "UDim2"
-	case TypeRay:
+	case typeRay:
 		return "Ray"
-	case TypeFaces:
+	case typeFaces:
 		return "Faces"
-	case TypeAxes:
+	case typeAxes:
 		return "Axes"
-	case TypeBrickColor:
+	case typeBrickColor:
 		return "BrickColor"
-	case TypeColor3:
+	case typeColor3:
 		return "Color3"
-	case TypeVector2:
+	case typeVector2:
 		return "Vector2"
-	case TypeVector3:
+	case typeVector3:
 		return "Vector3"
-	case TypeVector2int16:
+	case typeVector2int16:
 		return "Vector2int16"
-	case TypeCFrame:
+	case typeCFrame:
 		return "CFrame"
-	case TypeCFrameQuat:
+	case typeCFrameQuat:
 		return "CFrameQuat"
-	case TypeToken:
+	case typeToken:
 		return "Token"
-	case TypeReference:
+	case typeReference:
 		return "Reference"
-	case TypeVector3int16:
+	case typeVector3int16:
 		return "Vector3int16"
-	case TypeNumberSequence:
+	case typeNumberSequence:
 		return "NumberSequence"
-	case TypeColorSequence:
+	case typeColorSequence:
 		return "ColorSequence"
-	case TypeNumberRange:
+	case typeNumberRange:
 		return "NumberRange"
-	case TypeRect:
+	case typeRect:
 		return "Rect"
-	case TypePhysicalProperties:
+	case typePhysicalProperties:
 		return "PhysicalProperties"
-	case TypeColor3uint8:
+	case typeColor3uint8:
 		return "Color3uint8"
-	case TypeInt64:
+	case typeInt64:
 		return "Int64"
-	case TypeSharedString:
+	case typeSharedString:
 		return "SharedString"
 	default:
 		return "Invalid"
@@ -231,63 +231,63 @@ func (t Type) String() string {
 }
 
 // ValueType returns the rbxfile.Type that corresponds to the type.
-func (t Type) ValueType() rbxfile.Type {
+func (t typeID) ValueType() rbxfile.Type {
 	switch t {
-	case TypeString:
+	case typeString:
 		return rbxfile.TypeString
-	case TypeBool:
+	case typeBool:
 		return rbxfile.TypeBool
-	case TypeInt:
+	case typeInt:
 		return rbxfile.TypeInt
-	case TypeFloat:
+	case typeFloat:
 		return rbxfile.TypeFloat
-	case TypeDouble:
+	case typeDouble:
 		return rbxfile.TypeDouble
-	case TypeUDim:
+	case typeUDim:
 		return rbxfile.TypeUDim
-	case TypeUDim2:
+	case typeUDim2:
 		return rbxfile.TypeUDim2
-	case TypeRay:
+	case typeRay:
 		return rbxfile.TypeRay
-	case TypeFaces:
+	case typeFaces:
 		return rbxfile.TypeFaces
-	case TypeAxes:
+	case typeAxes:
 		return rbxfile.TypeAxes
-	case TypeBrickColor:
+	case typeBrickColor:
 		return rbxfile.TypeBrickColor
-	case TypeColor3:
+	case typeColor3:
 		return rbxfile.TypeColor3
-	case TypeVector2:
+	case typeVector2:
 		return rbxfile.TypeVector2
-	case TypeVector3:
+	case typeVector3:
 		return rbxfile.TypeVector3
-	case TypeVector2int16:
+	case typeVector2int16:
 		return rbxfile.TypeVector2int16
-	case TypeCFrame:
+	case typeCFrame:
 		return rbxfile.TypeCFrame
-	case TypeCFrameQuat:
+	case typeCFrameQuat:
 		return rbxfile.TypeCFrame
-	case TypeToken:
+	case typeToken:
 		return rbxfile.TypeToken
-	case TypeReference:
+	case typeReference:
 		return rbxfile.TypeReference
-	case TypeVector3int16:
+	case typeVector3int16:
 		return rbxfile.TypeVector3int16
-	case TypeNumberSequence:
+	case typeNumberSequence:
 		return rbxfile.TypeNumberSequence
-	case TypeColorSequence:
+	case typeColorSequence:
 		return rbxfile.TypeColorSequence
-	case TypeNumberRange:
+	case typeNumberRange:
 		return rbxfile.TypeNumberRange
-	case TypeRect:
+	case typeRect:
 		return rbxfile.TypeRect
-	case TypePhysicalProperties:
+	case typePhysicalProperties:
 		return rbxfile.TypePhysicalProperties
-	case TypeColor3uint8:
+	case typeColor3uint8:
 		return rbxfile.TypeColor3uint8
-	case TypeInt64:
+	case typeInt64:
 		return rbxfile.TypeInt64
-	case TypeSharedString:
+	case typeSharedString:
 		return rbxfile.TypeSharedString
 	default:
 		return rbxfile.TypeInvalid
@@ -295,77 +295,77 @@ func (t Type) ValueType() rbxfile.Type {
 }
 
 // FromValueType returns the Type corresponding to a given rbxfile.Type.
-func FromValueType(t rbxfile.Type) Type {
+func FromValueType(t rbxfile.Type) typeID {
 	switch t {
 	case rbxfile.TypeString:
-		return TypeString
+		return typeString
 	case rbxfile.TypeBinaryString:
-		return TypeString
+		return typeString
 	case rbxfile.TypeProtectedString:
-		return TypeString
+		return typeString
 	case rbxfile.TypeContent:
-		return TypeString
+		return typeString
 	case rbxfile.TypeBool:
-		return TypeBool
+		return typeBool
 	case rbxfile.TypeInt:
-		return TypeInt
+		return typeInt
 	case rbxfile.TypeFloat:
-		return TypeFloat
+		return typeFloat
 	case rbxfile.TypeDouble:
-		return TypeDouble
+		return typeDouble
 	case rbxfile.TypeUDim:
-		return TypeUDim
+		return typeUDim
 	case rbxfile.TypeUDim2:
-		return TypeUDim2
+		return typeUDim2
 	case rbxfile.TypeRay:
-		return TypeRay
+		return typeRay
 	case rbxfile.TypeFaces:
-		return TypeFaces
+		return typeFaces
 	case rbxfile.TypeAxes:
-		return TypeAxes
+		return typeAxes
 	case rbxfile.TypeBrickColor:
-		return TypeBrickColor
+		return typeBrickColor
 	case rbxfile.TypeColor3:
-		return TypeColor3
+		return typeColor3
 	case rbxfile.TypeVector2:
-		return TypeVector2
+		return typeVector2
 	case rbxfile.TypeVector3:
-		return TypeVector3
+		return typeVector3
 	case rbxfile.TypeVector2int16:
-		return TypeVector2int16
+		return typeVector2int16
 	case rbxfile.TypeCFrame:
-		return TypeCFrame
+		return typeCFrame
 	case rbxfile.TypeToken:
-		return TypeToken
+		return typeToken
 	case rbxfile.TypeReference:
-		return TypeReference
+		return typeReference
 	case rbxfile.TypeVector3int16:
-		return TypeVector3int16
+		return typeVector3int16
 	case rbxfile.TypeNumberSequence:
-		return TypeNumberSequence
+		return typeNumberSequence
 	case rbxfile.TypeColorSequence:
-		return TypeColorSequence
+		return typeColorSequence
 	case rbxfile.TypeNumberRange:
-		return TypeNumberRange
+		return typeNumberRange
 	case rbxfile.TypeRect:
-		return TypeRect
+		return typeRect
 	case rbxfile.TypePhysicalProperties:
-		return TypePhysicalProperties
+		return typePhysicalProperties
 	case rbxfile.TypeColor3uint8:
-		return TypeColor3uint8
+		return typeColor3uint8
 	case rbxfile.TypeInt64:
-		return TypeInt64
+		return typeInt64
 	case rbxfile.TypeSharedString:
-		return TypeSharedString
+		return typeSharedString
 	default:
-		return TypeInvalid
+		return typeInvalid
 	}
 }
 
 // Value represents a value of a certain Type.
 type Value interface {
 	// Type returns an identifier indicating the type.
-	Type() Type
+	Type() typeID
 
 	// BytesLen returns the number of bytes required to encode the value.
 	BytesLen() int
@@ -382,63 +382,63 @@ type Value interface {
 // NewValue returns new Value of the given Type. The initial value will not
 // necessarily be the zero for the type. If the given type is invalid, then a
 // nil value is returned.
-func NewValue(typ Type) Value {
+func NewValue(typ typeID) Value {
 	switch typ {
-	case TypeString:
+	case typeString:
 		return new(ValueString)
-	case TypeBool:
+	case typeBool:
 		return new(ValueBool)
-	case TypeInt:
+	case typeInt:
 		return new(ValueInt)
-	case TypeFloat:
+	case typeFloat:
 		return new(ValueFloat)
-	case TypeDouble:
+	case typeDouble:
 		return new(ValueDouble)
-	case TypeUDim:
+	case typeUDim:
 		return new(ValueUDim)
-	case TypeUDim2:
+	case typeUDim2:
 		return new(ValueUDim2)
-	case TypeRay:
+	case typeRay:
 		return new(ValueRay)
-	case TypeFaces:
+	case typeFaces:
 		return new(ValueFaces)
-	case TypeAxes:
+	case typeAxes:
 		return new(ValueAxes)
-	case TypeBrickColor:
+	case typeBrickColor:
 		return new(ValueBrickColor)
-	case TypeColor3:
+	case typeColor3:
 		return new(ValueColor3)
-	case TypeVector2:
+	case typeVector2:
 		return new(ValueVector2)
-	case TypeVector3:
+	case typeVector3:
 		return new(ValueVector3)
-	case TypeVector2int16:
+	case typeVector2int16:
 		return new(ValueVector2int16)
-	case TypeCFrame:
+	case typeCFrame:
 		return new(ValueCFrame)
-	case TypeCFrameQuat:
+	case typeCFrameQuat:
 		return new(ValueCFrameQuat)
-	case TypeToken:
+	case typeToken:
 		return new(ValueToken)
-	case TypeReference:
+	case typeReference:
 		return new(ValueReference)
-	case TypeVector3int16:
+	case typeVector3int16:
 		return new(ValueVector3int16)
-	case TypeNumberSequence:
+	case typeNumberSequence:
 		return new(ValueNumberSequence)
-	case TypeColorSequence:
+	case typeColorSequence:
 		return new(ValueColorSequence)
-	case TypeNumberRange:
+	case typeNumberRange:
 		return new(ValueNumberRange)
-	case TypeRect:
+	case typeRect:
 		return new(ValueRect)
-	case TypePhysicalProperties:
+	case typePhysicalProperties:
 		return new(ValuePhysicalProperties)
-	case TypeColor3uint8:
+	case typeColor3uint8:
 		return new(ValueColor3uint8)
-	case TypeInt64:
+	case typeInt64:
 		return new(ValueInt64)
-	case TypeSharedString:
+	case typeSharedString:
 		return new(ValueSharedString)
 	}
 	return nil
@@ -478,7 +478,7 @@ func decodeRobloxFloat(n uint32) float32 {
 }
 
 type buflenError struct {
-	typ Type
+	typ typeID
 	exp uint64
 	got int
 }
@@ -518,8 +518,8 @@ const zString = zVar
 
 type ValueString []byte
 
-func (ValueString) Type() Type {
-	return TypeString
+func (ValueString) Type() typeID {
+	return typeString
 }
 
 func (v ValueString) BytesLen() int {
@@ -548,8 +548,8 @@ const zBool = zb
 
 type ValueBool bool
 
-func (ValueBool) Type() Type {
-	return TypeBool
+func (ValueBool) Type() typeID {
+	return typeBool
 }
 
 func (v ValueBool) BytesLen() int {
@@ -579,8 +579,8 @@ const zInt = zi32
 
 type ValueInt int32
 
-func (ValueInt) Type() Type {
-	return TypeInt
+func (ValueInt) Type() typeID {
+	return typeInt
 }
 
 func (v ValueInt) BytesLen() int {
@@ -606,8 +606,8 @@ const zFloat = zf32
 
 type ValueFloat float32
 
-func (ValueFloat) Type() Type {
-	return TypeFloat
+func (ValueFloat) Type() typeID {
+	return typeFloat
 }
 
 func (v ValueFloat) BytesLen() int {
@@ -633,8 +633,8 @@ const zDouble = zf64
 
 type ValueDouble float64
 
-func (ValueDouble) Type() Type {
-	return TypeDouble
+func (ValueDouble) Type() typeID {
+	return typeDouble
 }
 
 func (v ValueDouble) BytesLen() int {
@@ -663,8 +663,8 @@ type ValueUDim struct {
 	Offset ValueInt
 }
 
-func (ValueUDim) Type() Type {
-	return TypeUDim
+func (ValueUDim) Type() typeID {
+	return typeUDim
 }
 
 func (v ValueUDim) BytesLen() int {
@@ -721,8 +721,8 @@ type ValueUDim2 struct {
 	OffsetY ValueInt
 }
 
-func (ValueUDim2) Type() Type {
-	return TypeUDim2
+func (ValueUDim2) Type() typeID {
+	return typeUDim2
 }
 
 func (v ValueUDim2) BytesLen() int {
@@ -792,8 +792,8 @@ type ValueRay struct {
 	DirectionZ float32
 }
 
-func (ValueRay) Type() Type {
-	return TypeRay
+func (ValueRay) Type() typeID {
+	return typeRay
 }
 
 func (v ValueRay) BytesLen() int {
@@ -831,8 +831,8 @@ type ValueFaces struct {
 	Right, Top, Back, Left, Bottom, Front bool
 }
 
-func (ValueFaces) Type() Type {
-	return TypeFaces
+func (ValueFaces) Type() typeID {
+	return typeFaces
 }
 
 func (v ValueFaces) BytesLen() int {
@@ -871,8 +871,8 @@ type ValueAxes struct {
 	X, Y, Z bool
 }
 
-func (ValueAxes) Type() Type {
-	return TypeAxes
+func (ValueAxes) Type() typeID {
+	return typeAxes
 }
 
 func (v ValueAxes) BytesLen() int {
@@ -906,8 +906,8 @@ const zBrickColor = zu32
 
 type ValueBrickColor uint32
 
-func (ValueBrickColor) Type() Type {
-	return TypeBrickColor
+func (ValueBrickColor) Type() typeID {
+	return typeBrickColor
 }
 
 func (v ValueBrickColor) BytesLen() int {
@@ -935,8 +935,8 @@ type ValueColor3 struct {
 	R, G, B ValueFloat
 }
 
-func (ValueColor3) Type() Type {
-	return TypeColor3
+func (ValueColor3) Type() typeID {
+	return typeColor3
 }
 
 func (v ValueColor3) BytesLen() int {
@@ -995,8 +995,8 @@ type ValueVector2 struct {
 	X, Y ValueFloat
 }
 
-func (ValueVector2) Type() Type {
-	return TypeVector2
+func (ValueVector2) Type() typeID {
+	return typeVector2
 }
 
 func (v ValueVector2) BytesLen() int {
@@ -1049,8 +1049,8 @@ type ValueVector3 struct {
 	X, Y, Z ValueFloat
 }
 
-func (ValueVector3) Type() Type {
-	return TypeVector3
+func (ValueVector3) Type() typeID {
+	return typeVector3
 }
 
 func (v ValueVector3) BytesLen() int {
@@ -1109,8 +1109,8 @@ type ValueVector2int16 struct {
 	X, Y int16
 }
 
-func (ValueVector2int16) Type() Type {
-	return TypeVector2int16
+func (ValueVector2int16) Type() typeID {
+	return typeVector2int16
 }
 
 func (v ValueVector2int16) BytesLen() int {
@@ -1146,8 +1146,8 @@ type ValueCFrame struct {
 	Position ValueVector3
 }
 
-func (ValueCFrame) Type() Type {
-	return TypeCFrame
+func (ValueCFrame) Type() typeID {
+	return typeCFrame
 }
 
 func (v ValueCFrame) BytesLen() int {
@@ -1249,8 +1249,8 @@ type ValueCFrameQuat struct {
 	Position       ValueVector3
 }
 
-func (ValueCFrameQuat) Type() Type {
-	return TypeCFrameQuat
+func (ValueCFrameQuat) Type() typeID {
+	return typeCFrameQuat
 }
 
 func (v ValueCFrameQuat) BytesLen() int {
@@ -1334,8 +1334,8 @@ const zToken = zu32
 
 type ValueToken uint32
 
-func (ValueToken) Type() Type {
-	return TypeToken
+func (ValueToken) Type() typeID {
+	return typeToken
 }
 
 func (v ValueToken) BytesLen() int {
@@ -1361,8 +1361,8 @@ const zReference = zi32
 
 type ValueReference int32
 
-func (ValueReference) Type() Type {
-	return TypeReference
+func (ValueReference) Type() typeID {
+	return typeReference
 }
 
 func (v ValueReference) BytesLen() int {
@@ -1390,8 +1390,8 @@ type ValueVector3int16 struct {
 	X, Y, Z int16
 }
 
-func (ValueVector3int16) Type() Type {
-	return TypeVector3int16
+func (ValueVector3int16) Type() typeID {
+	return typeVector3int16
 }
 
 func (v ValueVector3int16) BytesLen() int {
@@ -1427,8 +1427,8 @@ const zNumberSequence = zVar
 
 type ValueNumberSequence []ValueNumberSequenceKeypoint
 
-func (ValueNumberSequence) Type() Type {
-	return TypeNumberSequence
+func (ValueNumberSequence) Type() typeID {
+	return typeNumberSequence
 }
 
 func (v ValueNumberSequence) BytesLen() int {
@@ -1479,8 +1479,8 @@ const zColorSequence = zVar
 
 type ValueColorSequence []ValueColorSequenceKeypoint
 
-func (ValueColorSequence) Type() Type {
-	return TypeColorSequence
+func (ValueColorSequence) Type() typeID {
+	return typeColorSequence
 }
 
 func (v ValueColorSequence) BytesLen() int {
@@ -1533,8 +1533,8 @@ type ValueNumberRange struct {
 	Min, Max float32
 }
 
-func (ValueNumberRange) Type() Type {
-	return TypeNumberRange
+func (ValueNumberRange) Type() typeID {
+	return typeNumberRange
 }
 
 func (v ValueNumberRange) BytesLen() int {
@@ -1564,8 +1564,8 @@ type ValueRect struct {
 	Min, Max ValueVector2
 }
 
-func (ValueRect) Type() Type {
-	return TypeRect
+func (ValueRect) Type() typeID {
+	return typeRect
 }
 
 func (v ValueRect) BytesLen() int {
@@ -1635,8 +1635,8 @@ type ValuePhysicalProperties struct {
 	ElasticityWeight float32
 }
 
-func (ValuePhysicalProperties) Type() Type {
-	return TypePhysicalProperties
+func (ValuePhysicalProperties) Type() typeID {
+	return typePhysicalProperties
 }
 
 func (v ValuePhysicalProperties) BytesLen() int {
@@ -1700,8 +1700,8 @@ type ValueColor3uint8 struct {
 	R, G, B byte
 }
 
-func (ValueColor3uint8) Type() Type {
-	return TypeColor3uint8
+func (ValueColor3uint8) Type() typeID {
+	return typeColor3uint8
 }
 
 func (v ValueColor3uint8) BytesLen() int {
@@ -1758,8 +1758,8 @@ const zInt64 = zu64
 
 type ValueInt64 int64
 
-func (ValueInt64) Type() Type {
-	return TypeInt64
+func (ValueInt64) Type() typeID {
+	return typeInt64
 }
 
 func (v ValueInt64) BytesLen() int {
@@ -1785,8 +1785,8 @@ const zSharedString = zu32
 
 type ValueSharedString uint32
 
-func (ValueSharedString) Type() Type {
-	return TypeSharedString
+func (ValueSharedString) Type() typeID {
+	return typeSharedString
 }
 
 func (v ValueSharedString) BytesLen() int {

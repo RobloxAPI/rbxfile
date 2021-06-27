@@ -141,7 +141,7 @@ func initFormatModel() *FormatModel {
 			IsCompressed: false,
 			TypeID:       0,
 			PropertyName: "Name",
-			DataType:     TypeString,
+			DataType:     typeString,
 			Properties: []Value{
 				&names[0],
 				&names[1],
@@ -151,7 +151,7 @@ func initFormatModel() *FormatModel {
 			IsCompressed: false,
 			TypeID:       0,
 			PropertyName: "Value",
-			DataType:     TypeInt,
+			DataType:     typeInt,
 			Properties: []Value{
 				&values[0],
 				&values[1],
@@ -161,7 +161,7 @@ func initFormatModel() *FormatModel {
 			IsCompressed: false,
 			TypeID:       1,
 			PropertyName: "Name",
-			DataType:     TypeString,
+			DataType:     typeString,
 			Properties: []Value{
 				&names[2],
 				&names[3],
@@ -172,7 +172,7 @@ func initFormatModel() *FormatModel {
 			IsCompressed: false,
 			TypeID:       1,
 			PropertyName: "Value",
-			DataType:     TypeVector3,
+			DataType:     typeVector3,
 			Properties: []Value{
 				&ValueVector3{X: 1, Y: 2, Z: 3},
 				&ValueVector3{X: 4, Y: 5, Z: 6},
@@ -183,7 +183,7 @@ func initFormatModel() *FormatModel {
 			IsCompressed: false,
 			TypeID:       2,
 			PropertyName: "Name",
-			DataType:     TypeString,
+			DataType:     typeString,
 			Properties: []Value{
 				&names[5],
 			},

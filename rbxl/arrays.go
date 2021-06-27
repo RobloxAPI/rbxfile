@@ -10,7 +10,7 @@ import (
 // Encodes and decodes a Value based on its fields
 type fielder interface {
 	// Value.Type
-	Type() Type
+	Type() typeID
 	// Length of each field
 	fieldLen() []int
 	// Set bytes of nth field
@@ -75,7 +75,7 @@ func interleave(bytes []byte, length int) error {
 }
 
 // Encodes Values that implement the fielder interface.
-func interleaveFields(id Type, a []Value) (b []byte, err error) {
+func interleaveFields(id typeID, a []Value) (b []byte, err error) {
 	if len(a) == 0 {
 		return b, nil
 	}
@@ -132,7 +132,7 @@ func interleaveFields(id Type, a []Value) (b []byte, err error) {
 }
 
 // Appends the bytes of a list of Values into a byte array.
-func appendValueBytes(id Type, a []Value) []byte {
+func appendValueBytes(id typeID, a []Value) []byte {
 	n := 0
 	for _, v := range a {
 		n += v.BytesLen()
@@ -148,7 +148,7 @@ func appendValueBytes(id Type, a []Value) []byte {
 }
 
 // Append each value as bytes, then interleave to improve compression.
-func interleaveAppend(t Type, a []Value) (b []byte, err error) {
+func interleaveAppend(t typeID, a []Value) (b []byte, err error) {
 	b = appendValueBytes(t, a)
 	if err = interleave(b, t.Size()); err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func interleaveAppend(t Type, a []Value) (b []byte, err error) {
 
 // ValuesToBytes encodes a slice of values into binary form, according to t.
 // Returns an error if a value cannot be encoded as t.
-func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
+func ValuesToBytes(t typeID, a []Value) (b []byte, err error) {
 	if !t.Valid() {
 		return nil, fmt.Errorf("invalid type (%02X)", t)
 	}
@@ -169,52 +169,52 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 	}
 
 	switch t {
-	case TypeString:
+	case typeString:
 		return appendValueBytes(t, a), nil
 
-	case TypeBool:
+	case typeBool:
 		return appendValueBytes(t, a), nil
 
-	case TypeInt:
+	case typeInt:
 		return interleaveAppend(t, a)
 
-	case TypeFloat:
+	case typeFloat:
 		return interleaveAppend(t, a)
 
-	case TypeDouble:
+	case typeDouble:
 		return appendValueBytes(t, a), nil
 
-	case TypeUDim:
+	case typeUDim:
 		return interleaveFields(t, a)
 
-	case TypeUDim2:
+	case typeUDim2:
 		return interleaveFields(t, a)
 
-	case TypeRay:
+	case typeRay:
 		return appendValueBytes(t, a), nil
 
-	case TypeFaces:
+	case typeFaces:
 		return appendValueBytes(t, a), nil
 
-	case TypeAxes:
+	case typeAxes:
 		return appendValueBytes(t, a), nil
 
-	case TypeBrickColor:
+	case typeBrickColor:
 		return interleaveAppend(t, a)
 
-	case TypeColor3:
+	case typeColor3:
 		return interleaveFields(t, a)
 
-	case TypeVector2:
+	case typeVector2:
 		return interleaveFields(t, a)
 
-	case TypeVector3:
+	case typeVector3:
 		return interleaveFields(t, a)
 
-	case TypeVector2int16:
+	case typeVector2int16:
 		return nil, errors.New("not implemented")
 
-	case TypeCFrame:
+	case typeCFrame:
 		// The bytes of each value can vary in length.
 		p := make([]Value, len(a))
 		for i, cf := range a {
@@ -233,11 +233,11 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 			p[i] = &cf.Position
 		}
 		// Build position part.
-		pb, _ := interleaveFields(TypeVector3, p)
+		pb, _ := interleaveFields(typeVector3, p)
 		b = append(b, pb...)
 		return b, nil
 
-	case TypeCFrameQuat:
+	case typeCFrameQuat:
 		p := make([]Value, len(a))
 		for i, cf := range a {
 			cf := cf.(*ValueCFrameQuat)
@@ -249,14 +249,14 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 			}
 			p[i] = &cf.Position
 		}
-		pb, _ := interleaveFields(TypeVector3, p)
+		pb, _ := interleaveFields(typeVector3, p)
 		b = append(b, pb...)
 		return b, nil
 
-	case TypeToken:
+	case typeToken:
 		return interleaveAppend(t, a)
 
-	case TypeReference:
+	case typeReference:
 		// Because values are generated in sequence, they are likely to be
 		// relatively close to each other. Subtracting each value from the
 		// previous will likely produce small values that compress well.
@@ -280,22 +280,22 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		}
 		return b, nil
 
-	case TypeVector3int16:
+	case typeVector3int16:
 		return appendValueBytes(t, a), nil
 
-	case TypeNumberSequence:
+	case typeNumberSequence:
 		return appendValueBytes(t, a), nil
 
-	case TypeColorSequence:
+	case typeColorSequence:
 		return appendValueBytes(t, a), nil
 
-	case TypeNumberRange:
+	case typeNumberRange:
 		return appendValueBytes(t, a), nil
 
-	case TypeRect:
+	case typeRect:
 		return interleaveFields(t, a)
 
-	case TypePhysicalProperties:
+	case typePhysicalProperties:
 		// The bytes of each value can vary in length.
 		q := make([]byte, zPhysicalPropertiesFields)
 		for _, pp := range a {
@@ -309,13 +309,13 @@ func ValuesToBytes(t Type, a []Value) (b []byte, err error) {
 		}
 		return b, nil
 
-	case TypeColor3uint8:
+	case typeColor3uint8:
 		return interleaveFields(t, a)
 
-	case TypeInt64:
+	case typeInt64:
 		return interleaveAppend(t, a)
 
-	case TypeSharedString:
+	case typeSharedString:
 		return interleaveAppend(t, a)
 
 	default:
@@ -335,7 +335,7 @@ func deinterleave(bytes []byte, size int) error {
 }
 
 // Decodes Values that implement the fielder interface.
-func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
+func deinterleaveFields(id typeID, b []byte) (a []Value, err error) {
 	if len(b) == 0 {
 		return a, nil
 	}
@@ -401,7 +401,7 @@ func deinterleaveFields(id Type, b []byte) (a []Value, err error) {
 // length. The first 4 bytes of a value is read as length N of the value.
 // id.FieldSize() indicates the size of each field in the value, so the next
 // N*field bytes are read as the full value.
-func appendByteValues(id Type, b []byte) (a []Value, err error) {
+func appendByteValues(id typeID, b []byte) (a []Value, err error) {
 	if size := id.Size(); size >= 0 {
 		for i := 0; i+size <= len(b); i += size {
 			v := NewValue(id)
@@ -436,7 +436,7 @@ func appendByteValues(id Type, b []byte) (a []Value, err error) {
 }
 
 // Deinterleave, then append from given size.
-func deinterleaveAppend(t Type, b []byte) (a []Value, err error) {
+func deinterleaveAppend(t typeID, b []byte) (a []Value, err error) {
 	bc := make([]byte, len(b))
 	copy(bc, b)
 	size := t.Size()
@@ -448,58 +448,58 @@ func deinterleaveAppend(t Type, b []byte) (a []Value, err error) {
 
 // ValuesFromBytes decodes b according to t, into a slice of values, the type of
 // each corresponding to t.
-func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
+func ValuesFromBytes(t typeID, b []byte) (a []Value, err error) {
 	if !t.Valid() {
 		return nil, fmt.Errorf("invalid type (%02X)", t)
 	}
 
 	switch t {
-	case TypeString:
+	case typeString:
 		return appendByteValues(t, b)
 
-	case TypeBool:
+	case typeBool:
 		return appendByteValues(t, b)
 
-	case TypeInt:
+	case typeInt:
 		return deinterleaveAppend(t, b)
 
-	case TypeFloat:
+	case typeFloat:
 		return deinterleaveAppend(t, b)
 
-	case TypeDouble:
+	case typeDouble:
 		return appendByteValues(t, b)
 
-	case TypeUDim:
+	case typeUDim:
 		return deinterleaveFields(t, b)
 
-	case TypeUDim2:
+	case typeUDim2:
 		return deinterleaveFields(t, b)
 
-	case TypeRay:
+	case typeRay:
 		return appendByteValues(t, b)
 
-	case TypeFaces:
+	case typeFaces:
 		return appendByteValues(t, b)
 
-	case TypeAxes:
+	case typeAxes:
 		return appendByteValues(t, b)
 
-	case TypeBrickColor:
+	case typeBrickColor:
 		return deinterleaveAppend(t, b)
 
-	case TypeColor3:
+	case typeColor3:
 		return deinterleaveFields(t, b)
 
-	case TypeVector2:
+	case typeVector2:
 		return deinterleaveFields(t, b)
 
-	case TypeVector3:
+	case typeVector3:
 		return deinterleaveFields(t, b)
 
-	case TypeVector2int16:
+	case typeVector2int16:
 		return nil, errors.New("not implemented")
 
-	case TypeCFrame:
+	case typeCFrame:
 		cfs := make([]*ValueCFrame, 0)
 		// This loop reads the matrix data. i is the current position in the
 		// byte array. n is the expected size of the position data, which
@@ -527,7 +527,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		}
 		// Read remaining position data using the Position field, which is a
 		// ValueVector3.
-		if a, err = deinterleaveFields(TypeVector3, b[i:i+n]); err != nil {
+		if a, err = deinterleaveFields(typeVector3, b[i:i+n]); err != nil {
 			return nil, err
 		}
 		if len(a) != len(cfs) {
@@ -542,7 +542,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		}
 		return a, nil
 
-	case TypeCFrameQuat:
+	case typeCFrameQuat:
 		cfs := make([]*ValueCFrame, 0)
 		i := 0
 		n := 0
@@ -561,7 +561,7 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 			c := cf.ToCFrame()
 			cfs = append(cfs, &c)
 		}
-		if a, err = deinterleaveFields(TypeVector3, b[i:i+n]); err != nil {
+		if a, err = deinterleaveFields(typeVector3, b[i:i+n]); err != nil {
 			return nil, err
 		}
 		if len(a) != len(cfs) {
@@ -573,10 +573,10 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		}
 		return a, nil
 
-	case TypeToken:
+	case typeToken:
 		return deinterleaveAppend(t, b)
 
-	case TypeReference:
+	case typeReference:
 		if len(b) == 0 {
 			return a, nil
 		}
@@ -601,22 +601,22 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		}
 		return a, nil
 
-	case TypeVector3int16:
+	case typeVector3int16:
 		return appendByteValues(t, b)
 
-	case TypeNumberSequence:
+	case typeNumberSequence:
 		return appendByteValues(t, b)
 
-	case TypeColorSequence:
+	case typeColorSequence:
 		return appendByteValues(t, b)
 
-	case TypeNumberRange:
+	case typeNumberRange:
 		return appendByteValues(t, b)
 
-	case TypeRect:
+	case typeRect:
 		return deinterleaveFields(t, b)
 
-	case TypePhysicalProperties:
+	case typePhysicalProperties:
 		for i := 0; i < len(b); {
 			pp := new(ValuePhysicalProperties)
 			pp.CustomPhysics = b[i]
@@ -632,13 +632,13 @@ func ValuesFromBytes(t Type, b []byte) (a []Value, err error) {
 		}
 		return a, nil
 
-	case TypeColor3uint8:
+	case typeColor3uint8:
 		return deinterleaveFields(t, b)
 
-	case TypeInt64:
+	case typeInt64:
 		return deinterleaveAppend(t, b)
 
-	case TypeSharedString:
+	case typeSharedString:
 		return deinterleaveAppend(t, b)
 
 	default:

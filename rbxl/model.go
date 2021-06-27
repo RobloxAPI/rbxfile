@@ -54,7 +54,7 @@ func (err *ErrInvalidType) Error() string {
 
 // ErrValue is an error that is produced by a Value of a certain Type.
 type ErrValue struct {
-	Type  Type
+	Type  typeID
 	Bytes []byte
 	Err   error
 }
@@ -444,7 +444,7 @@ func (c *chunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := ValuesFromBytes(TypeReference, raw)
+		values, err := ValuesFromBytes(typeReference, raw)
 		if fr.Add(0, err) {
 			return fr.End()
 		}
@@ -494,7 +494,7 @@ func (c *chunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 			values[i] = (*ValueReference)(&n)
 		}
 
-		raw, err := ValuesToBytes(TypeReference, values)
+		raw, err := ValuesToBytes(typeReference, values)
 		if fw.Add(0, err) {
 			return fw.End()
 		}
@@ -619,7 +619,7 @@ func (c *chunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := ValuesFromBytes(TypeReference, raw)
+		values, err := ValuesFromBytes(typeReference, raw)
 		if fr.Add(0, err) {
 			return fr.End()
 		}
@@ -636,7 +636,7 @@ func (c *chunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := ValuesFromBytes(TypeReference, raw)
+		values, err := ValuesFromBytes(typeReference, raw)
 		if fr.Add(0, err) {
 			return fr.End()
 		}
@@ -669,7 +669,7 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 			values[i] = (*ValueReference)(&n)
 		}
 
-		raw, err := ValuesToBytes(TypeReference, values)
+		raw, err := ValuesToBytes(typeReference, values)
 		if fw.Add(0, err) {
 			return fw.End()
 		}
@@ -689,7 +689,7 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 			values[i] = (*ValueReference)(&n)
 		}
 
-		raw, err = ValuesToBytes(TypeReference, values)
+		raw, err = ValuesToBytes(typeReference, values)
 		if fw.Add(0, err) {
 			return fw.End()
 		}
@@ -718,7 +718,7 @@ type chunkProperty struct {
 	PropertyName string
 
 	// DataType is a number indicating the type of the property.
-	DataType Type
+	DataType typeID
 
 	// Properties is a list of Values of the given DataType. Each value in the
 	// array corresponds to the property of an instance in the specified

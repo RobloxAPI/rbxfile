@@ -514,17 +514,17 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) 
 	checkPropType:
 		for name, propChunk := range propChunkMap {
 			var instRef int32 = nilInstance
-			dataType := TypeInvalid
+			dataType := typeInvalid
 			for _, ref := range instChunk.InstanceIDs {
 				inst := instList[ref]
 				prop, ok := inst.Properties[name]
 				if !ok {
 					continue
 				}
-				if dataType == TypeInvalid {
+				if dataType == typeInvalid {
 					// Set data type to the first valid property.
 					dataType = FromValueType(prop.Type())
-					if dataType == TypeInvalid {
+					if dataType == typeInvalid {
 						addWarn("unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(dataType), instList[instRef].ClassName, name, instRef)
 						continue checkPropType
 					}
