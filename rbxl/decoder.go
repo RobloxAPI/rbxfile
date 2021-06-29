@@ -30,6 +30,28 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	var f formatModel
 	fr := parse.NewBinaryReader(r)
 
+	buf, err := d.decode(fr, &f)
+	if err != nil {
+		return nil, err
+	}
+	if buf != nil {
+		return rbxlx.NewSerializer(rbxlx.RobloxCodec{}, nil).Deserialize(buf)
+	}
+
+	// Run codec.
+	codec := robloxCodec{Mode: d.Mode}
+	root, err = codec.Decode(&f)
+	if err != nil {
+		return nil, errors.New("error decoding data: " + err.Error())
+	}
+
+	return root, nil
+}
+
+// decode parses the format. If the XML format is detected, then decode returns
+// a non-nil Reader with the original content, ready to be parsed by an XML
+// format decoder.
+func (d Decoder) decode(fr *parse.BinaryReader, f *formatModel) (r io.Reader, err error) {
 	// Check signature.
 	sig := make([]byte, len(robloxSig+binaryMarker))
 	if fr.Bytes(sig) {
@@ -45,8 +67,8 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 			return nil, ErrInvalidSig
 		} else {
 			// Reconstruct original reader.
-			buf := io.MultiReader(bytes.NewReader(sig), r)
-			return rbxlx.NewSerializer(rbxlx.RobloxCodec{}, nil).Deserialize(buf)
+			r = io.MultiReader(bytes.NewReader(sig), r)
+			return r, nil
 		}
 	}
 
@@ -67,20 +89,9 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	default:
 		return nil, ErrUnrecognizedVersion(f.Version)
 	case 0:
-		err = d.version0(fr, &f)
+		err = d.version0(fr, f)
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Run codec.
-	codec := robloxCodec{Mode: d.Mode}
-	root, err = codec.Decode(&f)
-	if err != nil {
-		return nil, errors.New("error decoding data: " + err.Error())
-	}
-
-	return root, nil
+	return nil, err
 }
 
 func (d Decoder) version0(fr *parse.BinaryReader, f *formatModel) (err error) {
