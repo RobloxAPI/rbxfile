@@ -1656,12 +1656,10 @@ func (v valuePhysicalProperties) ppBytes(b []byte) {
 
 func (v valuePhysicalProperties) Bytes(b []byte) {
 	_ = b[v.BytesLen()-1]
-	if v.CustomPhysics == 0 {
-		b[0] = 1
-		return
-	}
 	b[0] = v.CustomPhysics
-	v.ppBytes(b[zPhysicalPropertiesCP:])
+	if v.CustomPhysics != 0 {
+		v.ppBytes(b[zPhysicalPropertiesCP:])
+	}
 }
 
 func (v *valuePhysicalProperties) ppFromBytes(b []byte) {
