@@ -31,6 +31,10 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 		return errors.New("error encoding data: " + err.Error())
 	}
 
+	return e.encode(w, f)
+}
+
+func (e Encoder) encode(w io.Writer, f *formatModel) (err error) {
 	f.Warnings = f.Warnings[:0]
 
 	fw := parse.NewBinaryWriter(w)
