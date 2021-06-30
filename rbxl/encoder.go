@@ -13,6 +13,10 @@ import (
 type Encoder struct {
 	// Mode indicates which type of format is encoded.
 	Mode Mode
+
+	// Uncompressed sets whether compression is forcibly disabled for all
+	// chunks.
+	Uncompressed bool
 }
 
 // Encode formats root according to the rbxl format, and writers it to w.
@@ -60,7 +64,7 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 		}
 
 		if endChunk, ok := chunk.(*chunkEnd); ok {
-			if endChunk.IsCompressed {
+			if !e.Uncompressed && endChunk.IsCompressed {
 				f.Warnings = append(f.Warnings, WarnEndChunkCompressed)
 			}
 
@@ -75,7 +79,9 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 
 		rawChunk := new(rawChunk)
 		rawChunk.signature = chunk.Signature()
-		rawChunk.compressed = chunk.Compressed()
+		if !e.Uncompressed {
+			rawChunk.compressed = chunk.Compressed()
+		}
 
 		buf := new(bytes.Buffer)
 		if fw.Add(chunk.WriteTo(buf)) {
