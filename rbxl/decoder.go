@@ -1,9 +1,13 @@
 package rbxl
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"strconv"
+	"unicode"
 
 	"github.com/anaminus/parse"
 	"github.com/robloxapi/rbxfile"
@@ -46,6 +50,193 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	}
 
 	return root, nil
+}
+
+var ErrDumpXML = errors.New("detected XML format")
+
+// Dump writes to w a readable representation of the binary format decoded from
+// r.
+//
+// Returns ErrDumpXML if the the data is in the legacy XML format.
+func (d Decoder) Dump(w io.Writer, r io.Reader) (err error) {
+	if r == nil {
+		return errors.New("nil reader")
+	}
+
+	var f formatModel
+	fr := parse.NewBinaryReader(r)
+
+	buf, err := d.decode(fr, &f)
+	if err != nil {
+		return err
+	}
+	if buf != nil {
+		return ErrDumpXML
+	}
+
+	classes := map[int32]string{}
+
+	bw := bufio.NewWriter(w)
+	fmt.Fprintf(bw, "Version: %d", f.Version)
+	fmt.Fprintf(bw, "\nClasses: %d", f.ClassCount)
+	fmt.Fprintf(bw, "\nInstances: %d", f.InstanceCount)
+	fmt.Fprint(bw, "\nChunks: {")
+	for _, chunk := range f.Chunks {
+		dumpNewline(bw, 1)
+		dumpSig(bw, chunk.Signature())
+		if chunk.Compressed() {
+			bw.WriteString(" (compressed) {")
+		} else {
+			bw.WriteString(" (uncompressed) {")
+		}
+		switch chunk := chunk.(type) {
+		case *chunkMeta:
+			fmt.Fprintf(bw, "\n\t\tCount: %d", len(chunk.Values))
+			for _, p := range chunk.Values {
+				bw.WriteString("\n\t\t{\n\t\t\tKey: ")
+				dumpString(bw, 3, p[0])
+				bw.WriteString("\n\t\t\tValue: ")
+				dumpString(bw, 3, p[1])
+				bw.WriteString("\n\t\t}")
+			}
+		case *chunkSharedStrings:
+			fmt.Fprintf(bw, "\n\t\tVersion: %d", chunk.Version)
+			fmt.Fprintf(bw, "\n\t\tValues: (count:%d) {", len(chunk.Values))
+			for _, s := range chunk.Values {
+				bw.WriteString("\n\t\t\t{\n\t\t\t\tHash: ")
+				dumpBytes(bw, 4, s.Hash[:])
+				bw.WriteString("\n\t\t\t\tValue: ")
+				dumpBytes(bw, 4, s.Value)
+				bw.WriteString("\n\t\t\t}")
+			}
+			bw.WriteString("\n\t\t}")
+		case *chunkInstance:
+			classes[chunk.ClassID] = chunk.ClassName
+			fmt.Fprintf(bw, "\n\t\tClassID: %d", chunk.ClassID)
+			bw.WriteString("\n\t\tClassName: ")
+			dumpString(bw, 2, chunk.ClassName)
+			if chunk.IsService {
+				fmt.Fprintf(bw, "\n\t\tInstanceIDs: (count:%d) (service) {", len(chunk.InstanceIDs))
+				for i, id := range chunk.InstanceIDs {
+					fmt.Fprintf(bw, "\n\t\t\t%d: %d (%d)", i, id, chunk.GetService[i])
+				}
+				bw.WriteString("\n\t\t}")
+			} else {
+				fmt.Fprintf(bw, "\n\t\tInstanceIDs: (count:%d) {", len(chunk.InstanceIDs))
+				for i, id := range chunk.InstanceIDs {
+					fmt.Fprintf(bw, "\n\t\t\t%d: %d", i, id)
+				}
+				bw.WriteString("\n\t\t}")
+			}
+		case *chunkProperty:
+			fmt.Fprintf(bw, "\n\t\tClassID: %d", chunk.ClassID)
+			if name, ok := classes[chunk.ClassID]; ok {
+				bw.WriteString(" (")
+				dumpString(bw, 2, name)
+				bw.WriteByte(')')
+			}
+			bw.WriteString("\n\t\tPropertyName: ")
+			dumpString(bw, 2, chunk.PropertyName)
+			if s := chunk.DataType.String(); s == "Invalid" {
+				fmt.Fprintf(bw, "\n\t\tDataType: %d (unknown)", chunk.DataType)
+			} else {
+				fmt.Fprintf(bw, "\n\t\tDataType: %d (%s)", chunk.DataType, s)
+			}
+			fmt.Fprintf(bw, "\n\t\tProperties: (count:%d) {", len(chunk.Properties))
+			for i, v := range chunk.Properties {
+				fmt.Fprintf(bw, "\n\t\t\t%d: ", i)
+				v.Dump(bw, 3)
+			}
+			bw.WriteString("\n\t\t}")
+		case *chunkParent:
+			fmt.Fprintf(bw, "\n\t\tVersion: %d", chunk.Version)
+			bw.WriteString("\n\t\tValues (child : parent)")
+			for i, child := range chunk.Children {
+				fmt.Fprintf(bw, "\n\t\t\t%d : %d", child, chunk.Parents[i])
+			}
+		case *chunkEnd:
+			bw.WriteString("\n\t\tContent: ")
+			dumpString(bw, 2, string(chunk.Content))
+		case *chunkUnknown:
+			bw.WriteString("\n\t\tUnknown Chunk Signature\n\t\tBytes: ")
+			dumpBytes(bw, 2, chunk.Bytes)
+		}
+		fmt.Fprint(bw, "\n\t}")
+	}
+	fmt.Fprint(bw, "\n}")
+
+	bw.Flush()
+	return nil
+}
+
+func dumpNewline(w *bufio.Writer, indent int) {
+	w.WriteByte('\n')
+	for i := 0; i < indent; i++ {
+		w.WriteByte('\t')
+	}
+}
+
+func dumpSig(w *bufio.Writer, sig [4]byte) {
+	for _, c := range sig {
+		if unicode.IsPrint(rune(c)) {
+			w.WriteByte(c)
+		} else {
+			w.WriteByte('.')
+		}
+	}
+	fmt.Fprintf(w, " (% 02X)", sig)
+}
+
+func dumpString(w *bufio.Writer, indent int, s string) {
+	for _, r := range s {
+		if !unicode.IsGraphic(r) {
+			dumpBytes(w, indent, []byte(s))
+			return
+		}
+	}
+	fmt.Fprintf(w, "(len:%d) ", len(s))
+	w.WriteString(strconv.Quote(s))
+}
+
+func dumpBytes(w *bufio.Writer, indent int, b []byte) {
+	fmt.Fprintf(w, "(len:%d)", len(b))
+	const width = 16
+	for j := 0; j < len(b); j += width {
+		dumpNewline(w, indent+1)
+		w.WriteString("| ")
+		for i := j; i < j+width; {
+			if i < len(b) {
+				s := strconv.FormatUint(uint64(b[i]), 16)
+				if len(s) == 1 {
+					w.WriteString("0")
+				}
+				w.WriteString(s)
+			} else if len(b) < width {
+				break
+			} else {
+				w.WriteString("  ")
+			}
+			i++
+			if i%8 == 0 && i < j+width {
+				w.WriteString("  ")
+			} else {
+				w.WriteString(" ")
+			}
+		}
+		w.WriteString("|")
+		n := len(b)
+		if j+width < n {
+			n = j + width
+		}
+		for i := j; i < n; i++ {
+			if 32 <= b[i] && b[i] <= 126 {
+				w.WriteRune(rune(b[i]))
+			} else {
+				w.WriteByte('.')
+			}
+		}
+		w.WriteByte('|')
+	}
 }
 
 // decode parses the format. If the XML format is detected, then decode returns

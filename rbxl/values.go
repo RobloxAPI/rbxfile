@@ -1,9 +1,11 @@
 package rbxl
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/robloxapi/rbxfile"
 )
@@ -377,6 +379,8 @@ type value interface {
 	// not be decoded. If successful, BytesLen() will return the number of bytes
 	// read from buf.
 	FromBytes(buf []byte) error
+
+	Dump(bw *bufio.Writer, indent int)
 }
 
 // newValue returns new Value of the given Type. The initial value will not
@@ -542,6 +546,10 @@ func (v *valueString) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueString) Dump(w *bufio.Writer, indent int) {
+	dumpString(w, indent, string(v))
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zBool = zb
@@ -573,6 +581,14 @@ func (v *valueBool) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueBool) Dump(w *bufio.Writer, indent int) {
+	if v {
+		w.WriteString("true")
+	} else {
+		w.WriteString("false")
+	}
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zInt = zi32
@@ -598,6 +614,10 @@ func (v *valueInt) FromBytes(b []byte) error {
 	}
 	*v = valueInt(decodeZigzag32(binary.BigEndian.Uint32(b)))
 	return nil
+}
+
+func (v valueInt) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendInt(nil, int64(v), 10))
 }
 
 ////////////////////////////////////////////////////////////////
@@ -627,6 +647,10 @@ func (v *valueFloat) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueFloat) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendFloat(nil, float64(v), 'g', -1, 32))
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zDouble = zf64
@@ -652,6 +676,10 @@ func (v *valueDouble) FromBytes(b []byte) error {
 	}
 	*v = valueDouble(math.Float64frombits(binary.LittleEndian.Uint64(b)))
 	return nil
+}
+
+func (v valueDouble) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendFloat(nil, float64(v), 'g', -1, 64))
 }
 
 ////////////////////////////////////////////////////////////////
@@ -684,6 +712,21 @@ func (v *valueUDim) FromBytes(b []byte) error {
 	v.Scale.FromBytes(b[0:4])
 	v.Offset.FromBytes(b[4:8])
 	return nil
+}
+
+func (v valueUDim) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Scale: ")
+	v.Scale.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Offset: ")
+	v.Offset.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 func (valueUDim) fieldLen() []int {
@@ -746,6 +789,29 @@ func (v *valueUDim2) FromBytes(b []byte) error {
 	v.OffsetX.FromBytes(b[8:12])
 	v.OffsetY.FromBytes(b[12:16])
 	return nil
+}
+
+func (v valueUDim2) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Scale.X: ")
+	v.ScaleX.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Scale.Y: ")
+	v.OffsetX.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Offset.X: ")
+	v.ScaleY.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Offset.Y: ")
+	v.OffsetY.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 func (valueUDim2) fieldLen() []int {
@@ -823,6 +889,37 @@ func (v *valueRay) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueRay) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Origin.X: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.OriginX), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Origin.Y: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.OriginY), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Origin.Z: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.OriginZ), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Direction.X: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.DirectionX), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Direction.Y: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.DirectionY), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Direction.Z: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.DirectionZ), 'g', -1, 32))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zFaces = zu8
@@ -863,6 +960,37 @@ func (v *valueFaces) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueFaces) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Right: ")
+	w.Write(strconv.AppendBool(nil, v.Right))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Top: ")
+	w.Write(strconv.AppendBool(nil, v.Top))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Back: ")
+	w.Write(strconv.AppendBool(nil, v.Back))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Left: ")
+	w.Write(strconv.AppendBool(nil, v.Left))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Bottom: ")
+	w.Write(strconv.AppendBool(nil, v.Bottom))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Front: ")
+	w.Write(strconv.AppendBool(nil, v.Front))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zAxes = zu8
@@ -900,6 +1028,25 @@ func (v *valueAxes) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueAxes) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("X: ")
+	w.Write(strconv.AppendBool(nil, v.X))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Y: ")
+	w.Write(strconv.AppendBool(nil, v.Y))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Z: ")
+	w.Write(strconv.AppendBool(nil, v.Z))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zBrickColor = zu32
@@ -925,6 +1072,10 @@ func (v *valueBrickColor) FromBytes(b []byte) error {
 	}
 	*v = valueBrickColor(binary.BigEndian.Uint32(b))
 	return nil
+}
+
+func (v valueBrickColor) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendUint(nil, uint64(v), 10))
 }
 
 ////////////////////////////////////////////////////////////////
@@ -958,6 +1109,25 @@ func (v *valueColor3) FromBytes(b []byte) error {
 	v.G.FromBytes(b[4:8])
 	v.B.FromBytes(b[8:12])
 	return nil
+}
+
+func (v valueColor3) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("R: ")
+	v.R.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("G: ")
+	v.G.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("B: ")
+	v.B.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 func (valueColor3) fieldLen() []int {
@@ -1018,6 +1188,21 @@ func (v *valueVector2) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueVector2) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("X: ")
+	v.X.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Y: ")
+	v.Y.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 func (valueVector2) fieldLen() []int {
 	return []int{4, 4}
 }
@@ -1072,6 +1257,25 @@ func (v *valueVector3) FromBytes(b []byte) error {
 	v.Y.FromBytes(b[4:8])
 	v.Z.FromBytes(b[8:12])
 	return nil
+}
+
+func (v valueVector3) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("X: ")
+	v.X.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Y: ")
+	v.Y.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Z: ")
+	v.Z.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 func (valueVector3) fieldLen() []int {
@@ -1130,6 +1334,21 @@ func (v *valueVector2int16) FromBytes(b []byte) error {
 	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
 	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
 	return nil
+}
+
+func (v valueVector2int16) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("X: ")
+	w.Write(strconv.AppendInt(nil, int64(v.X), 10))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Y: ")
+	w.Write(strconv.AppendInt(nil, int64(v.Y), 10))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1196,6 +1415,32 @@ func (v *valueCFrame) FromBytes(b []byte) error {
 		v.Position.FromBytes(b[zCFrameSp:])
 	}
 	return nil
+}
+
+func (v valueCFrame) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("ID: ")
+	w.Write(strconv.AppendUint(nil, uint64(v.Special), 10))
+
+	if v.Special == 0 {
+		dumpNewline(w, indent+1)
+		w.WriteString("Rotation: {")
+		for _, r := range v.Rotation {
+			dumpNewline(w, indent+2)
+			w.Write(strconv.AppendFloat(nil, float64(r), 'g', -1, 32))
+		}
+		dumpNewline(w, indent+1)
+		w.WriteByte('}')
+	}
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Position: ")
+	v.Position.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 func sqrt32(x float32) float32 {
@@ -1310,6 +1555,36 @@ func (v *valueCFrameQuat) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueCFrameQuat) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("ID: ")
+	w.Write(strconv.AppendUint(nil, uint64(v.Special), 10))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("QX: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.QX), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("QY: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.QY), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("QZ: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.QZ), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("QW: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.QW), 'g', -1, 32))
+
+	w.WriteString("Position: ")
+	v.Position.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 // ToCFrame converts the value to a valueCFrame.
 func (v valueCFrameQuat) ToCFrame() valueCFrame {
 	if v.Special != 0 {
@@ -1355,6 +1630,10 @@ func (v *valueToken) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueToken) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendUint(nil, uint64(v), 10))
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zReference = zi32
@@ -1380,6 +1659,10 @@ func (v *valueReference) FromBytes(b []byte) error {
 	}
 	*v = valueReference(decodeZigzag32(binary.BigEndian.Uint32(b)))
 	return nil
+}
+
+func (v valueReference) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendInt(nil, int64(v), 10))
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1415,12 +1698,50 @@ func (v *valueVector3int16) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueVector3int16) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("X: ")
+	w.Write(strconv.AppendInt(nil, int64(v.X), 10))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Y: ")
+	w.Write(strconv.AppendInt(nil, int64(v.Y), 10))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Z: ")
+	w.Write(strconv.AppendInt(nil, int64(v.Z), 10))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zNumberSequenceKeypoint = zf32 * 3
 
 type valueNumberSequenceKeypoint struct {
 	Time, Value, Envelope float32
+}
+
+func (v valueNumberSequenceKeypoint) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Time: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.Time), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Value: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.Value), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Envelope: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.Envelope), 'g', -1, 32))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 const zNumberSequence = zVar
@@ -1465,6 +1786,19 @@ func (v *valueNumberSequence) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueNumberSequence) Dump(w *bufio.Writer, indent int) {
+	w.WriteString("(count:")
+	w.Write(strconv.AppendInt(nil, int64(len(v)), 10))
+	w.WriteString(") {")
+	for i, k := range v {
+		dumpNewline(w, indent+1)
+		w.Write(strconv.AppendInt(nil, int64(i), 10))
+		w.WriteString(": ")
+		k.Dump(w, indent+1)
+	}
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zColorSequenceKeypoint = zf32 + zColor3 + zf32
@@ -1473,6 +1807,25 @@ type valueColorSequenceKeypoint struct {
 	Time     float32
 	Value    valueColor3
 	Envelope float32
+}
+
+func (v valueColorSequenceKeypoint) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Time: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.Time), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Value: ")
+	v.Value.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Envelope: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.Envelope), 'g', -1, 32))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 const zColorSequence = zVar
@@ -1525,6 +1878,19 @@ func (v *valueColorSequence) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueColorSequence) Dump(w *bufio.Writer, indent int) {
+	w.WriteString("(count:")
+	w.Write(strconv.AppendInt(nil, int64(len(v)), 10))
+	w.WriteString(") {")
+	for i, k := range v {
+		dumpNewline(w, indent+1)
+		w.Write(strconv.AppendInt(nil, int64(i), 10))
+		w.WriteString(": ")
+		k.Dump(w, indent+1)
+	}
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zNumberRange = zf32 * 2
@@ -1556,6 +1922,21 @@ func (v *valueNumberRange) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueNumberRange) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Min: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.Min), 'g', -1, 32))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Max: ")
+	w.Write(strconv.AppendFloat(nil, float64(v.Max), 'g', -1, 32))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zRect = zVector2 * 2
@@ -1585,6 +1966,21 @@ func (v *valueRect) FromBytes(b []byte) error {
 	v.Min.FromBytes(b[0:8])
 	v.Max.FromBytes(b[8:16])
 	return nil
+}
+
+func (v valueRect) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Min: ")
+	v.Min.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Max: ")
+	v.Max.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 func (valueRect) fieldLen() []int {
@@ -1690,6 +2086,38 @@ func (v *valuePhysicalProperties) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valuePhysicalProperties) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("CustomPhysics: ")
+	w.Write(strconv.AppendUint(nil, uint64(v.CustomPhysics), 10))
+	if v.CustomPhysics != 0 {
+		dumpNewline(w, indent+1)
+		w.WriteString("Density: ")
+		w.Write(strconv.AppendFloat(nil, float64(v.Density), 'g', -1, 32))
+
+		dumpNewline(w, indent+1)
+		w.WriteString("Friction: ")
+		w.Write(strconv.AppendFloat(nil, float64(v.Friction), 'g', -1, 32))
+
+		dumpNewline(w, indent+1)
+		w.WriteString("Elasticity: ")
+		w.Write(strconv.AppendFloat(nil, float64(v.Elasticity), 'g', -1, 32))
+
+		dumpNewline(w, indent+1)
+		w.WriteString("FrictionWeight: ")
+		w.Write(strconv.AppendFloat(nil, float64(v.FrictionWeight), 'g', -1, 32))
+
+		dumpNewline(w, indent+1)
+		w.WriteString("ElasticityWeight: ")
+		w.Write(strconv.AppendFloat(nil, float64(v.ElasticityWeight), 'g', -1, 32))
+	}
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zColor3uint8 = zb * 3
@@ -1721,6 +2149,25 @@ func (v *valueColor3uint8) FromBytes(b []byte) error {
 	v.G = b[1]
 	v.B = b[2]
 	return nil
+}
+
+func (v valueColor3uint8) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("R: ")
+	w.Write(strconv.AppendUint(nil, uint64(v.R), 10))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("G: ")
+	w.Write(strconv.AppendUint(nil, uint64(v.G), 10))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("B: ")
+	w.Write(strconv.AppendUint(nil, uint64(v.B), 10))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
 }
 
 func (valueColor3uint8) fieldLen() []int {
@@ -1777,6 +2224,10 @@ func (v *valueInt64) FromBytes(b []byte) error {
 	return nil
 }
 
+func (v valueInt64) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendInt(nil, int64(v), 10))
+}
+
 ////////////////////////////////////////////////////////////////
 
 const zSharedString = zu32
@@ -1802,6 +2253,10 @@ func (v *valueSharedString) FromBytes(b []byte) error {
 	}
 	*v = valueSharedString(binary.BigEndian.Uint32(b))
 	return nil
+}
+
+func (v valueSharedString) Dump(w *bufio.Writer, indent int) {
+	w.Write(strconv.AppendUint(nil, uint64(v), 10))
 }
 
 ////////////////////////////////////////////////////////////////
