@@ -54,6 +54,29 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 
 var ErrDumpXML = errors.New("detected XML format")
 
+// Decompress reencodes the compressed chunks of the binary format as
+// uncompressed. The format is decoded from r, then encoded to w.
+//
+// Returns ErrDumpXML if the the data is in the legacy XML format.
+func (d Decoder) Decompress(w io.Writer, r io.Reader) (err error) {
+	if r == nil {
+		return errors.New("nil reader")
+	}
+
+	var f formatModel
+	fr := parse.NewBinaryReader(r)
+
+	buf, err := d.decode(fr, &f)
+	if err != nil {
+		return err
+	}
+	if buf != nil {
+		return ErrDumpXML
+	}
+
+	return Encoder{Mode: d.Mode, Uncompressed: true}.encode(w, &f)
+}
+
 // Dump writes to w a readable representation of the binary format decoded from
 // r.
 //
