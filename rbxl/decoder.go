@@ -366,33 +366,23 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 	if fr.Number(&f.Version) {
 		return nil, nil, nil, decodeError(fr, nil)
 	}
-	switch f.Version {
-	default:
+	if f.Version != 0 {
 		return nil, nil, nil, decodeError(fr, errUnrecognizedVersion(f.Version))
-	case 0:
-		warn, err = d.version0(fr, f)
 	}
-	if err != nil {
-		return nil, nil, warn, err
-	}
-	return f, nil, warn, nil
-}
-
-func (d Decoder) version0(fr *parse.BinaryReader, f *formatModel) (warn, err error) {
-	var warns errors.Errors
 
 	if fr.Number(&f.ClassCount) {
-		return nil, decodeError(fr, nil)
+		return nil, nil, nil, decodeError(fr, nil)
 	}
 
 	if fr.Number(&f.InstanceCount) {
-		return nil, decodeError(fr, nil)
+		return nil, nil, nil, decodeError(fr, nil)
 	}
 
 	var reserved [8]byte
 	if fr.Bytes(reserved[:]) {
-		return nil, decodeError(fr, nil)
+		return nil, nil, nil, decodeError(fr, nil)
 	}
+	var warns errors.Errors
 	if reserved != [8]byte{} {
 		warns = append(warns, errReserve{Offset: fr.N() - int64(len(reserved)), Bytes: reserved[:]})
 	}
@@ -401,7 +391,7 @@ loop:
 	for i := 0; ; i++ {
 		rawChunk := new(rawChunk)
 		if rawChunk.ReadFrom(fr) {
-			return warns.Return(), decodeError(fr, nil)
+			return nil, nil, warns.Return(), decodeError(fr, nil)
 		}
 
 		newChunk := chunkGenerators(f.Version, rawChunk.signature)
@@ -437,5 +427,9 @@ loop:
 			break loop
 		}
 	}
-	return warns.Return(), decodeError(fr, nil)
+
+	if err = decodeError(fr, nil); err != nil {
+		return nil, nil, warns.Return(), err
+	}
+	return f, nil, warns.Return(), nil
 }
