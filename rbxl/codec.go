@@ -26,6 +26,16 @@ func chunkWarn(errs errors.Errors, i int, c chunk, format string, v ...interface
 	return append(errs, ChunkError{Index: i, Sig: c.Signature(), Cause: fmt.Errorf(format, v...)})
 }
 
+type errBounds struct {
+	Kind   string
+	Index  int32
+	Bounds uint32
+}
+
+func (err errBounds) Error() string {
+	return fmt.Sprintf("%s %d out of bounds [0,%d]", err.Kind, err.Index, err.Bounds)
+}
+
 func (c robloxCodec) Decode(model *formatModel) (root *rbxfile.Root, warn, err error) {
 	if model == nil {
 		panic("formatModel is nil")
@@ -45,7 +55,7 @@ loop:
 		switch chunk := chunk.(type) {
 		case *chunkInstance:
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
-				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("class index out of bounds: %d", model.ClassCount))
+				return nil, warns.Return(), chunkError(ic, chunk, errBounds{Kind: "class index", Index: chunk.ClassID, Bounds: model.ClassCount})
 			}
 			// No error if ClassCount > actual count.
 
@@ -55,7 +65,7 @@ loop:
 
 			for i, ref := range chunk.InstanceIDs {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("invalid instance id %d", ref))
+					return nil, warns.Return(), chunkError(ic, chunk, errBounds{Kind: "instance id", Index: ref, Bounds: model.InstanceCount})
 				}
 				// No error if InstanceCount > actual count.
 
@@ -78,7 +88,7 @@ loop:
 
 		case *chunkProperty:
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
-				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("class index out of bounds: %d", model.ClassCount))
+				return nil, warns.Return(), chunkError(ic, chunk, errBounds{Kind: "class index", Index: chunk.ClassID, Bounds: model.ClassCount})
 			}
 			// No error if TypeCount > actual count.
 
@@ -123,12 +133,12 @@ loop:
 
 			for i, ref := range chunk.Children {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("invalid id %d", ref))
+					return nil, warns.Return(), chunkError(ic, chunk, errBounds{Kind: "child id", Index: ref, Bounds: model.InstanceCount})
 				}
 
 				child := instLookup[ref]
 				if child == nil {
-					warns = chunkWarn(warns, ic, chunk, "referent #%d `%d` does not exist", i, ref)
+					warns = chunkWarn(warns, ic, chunk, "child #%d: id %d does not exist", i, ref)
 					continue
 				}
 
@@ -138,7 +148,7 @@ loop:
 				}
 
 				parent, ok := instLookup[chunk.Parents[i]]
-				// RESEARCH: overriding with a nil referent vs non-existent referent.
+				//TODO: overriding with a nil referent vs non-existent referent.
 				if !ok {
 					continue
 				}

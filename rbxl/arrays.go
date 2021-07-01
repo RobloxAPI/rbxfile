@@ -7,6 +7,28 @@ import (
 	"math"
 )
 
+type errExpectedMoreBytes int
+
+func (err errExpectedMoreBytes) Error() string {
+	return fmt.Sprintf("expected %d more bytes in array", int(err))
+}
+
+type errElementType struct {
+	Index int
+	Got   string
+	Want  string
+}
+
+func (err errElementType) Error() string {
+	return fmt.Sprintf("element %d is of type %s where %s is expected", err.Index, err.Got, err.Want)
+}
+
+type errInvalidType byte
+
+func (err errInvalidType) Error() string {
+	return fmt.Sprintf("invalid type (%02X)", byte(err))
+}
+
 // Encodes and decodes a Value based on its fields
 type fielder interface {
 	// Value.Type
@@ -84,7 +106,7 @@ func interleaveFields(id typeID, a []value) (b []byte, err error) {
 	for i, v := range a {
 		af[i] = v.(fielder)
 		if af[i].Type() != id {
-			return nil, fmt.Errorf("element %d is of type %s where %s is expected", i, af[i].Type().String(), id.String())
+			return nil, errElementType{Index: i, Got: af[i].Type().String(), Want: id.String()}
 		}
 	}
 
@@ -160,11 +182,11 @@ func interleaveAppend(t typeID, a []value) (b []byte, err error) {
 // Returns an error if a value cannot be encoded as t.
 func valuesToBytes(t typeID, a []value) (b []byte, err error) {
 	if !t.Valid() {
-		return nil, fmt.Errorf("invalid type (%02X)", t)
+		return nil, errInvalidType(t)
 	}
 	for i, v := range a {
 		if v.Type() != t {
-			return nil, fmt.Errorf("element %d is of type `%s` where `%s` is expected", i, v.Type().String(), t.String())
+			return nil, errElementType{Index: i, Got: v.Type().String(), Want: t.String()}
 		}
 	}
 
@@ -417,11 +439,11 @@ func appendByteValues(id typeID, b []byte) (a []value, err error) {
 	ba := b
 	for len(ba) > 0 {
 		if len(ba) < zArrayLen {
-			return nil, errors.New("expected 4 more bytes in array")
+			return nil, errExpectedMoreBytes(4)
 		}
 		size := int(binary.LittleEndian.Uint32(ba))
 		if len(ba[zArrayLen:]) < size*field {
-			return nil, fmt.Errorf("expected %d more bytes in array", size*field)
+			return nil, errExpectedMoreBytes(size * field)
 		}
 
 		v := newValue(id)
@@ -450,7 +472,7 @@ func deinterleaveAppend(t typeID, b []byte) (a []value, err error) {
 // each corresponding to t.
 func valuesFromBytes(t typeID, b []byte) (a []value, err error) {
 	if !t.Valid() {
-		return nil, fmt.Errorf("invalid type (%02X)", t)
+		return nil, errInvalidType(t)
 	}
 
 	switch t {
@@ -516,7 +538,7 @@ func valuesFromBytes(t typeID, b []byte) (a []value, err error) {
 				q := len(cf.Rotation) * zf32
 				r := b[i:]
 				if len(r) < q {
-					return nil, fmt.Errorf("expected %d more bytes in array", q)
+					return nil, errExpectedMoreBytes(q)
 				}
 				for i := range cf.Rotation {
 					cf.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*zf32 : i*zf32+zf32]))
@@ -553,7 +575,7 @@ func valuesFromBytes(t typeID, b []byte) (a []value, err error) {
 			if cf.Special == 0 {
 				r := b[i:]
 				if len(r) < zCFrameQuatQ {
-					return nil, fmt.Errorf("expected %d more bytes in array", zCFrameQuatQ)
+					return nil, errExpectedMoreBytes(zCFrameQuatQ)
 				}
 				cf.quatFromBytes(r)
 				i += zCFrameQuatQ
@@ -623,7 +645,7 @@ func valuesFromBytes(t typeID, b []byte) (a []value, err error) {
 			i++
 			if pp.CustomPhysics != 0 {
 				if len(b[i:]) < zPhysicalPropertiesFields {
-					return nil, fmt.Errorf("expected %d more bytes in array", zPhysicalPropertiesFields)
+					return nil, errExpectedMoreBytes(zPhysicalPropertiesFields)
 				}
 				pp.ppFromBytes(b[i:])
 				i += zPhysicalPropertiesFields
