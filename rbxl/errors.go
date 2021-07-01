@@ -10,8 +10,6 @@ import (
 var (
 	// Indicates an unexpected file signature.
 	errInvalidSig = errors.New("invalid signature")
-	// Indicates unexpected header content.
-	errCorruptHeader = errors.New("the file header is corrupted")
 	// Indicates a chunk signature not known by the codec.
 	errUnknownChunkSig = errors.New("unknown chunk signature")
 	// Indicates

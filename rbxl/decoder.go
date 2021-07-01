@@ -359,7 +359,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		return nil, nil, nil, decodeError(fr, nil)
 	}
 	if !bytes.Equal(header, []byte(binaryHeader)) {
-		return nil, nil, nil, decodeError(fr, errCorruptHeader)
+		return nil, nil, nil, decodeError(fr, errors.New("the file header is corrupted"))
 	}
 
 	// Check version.
