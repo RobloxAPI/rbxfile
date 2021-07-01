@@ -853,10 +853,10 @@ type chunkSharedStrings struct {
 	IsCompressed bool
 
 	Version uint32
-	Values  []SharedString
+	Values  []sharedString
 }
 
-type SharedString struct {
+type sharedString struct {
 	Hash  [16]byte
 	Value []byte
 }
@@ -889,7 +889,7 @@ func (c *chunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {
 	if fr.Number(&length) {
 		return fr.End()
 	}
-	c.Values = make([]SharedString, int(length))
+	c.Values = make([]sharedString, int(length))
 
 	for i := range c.Values {
 		if fr.Bytes(c.Values[i].Hash[:]) {

@@ -48,7 +48,7 @@ func (c robloxCodec) Decode(model *formatModel) (root *rbxfile.Root, warn, err e
 	instLookup := make(map[int32]*rbxfile.Instance, model.InstanceCount+1)
 	instLookup[nilInstance] = nil
 
-	var sharedStrings []SharedString
+	var sharedStrings []sharedString
 
 loop:
 	for ic, chunk := range model.Chunks {
@@ -383,7 +383,7 @@ func decodeValue(val value) rbxfile.Value {
 
 type sharedEntry struct {
 	index int
-	value SharedString
+	value sharedString
 }
 
 type sharedMap map[[16]byte]sharedEntry
@@ -653,7 +653,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 	if len(sharedStrings) > 0 {
 		chunk := chunkSharedStrings{
 			Version: 0,
-			Values:  make([]SharedString, len(sharedStrings)),
+			Values:  make([]sharedString, len(sharedStrings)),
 		}
 		for _, entry := range sharedStrings {
 			chunk.Values[entry.index] = entry.value
