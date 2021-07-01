@@ -772,15 +772,6 @@ func (c *chunkMeta) SetCompressed(b bool) {
 	c.IsCompressed = b
 }
 
-type errRawBytes struct {
-	Chunk chunk
-	Bytes []byte
-}
-
-func (err errRawBytes) Error() string {
-	return "RAW BYTES"
-}
-
 func (c *chunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
