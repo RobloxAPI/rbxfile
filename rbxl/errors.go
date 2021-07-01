@@ -18,8 +18,6 @@ var (
 	ErrUnknownChunkSig = errors.New("unknown chunk signature")
 	// Indicates
 	ErrChunkParentArray = errors.New("length of parent array does not match children array")
-	// Indicates an unexpected content for bytes presumed to be reserved.
-	ErrReserveNonZero = errors.New("reserved space in file header is non-zero")
 	// Indicates that the end chunk is compressed, where it is expected to be
 	// uncompressed.
 	ErrEndChunkCompressed = errors.New("end chunk is compressed")
@@ -42,6 +40,19 @@ type ErrUnknownType typeID
 
 func (err ErrUnknownType) Error() string {
 	return fmt.Sprintf("unknown data type 0x%X", byte(err))
+}
+
+// ErrReserve indicates an unexpected value for bytes that are presumed to be
+// reserved.
+type ErrReserve struct {
+	// Offset marks the location of the reserved bytes.
+	Offset int64
+	// Bytes is the unexpected content of the reserved bytes.
+	Bytes []byte
+}
+
+func (err ErrReserve) Error() string {
+	return fmt.Sprintf("unexpected content for reserved bytes near %d: % 02X", err.Offset, err.Bytes)
 }
 
 // ErrValue is an error that is produced by a Value of a certain Type.

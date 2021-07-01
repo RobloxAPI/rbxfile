@@ -389,12 +389,12 @@ func (d Decoder) version0(fr *parse.BinaryReader, f *formatModel) (warn, err err
 		return nil, decodeError(fr, nil)
 	}
 
-	var reserved uint64
-	if fr.Number(&reserved) {
+	var reserved [8]byte
+	if fr.Bytes(reserved[:]) {
 		return nil, decodeError(fr, nil)
 	}
-	if reserved != 0 {
-		warns = append(warns, ErrReserveNonZero)
+	if reserved != [8]byte{} {
+		warns = append(warns, ErrReserve{Offset: fr.N() - int64(len(reserved)), Bytes: reserved[:]})
 	}
 
 loop:
