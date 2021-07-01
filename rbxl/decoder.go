@@ -230,7 +230,7 @@ func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]st
 	case *chunkUnknown:
 		dumpNewline(w, indent+1)
 		w.WriteString("<unknown chunk signature>\n\t\tBytes: ")
-		dumpBytes(w, indent+1, chunk.Bytes)
+		dumpBytes(w, indent+1, chunk.payload)
 	case *chunkErrored:
 		dumpNewline(w, indent+1)
 		w.WriteString("<errored chunk>")
@@ -426,10 +426,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 			n, err = ch.ReadFrom(payload)
 			chunk = &ch
 		default:
-			chunk = &chunkUnknown{
-				Sig:   rawChunk.signature,
-				Bytes: rawChunk.payload,
-			}
+			chunk = &chunkUnknown{rawChunk: *rawChunk}
 			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: errUnknownChunkSig})
 		}
 

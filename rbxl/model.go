@@ -118,6 +118,10 @@ type rawChunk struct {
 	payload    []byte
 }
 
+func (c rawChunk) Signature() uint32 {
+	return c.signature
+}
+
 // Reads out a raw chunk from a stream, decompressing the chunk if necessary.
 func (c *rawChunk) ReadFrom(fr *parse.BinaryReader) bool {
 	if fr.Number(&c.signature) {
@@ -238,32 +242,13 @@ func (c *rawChunk) WriteTo(fw *parse.BinaryWriter) bool {
 
 // chunkUnknown is a Chunk that is not known by the format.
 type chunkUnknown struct {
-	// Whether the chunk is compressed.
-	IsCompressed bool
-
-	// The signature of the chunk.
-	Sig uint32
-
-	// The raw content of the chunk.
-	Bytes []byte
-}
-
-func (c *chunkUnknown) Signature() uint32 {
-	return c.Sig
-}
-
-func (c *chunkUnknown) Compressed() bool {
-	return c.IsCompressed
-}
-
-func (c *chunkUnknown) SetCompressed(b bool) {
-	c.IsCompressed = b
+	rawChunk
 }
 
 func (c *chunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
-	c.Bytes, _ = fr.All()
+	c.payload, _ = fr.All()
 
 	return fr.End()
 }
@@ -271,7 +256,7 @@ func (c *chunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
 func (c *chunkUnknown) WriteTo(w io.Writer) (n int64, err error) {
 	fw := parse.NewBinaryWriter(w)
 
-	fw.Bytes(c.Bytes)
+	fw.Bytes(c.payload)
 
 	return fw.End()
 }
