@@ -74,7 +74,7 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 	}
 
 	for i, chunk := range f.Chunks {
-		if !validChunk(f.Version, chunk.Signature()) {
+		if !validChunk(chunk.Signature()) {
 			warns = append(warns, ChunkError{Index: i, Sig: chunk.Signature(), Cause: errUnknownChunkSig})
 		}
 		if endChunk, ok := chunk.(*chunkEnd); ok {

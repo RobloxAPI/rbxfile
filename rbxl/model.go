@@ -61,34 +61,29 @@ func writeString(f *parse.BinaryWriter, data string) (failed bool) {
 type chunkGenerator func() chunk
 
 // chunkGenerators returns a function that generates a chunk of the given
-// signature, which exists for the given format version.
-func chunkGenerators(version uint16, sig [4]byte) chunkGenerator {
-	switch version {
-	case 0:
-		switch sig {
-		case newChunkInstance().Signature():
-			return newChunkInstance
-		case newChunkProperty().Signature():
-			return newChunkProperty
-		case newChunkParent().Signature():
-			return newChunkParent
-		case newChunkMeta().Signature():
-			return newChunkMeta
-		case newChunkSharedStrings().Signature():
-			return newChunkSharedStrings
-		case newChunkEnd().Signature():
-			return newChunkEnd
-		default:
-			return nil
-		}
+// signature.
+func chunkGenerators(sig [4]byte) chunkGenerator {
+	switch sig {
+	case newChunkInstance().Signature():
+		return newChunkInstance
+	case newChunkProperty().Signature():
+		return newChunkProperty
+	case newChunkParent().Signature():
+		return newChunkParent
+	case newChunkMeta().Signature():
+		return newChunkMeta
+	case newChunkSharedStrings().Signature():
+		return newChunkSharedStrings
+	case newChunkEnd().Signature():
+		return newChunkEnd
 	default:
 		return nil
 	}
 }
 
 // validChunk returns whether a chunk signature is valid for a format version.
-func validChunk(version uint16, sig [4]byte) bool {
-	return chunkGenerators(version, sig) != nil
+func validChunk(sig [4]byte) bool {
+	return chunkGenerators(sig) != nil
 }
 
 // formatModel models Roblox's binary file format. Directly, it can be used to

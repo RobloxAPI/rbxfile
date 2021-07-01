@@ -394,7 +394,7 @@ loop:
 			return nil, nil, warns.Return(), decodeError(fr, nil)
 		}
 
-		newChunk := chunkGenerators(f.Version, rawChunk.signature)
+		newChunk := chunkGenerators(rawChunk.signature)
 		if newChunk == nil {
 			newChunk = newChunkUnknown
 		}
