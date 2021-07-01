@@ -738,7 +738,7 @@ func (c *chunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 
 	if c.Properties, err = valuesFromBytes(c.DataType, rawBytes); err != nil {
-		fr.Add(0, ErrValue{Type: byte(c.DataType), Cause: err})
+		fr.Add(0, ValueError{Type: byte(c.DataType), Cause: err})
 		return fr.End()
 	}
 

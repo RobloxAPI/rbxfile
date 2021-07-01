@@ -55,18 +55,18 @@ func (err ErrReserve) Error() string {
 	return fmt.Sprintf("unexpected content for reserved bytes near %d: % 02X", err.Offset, err.Bytes)
 }
 
-// ErrValue is an error that is produced by a Value of a certain Type.
-type ErrValue struct {
+// ValueError is an error that is produced by a Value of a certain Type.
+type ValueError struct {
 	Type byte
 
 	Cause error
 }
 
-func (err ErrValue) Error() string {
+func (err ValueError) Error() string {
 	return fmt.Sprintf("type %s (0x%X): %s", typeID(err.Type).String(), err.Type, err.Cause.Error())
 }
 
-func (err ErrValue) Unwrap() error {
+func (err ValueError) Unwrap() error {
 	return err.Cause
 }
 
