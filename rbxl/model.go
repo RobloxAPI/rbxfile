@@ -645,7 +645,7 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 
 		// Parents
 		if len(c.Parents) != instanceCount {
-			fw.Add(0, errChunkParentArray)
+			fw.Add(0, errParentArray{Children: instanceCount, Parent: len(c.Parents)})
 			return fw.End()
 		}
 

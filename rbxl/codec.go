@@ -118,7 +118,7 @@ loop:
 			}
 
 			if len(chunk.Parents) != len(chunk.Children) {
-				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("length of Parents array does not equal length of Children array"))
+				return nil, warns.Return(), chunkError(ic, chunk, errParentArray{Children: len(chunk.Children), Parent: len(chunk.Parents)})
 			}
 
 			for i, ref := range chunk.Children {

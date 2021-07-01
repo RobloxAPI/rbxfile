@@ -12,8 +12,6 @@ var (
 	errInvalidSig = errors.New("invalid signature")
 	// Indicates a chunk signature not known by the codec.
 	errUnknownChunkSig = errors.New("unknown chunk signature")
-	// Indicates
-	errChunkParentArray = errors.New("length of parent array does not match children array")
 	// Indicates that the end chunk is compressed, where it is expected to be
 	// uncompressed.
 	errEndChunkCompressed = errors.New("end chunk is compressed")
@@ -49,6 +47,15 @@ type errReserve struct {
 
 func (err errReserve) Error() string {
 	return fmt.Sprintf("unexpected content for reserved bytes near %d: % 02X", err.Offset, err.Bytes)
+}
+
+type errParentArray struct {
+	Children int
+	Parent   int
+}
+
+func (err errParentArray) Error() string {
+	return fmt.Sprintf("length of parents array (%d) does not match length of children array (%d)", err.Parent, err.Children)
 }
 
 // ErrXML indicates the unexpected detection of the legacy XML format.
