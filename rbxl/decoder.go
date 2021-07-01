@@ -430,7 +430,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: errUnknownChunkSig})
 		}
 
-		chunk.SetCompressed(rawChunk.compressed)
+		chunk.SetCompressed(bool(rawChunk.compressed))
 
 		if err != nil {
 			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: err})

@@ -439,9 +439,9 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 		chunk, ok := instChunkMap[inst.ClassName]
 		if !ok {
 			chunk = &chunkInstance{
-				IsCompressed: true,
-				ClassName:    inst.ClassName,
-				InstanceIDs:  []int32{},
+				compressed:  true,
+				ClassName:   inst.ClassName,
+				InstanceIDs: []int32{},
 			}
 			instChunkMap[inst.ClassName] = chunk
 		}
@@ -482,7 +482,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					continue
 				}
 				propChunkMap[name] = &chunkProperty{
-					IsCompressed: true,
+					compressed:   true,
 					ClassID:      instChunk.ClassID,
 					PropertyName: name,
 					Properties:   make([]value, len(instChunk.InstanceIDs)),
@@ -589,10 +589,10 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 
 	// Make parent chunk.
 	parentChunk := &chunkParent{
-		IsCompressed: true,
-		Version:      0,
-		Children:     make([]int32, len(instList)),
-		Parents:      make([]int32, len(instList)),
+		compressed: true,
+		Version:    0,
+		Children:   make([]int32, len(instList)),
+		Parents:    make([]int32, len(instList)),
 	}
 
 	if len(instList) > 0 {
@@ -619,8 +619,8 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 
 	// Make end chunk.
 	endChunk := &chunkEnd{
-		IsCompressed: false,
-		Content:      []byte("</roblox>"),
+		compressed: true,
+		Content:    []byte("</roblox>"),
 	}
 
 	// Make FormatModel.
@@ -640,8 +640,8 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 		// TODO: verify that chunk is omitted when zero values are encoded, and
 		// is not based on format (RBXM vs RBXL).
 		chunk := chunkMeta{
-			IsCompressed: true,
-			Values:       make([][2]string, 0, len(root.Metadata)),
+			compressed: true,
+			Values:     make([][2]string, 0, len(root.Metadata)),
 		}
 		for key, value := range root.Metadata {
 			chunk.Values = append(chunk.Values, [2]string{key, value})

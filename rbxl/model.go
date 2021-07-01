@@ -111,11 +111,21 @@ type chunk interface {
 	WriteTo(w io.Writer) (n int64, err error)
 }
 
+type compressed bool
+
+func (c compressed) Compressed() bool {
+	return bool(c)
+}
+
+func (c *compressed) SetCompressed(v bool) {
+	*c = compressed(v)
+}
+
 // Represents a raw chunk, which contains compression data and payload.
 type rawChunk struct {
-	signature  uint32
-	compressed bool
-	payload    []byte
+	signature uint32
+	compressed
+	payload []byte
 }
 
 func (c rawChunk) Signature() uint32 {
@@ -302,8 +312,7 @@ const sigINST = 0x54_53_4E_49 // TSNI
 // the file. Instances of the same ClassName are grouped together into this
 // kind of chunk, which are called "instance groups".
 type chunkInstance struct {
-	// Whether the chunk is compressed.
-	IsCompressed bool
+	compressed
 
 	// ClassID is a number identifying the instance group.
 	ClassID int32
@@ -334,14 +343,6 @@ type chunkInstance struct {
 
 func (chunkInstance) Signature() uint32 {
 	return sigINST
-}
-
-func (c *chunkInstance) Compressed() bool {
-	return c.IsCompressed
-}
-
-func (c *chunkInstance) SetCompressed(b bool) {
-	c.IsCompressed = b
 }
 
 func (c *chunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
@@ -449,8 +450,7 @@ const sigEND = 0x00_44_4E_45 // \0DNE
 // chunkEnd is a Chunk that signals the end of the file. It causes the decoder
 // to stop reading chunks, so it should be the last chunk.
 type chunkEnd struct {
-	// Whether the chunk is compressed.
-	IsCompressed bool
+	compressed
 
 	// The raw decompressed content of the chunk. For maximum compatibility,
 	// the content should be "</roblox>", and the chunk should be
@@ -461,14 +461,6 @@ type chunkEnd struct {
 
 func (chunkEnd) Signature() uint32 {
 	return sigEND
-}
-
-func (c *chunkEnd) Compressed() bool {
-	return c.IsCompressed
-}
-
-func (c *chunkEnd) SetCompressed(b bool) {
-	c.IsCompressed = b
 }
 
 func (c *chunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
@@ -494,8 +486,7 @@ const sigPRNT = 0x54_4E_52_50 // TNRP
 // chunkParent is a Chunk that contains information about the parent-child
 // relationships between instances in the model.
 type chunkParent struct {
-	// Whether the chunk is compressed.
-	IsCompressed bool
+	compressed
 
 	// Version is the version of the chunk. Reserved so that the format of the
 	// parent chunk can be changed without changing the version of the entire
@@ -515,14 +506,6 @@ type chunkParent struct {
 
 func (chunkParent) Signature() uint32 {
 	return sigPRNT
-}
-
-func (c *chunkParent) Compressed() bool {
-	return c.IsCompressed
-}
-
-func (c *chunkParent) SetCompressed(b bool) {
-	c.IsCompressed = b
 }
 
 func (c *chunkParent) ReadFrom(r io.Reader) (n int64, err error) {
@@ -634,8 +617,7 @@ const sigPROP = 0x50_4F_52_50 // PORP
 // chunkProperty is a Chunk that contains information about the properties of
 // a group of instances.
 type chunkProperty struct {
-	// Whether the chunk is compressed.
-	IsCompressed bool
+	compressed
 
 	// ClassID is the ID of an instance group contained in a ChunkInstance.
 	ClassID int32
@@ -655,14 +637,6 @@ type chunkProperty struct {
 
 func (chunkProperty) Signature() uint32 {
 	return sigPROP
-}
-
-func (c *chunkProperty) Compressed() bool {
-	return c.IsCompressed
-}
-
-func (c *chunkProperty) SetCompressed(b bool) {
-	c.IsCompressed = b
 }
 
 func (c *chunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
@@ -734,22 +708,13 @@ const sigMETA = 0x41_54_45_4D // ATEM
 
 // chunkMeta is a Chunk that contains file metadata.
 type chunkMeta struct {
-	// Whether the chunk is compressed.
-	IsCompressed bool
+	compressed
 
 	Values [][2]string
 }
 
 func (chunkMeta) Signature() uint32 {
 	return sigMETA
-}
-
-func (c *chunkMeta) Compressed() bool {
-	return c.IsCompressed
-}
-
-func (c *chunkMeta) SetCompressed(b bool) {
-	c.IsCompressed = b
 }
 
 func (c *chunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
@@ -798,8 +763,7 @@ const sigSSTR = 0x52_54_53_53 // RTSS
 
 // chunkSharedStrings is a Chunk that contains shared strings.
 type chunkSharedStrings struct {
-	// Whether the chunk is compressed.
-	IsCompressed bool
+	compressed
 
 	Version uint32
 	Values  []sharedString
@@ -812,14 +776,6 @@ type sharedString struct {
 
 func (chunkSharedStrings) Signature() uint32 {
 	return sigSSTR
-}
-
-func (c *chunkSharedStrings) Compressed() bool {
-	return c.IsCompressed
-}
-
-func (c *chunkSharedStrings) SetCompressed(b bool) {
-	c.IsCompressed = b
 }
 
 func (c *chunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {

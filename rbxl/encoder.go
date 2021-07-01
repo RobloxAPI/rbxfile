@@ -78,7 +78,7 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 			warns = append(warns, ChunkError{Index: i, Sig: chunk.Signature(), Cause: errUnknownChunkSig})
 		}
 		if endChunk, ok := chunk.(*chunkEnd); ok {
-			if !e.Uncompressed && endChunk.IsCompressed {
+			if !e.Uncompressed && endChunk.Compressed() {
 				warns = append(warns, errEndChunkCompressed)
 			}
 
@@ -94,7 +94,7 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 		rawChunk := new(rawChunk)
 		rawChunk.signature = chunk.Signature()
 		if !e.Uncompressed {
-			rawChunk.compressed = chunk.Compressed()
+			rawChunk.compressed = compressed(chunk.Compressed())
 		}
 
 		buf := new(bytes.Buffer)
