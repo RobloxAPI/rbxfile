@@ -387,21 +387,49 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		warns = append(warns, errReserve{Offset: fr.N() - int64(len(reserved)), Bytes: reserved[:]})
 	}
 
-loop:
 	for i := 0; ; i++ {
 		rawChunk := new(rawChunk)
 		if rawChunk.ReadFrom(fr) {
 			return nil, nil, warns.Return(), decodeError(fr, nil)
 		}
 
-		newChunk := chunkGenerators(rawChunk.signature)
-		if newChunk == nil {
-			newChunk = newChunkUnknown
+		var n int64
+		var err error
+		var chunk chunk
+		payload := bytes.NewReader(rawChunk.payload)
+		switch string(rawChunk.signature[:]) {
+		case sigMETA:
+			ch := chunkMeta{}
+			n, err = ch.ReadFrom(payload)
+			chunk = &ch
+		case sigSSTR:
+			ch := chunkSharedStrings{}
+			n, err = ch.ReadFrom(payload)
+			chunk = &ch
+		case sigINST:
+			ch := chunkInstance{}
+			n, err = ch.ReadFrom(payload)
+			chunk = &ch
+		case sigPROP:
+			ch := chunkProperty{}
+			n, err = ch.ReadFrom(payload)
+			chunk = &ch
+		case sigPRNT:
+			ch := chunkParent{}
+			n, err = ch.ReadFrom(payload)
+			chunk = &ch
+		case sigEND:
+			ch := chunkEnd{}
+			n, err = ch.ReadFrom(payload)
+			chunk = &ch
+		default:
+			chunk = &chunkUnknown{Bytes: rawChunk.payload}
+			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: errUnknownChunkSig})
 		}
-		chunk := newChunk()
+
 		chunk.SetCompressed(rawChunk.compressed)
 
-		if n, err := chunk.ReadFrom(bytes.NewReader(rawChunk.payload)); err != nil {
+		if err != nil {
 			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: err})
 			f.Chunks = append(f.Chunks, &chunkErrored{
 				chunk:  chunk,
@@ -409,22 +437,19 @@ loop:
 				Cause:  err,
 				Bytes:  rawChunk.payload,
 			})
-			continue loop
+			continue
 		}
 
 		f.Chunks = append(f.Chunks, chunk)
 
-		switch chunk := chunk.(type) {
-		case *chunkUnknown:
-			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: errUnknownChunkSig})
-		case *chunkEnd:
+		if chunk, ok := chunk.(*chunkEnd); ok {
 			if chunk.Compressed() {
 				warns = append(warns, errEndChunkCompressed)
 			}
 			if !bytes.Equal(chunk.Content, []byte("</roblox>")) {
 				warns = append(warns, errEndChunkContent)
 			}
-			break loop
+			break
 		}
 	}
 
