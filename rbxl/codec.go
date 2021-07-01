@@ -18,8 +18,8 @@ type robloxCodec struct {
 // Reference value indicating a nil instance.
 const nilInstance = -1
 
-func chunkError(i int, c chunk, format string, v ...interface{}) error {
-	return ChunkError{Index: i, Sig: c.Signature(), Cause: fmt.Errorf(format, v...)}
+func chunkError(i int, c chunk, err error) error {
+	return ChunkError{Index: i, Sig: c.Signature(), Cause: err}
 }
 
 func chunkWarn(errs errors.Errors, i int, c chunk, format string, v ...interface{}) errors.Errors {
@@ -45,23 +45,23 @@ loop:
 		switch chunk := chunk.(type) {
 		case *chunkInstance:
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
-				return nil, warns.Return(), chunkError(ic, chunk, "class index out of bounds: %d", model.ClassCount)
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("class index out of bounds: %d", model.ClassCount))
 			}
 			// No error if ClassCount > actual count.
 
 			if chunk.IsService && len(chunk.InstanceIDs) != len(chunk.GetService) {
-				return nil, warns.Return(), chunkError(ic, chunk, "GetService array length does not equal InstanceIDs array length")
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("GetService array length does not equal InstanceIDs array length"))
 			}
 
 			for i, ref := range chunk.InstanceIDs {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					return nil, warns.Return(), chunkError(ic, chunk, "invalid instance id %d", ref)
+					return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("invalid instance id %d", ref))
 				}
 				// No error if InstanceCount > actual count.
 
 				inst := rbxfile.NewInstance(chunk.ClassName)
 				if _, ok := instLookup[ref]; ok {
-					return nil, warns.Return(), chunkError(ic, chunk, "duplicate instance id: %d", ref)
+					return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("duplicate instance id: %d", ref))
 				}
 
 				if chunk.IsService && chunk.GetService[i] == 1 {
@@ -72,13 +72,13 @@ loop:
 			}
 
 			if _, ok := groupLookup[chunk.ClassID]; ok {
-				return nil, warns.Return(), chunkError(ic, chunk, "duplicate class index: %d", chunk.ClassID)
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("duplicate class index: %d", chunk.ClassID))
 			}
 			groupLookup[chunk.ClassID] = chunk
 
 		case *chunkProperty:
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
-				return nil, warns.Return(), chunkError(ic, chunk, "class index out of bounds: %d", model.ClassCount)
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("class index out of bounds: %d", model.ClassCount))
 			}
 			// No error if TypeCount > actual count.
 
@@ -89,7 +89,7 @@ loop:
 			}
 
 			if len(chunk.Properties) != len(instChunk.InstanceIDs) {
-				return nil, warns.Return(), chunkError(ic, chunk, "length of properties array (%d) does not equal length of class array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("length of properties array (%d) does not equal length of class array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs)))
 			}
 
 			for i, bvalue := range chunk.Properties {
@@ -114,16 +114,16 @@ loop:
 
 		case *chunkParent:
 			if chunk.Version != 0 {
-				return nil, warns.Return(), chunkError(ic, chunk, "unrecognized parent link format %d", chunk.Version)
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("unrecognized parent link format %d", chunk.Version))
 			}
 
 			if len(chunk.Parents) != len(chunk.Children) {
-				return nil, warns.Return(), chunkError(ic, chunk, "length of Parents array does not equal length of Children array")
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("length of Parents array does not equal length of Children array"))
 			}
 
 			for i, ref := range chunk.Children {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					return nil, warns.Return(), chunkError(ic, chunk, "invalid id %d", ref)
+					return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("invalid id %d", ref))
 				}
 
 				child := instLookup[ref]
