@@ -650,7 +650,7 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 
 		// Parents
 		if len(c.Parents) != instanceCount {
-			fw.Add(0, ErrChunkParentArray)
+			fw.Add(0, errChunkParentArray)
 			return fw.End()
 		}
 
@@ -728,7 +728,7 @@ func (c *chunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 
 	if !c.DataType.Valid() {
-		fr.Add(0, ErrUnknownType(c.DataType))
+		fr.Add(0, errUnknownType(c.DataType))
 		return fr.End()
 	}
 
@@ -761,7 +761,7 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	if !c.DataType.Valid() {
-		fw.Add(0, ErrUnknownType(c.DataType))
+		fw.Add(0, errUnknownType(c.DataType))
 		return fw.End()
 	}
 

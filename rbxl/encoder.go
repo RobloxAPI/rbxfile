@@ -75,19 +75,19 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 
 	for i, chunk := range f.Chunks {
 		if !validChunk(f.Version, chunk.Signature()) {
-			warns = append(warns, ChunkError{Index: i, Sig: chunk.Signature(), Cause: ErrUnknownChunkSig})
+			warns = append(warns, ChunkError{Index: i, Sig: chunk.Signature(), Cause: errUnknownChunkSig})
 		}
 		if endChunk, ok := chunk.(*chunkEnd); ok {
 			if !e.Uncompressed && endChunk.IsCompressed {
-				warns = append(warns, ErrEndChunkCompressed)
+				warns = append(warns, errEndChunkCompressed)
 			}
 
 			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
-				warns = append(warns, ErrEndChunkContent)
+				warns = append(warns, errEndChunkContent)
 			}
 
 			if i != len(f.Chunks)-1 {
-				warns = append(warns, ErrEndChunkNotLast)
+				warns = append(warns, errEndChunkNotLast)
 			}
 		}
 

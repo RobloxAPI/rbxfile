@@ -340,13 +340,13 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		return f, nil, nil, decodeError(fr, nil)
 	}
 	if !bytes.Equal(sig[:len(robloxSig)], []byte(robloxSig)) {
-		return f, nil, nil, decodeError(fr, ErrInvalidSig)
+		return f, nil, nil, decodeError(fr, errInvalidSig)
 	}
 
 	// Check for legacy XML.
 	if !bytes.Equal(sig[len(robloxSig):], []byte(binaryMarker)) {
 		if d.NoXML {
-			return nil, nil, nil, decodeError(fr, ErrInvalidSig)
+			return nil, nil, nil, decodeError(fr, errInvalidSig)
 		} else {
 			// Reconstruct original reader.
 			return nil, io.MultiReader(bytes.NewReader(sig), r), nil, nil
@@ -359,7 +359,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		return nil, nil, nil, decodeError(fr, nil)
 	}
 	if !bytes.Equal(header, []byte(binaryHeader)) {
-		return nil, nil, nil, decodeError(fr, ErrCorruptHeader)
+		return nil, nil, nil, decodeError(fr, errCorruptHeader)
 	}
 
 	// Check version.
@@ -368,7 +368,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 	}
 	switch f.Version {
 	default:
-		return nil, nil, nil, decodeError(fr, ErrUnrecognizedVersion(f.Version))
+		return nil, nil, nil, decodeError(fr, errUnrecognizedVersion(f.Version))
 	case 0:
 		warn, err = d.version0(fr, f)
 	}
@@ -394,7 +394,7 @@ func (d Decoder) version0(fr *parse.BinaryReader, f *formatModel) (warn, err err
 		return nil, decodeError(fr, nil)
 	}
 	if reserved != [8]byte{} {
-		warns = append(warns, ErrReserve{Offset: fr.N() - int64(len(reserved)), Bytes: reserved[:]})
+		warns = append(warns, errReserve{Offset: fr.N() - int64(len(reserved)), Bytes: reserved[:]})
 	}
 
 loop:
@@ -426,13 +426,13 @@ loop:
 
 		switch chunk := chunk.(type) {
 		case *chunkUnknown:
-			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: ErrUnknownChunkSig})
+			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: errUnknownChunkSig})
 		case *chunkEnd:
 			if chunk.Compressed() {
-				warns = append(warns, ErrEndChunkCompressed)
+				warns = append(warns, errEndChunkCompressed)
 			}
 			if !bytes.Equal(chunk.Content, []byte("</roblox>")) {
-				warns = append(warns, ErrEndChunkContent)
+				warns = append(warns, errEndChunkContent)
 			}
 			break loop
 		}

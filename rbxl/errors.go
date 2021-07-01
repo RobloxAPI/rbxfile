@@ -9,49 +9,49 @@ import (
 
 var (
 	// Indicates an unexpected file signature.
-	ErrInvalidSig = errors.New("invalid signature")
+	errInvalidSig = errors.New("invalid signature")
 	// Indicates the unexpected detection of the legacy XML format.
 	ErrXML = errors.New("unexpected XML format")
 	// Indicates unexpected header content.
-	ErrCorruptHeader = errors.New("the file header is corrupted")
+	errCorruptHeader = errors.New("the file header is corrupted")
 	// Indicates a chunk signature not known by the codec.
-	ErrUnknownChunkSig = errors.New("unknown chunk signature")
+	errUnknownChunkSig = errors.New("unknown chunk signature")
 	// Indicates
-	ErrChunkParentArray = errors.New("length of parent array does not match children array")
+	errChunkParentArray = errors.New("length of parent array does not match children array")
 	// Indicates that the end chunk is compressed, where it is expected to be
 	// uncompressed.
-	ErrEndChunkCompressed = errors.New("end chunk is compressed")
+	errEndChunkCompressed = errors.New("end chunk is compressed")
 	// Indicates unexpected content within the end chunk.
-	ErrEndChunkContent = errors.New("end chunk content is not `</roblox>`")
+	errEndChunkContent = errors.New("end chunk content is not `</roblox>`")
 	// Indicates that there are additional chunks that follow the end chunk.
-	ErrEndChunkNotLast = errors.New("end chunk is not the last chunk")
+	errEndChunkNotLast = errors.New("end chunk is not the last chunk")
 )
 
-// ErrUnrecognizedVersion indicates a format version not recognized by the
+// errUnrecognizedVersion indicates a format version not recognized by the
 // codec.
-type ErrUnrecognizedVersion uint16
+type errUnrecognizedVersion uint16
 
-func (err ErrUnrecognizedVersion) Error() string {
+func (err errUnrecognizedVersion) Error() string {
 	return fmt.Sprintf("unrecognized version %d", err)
 }
 
-// ErrUnknownType indicates a property data type not known by the codec.
-type ErrUnknownType typeID
+// errUnknownType indicates a property data type not known by the codec.
+type errUnknownType typeID
 
-func (err ErrUnknownType) Error() string {
+func (err errUnknownType) Error() string {
 	return fmt.Sprintf("unknown data type 0x%X", byte(err))
 }
 
-// ErrReserve indicates an unexpected value for bytes that are presumed to be
+// errReserve indicates an unexpected value for bytes that are presumed to be
 // reserved.
-type ErrReserve struct {
+type errReserve struct {
 	// Offset marks the location of the reserved bytes.
 	Offset int64
 	// Bytes is the unexpected content of the reserved bytes.
 	Bytes []byte
 }
 
-func (err ErrReserve) Error() string {
+func (err errReserve) Error() string {
 	return fmt.Sprintf("unexpected content for reserved bytes near %d: % 02X", err.Offset, err.Bytes)
 }
 
