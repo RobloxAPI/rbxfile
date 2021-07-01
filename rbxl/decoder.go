@@ -426,7 +426,10 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 			n, err = ch.ReadFrom(payload)
 			chunk = &ch
 		default:
-			chunk = &chunkUnknown{Bytes: rawChunk.payload}
+			chunk = &chunkUnknown{
+				Sig:   rawChunk.signature,
+				Bytes: rawChunk.payload,
+			}
 			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: errUnknownChunkSig})
 		}
 
