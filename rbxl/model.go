@@ -57,8 +57,8 @@ func writeString(f *parse.BinaryWriter, data string) (failed bool) {
 ////////////////////////////////////////////////////////////////
 
 // validChunk returns whether a chunk signature is valid for a format version.
-func validChunk(sig [4]byte) bool {
-	switch string(sig[:]) {
+func validChunk(sig uint32) bool {
+	switch sig {
 	case sigMETA,
 		sigSSTR,
 		sigINST,
@@ -92,7 +92,7 @@ type formatModel struct {
 // chunk is a portion of the model that contains distinct data.
 type chunk interface {
 	// Signature returns a signature used to identify the chunk's type.
-	Signature() [4]byte
+	Signature() uint32
 
 	// Compressed returns whether the chunk was compressed when decoding, or
 	// whether thed chunk should be compressed when encoding.
@@ -113,14 +113,14 @@ type chunk interface {
 
 // Represents a raw chunk, which contains compression data and payload.
 type rawChunk struct {
-	signature  [4]byte
+	signature  uint32
 	compressed bool
 	payload    []byte
 }
 
 // Reads out a raw chunk from a stream, decompressing the chunk if necessary.
 func (c *rawChunk) ReadFrom(fr *parse.BinaryReader) bool {
-	if fr.Bytes(c.signature[:]) {
+	if fr.Number(&c.signature) {
 		return true
 	}
 
@@ -173,7 +173,7 @@ func (c *rawChunk) ReadFrom(fr *parse.BinaryReader) bool {
 
 // Writes a raw chunk payload to a stream, compressing if necessary.
 func (c *rawChunk) WriteTo(fw *parse.BinaryWriter) bool {
-	if fw.Bytes(c.signature[:]) {
+	if fw.Number(c.signature) {
 		return true
 	}
 
@@ -242,13 +242,13 @@ type chunkUnknown struct {
 	IsCompressed bool
 
 	// The signature of the chunk.
-	Sig [4]byte
+	Sig uint32
 
 	// The raw content of the chunk.
 	Bytes []byte
 }
 
-func (c *chunkUnknown) Signature() [4]byte {
+func (c *chunkUnknown) Signature() uint32 {
 	return c.Sig
 }
 
@@ -311,7 +311,7 @@ func (c *chunkErrored) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-const sigINST = "\x49\x4E\x53\x54" // INST
+const sigINST = 0x54_53_4E_49 // TSNI
 
 // chunkInstance is a Chunk that contains information about the instances in
 // the file. Instances of the same ClassName are grouped together into this
@@ -347,9 +347,8 @@ type chunkInstance struct {
 	GetService []byte
 }
 
-func (chunkInstance) Signature() (sig [4]byte) {
-	copy(sig[:], sigINST)
-	return sig
+func (chunkInstance) Signature() uint32 {
+	return sigINST
 }
 
 func (c *chunkInstance) Compressed() bool {
@@ -460,7 +459,7 @@ func (c *chunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-const sigEND = "\x45\x4E\x44\x00" // END\0
+const sigEND = 0x00_44_4E_45 // \0DNE
 
 // chunkEnd is a Chunk that signals the end of the file. It causes the decoder
 // to stop reading chunks, so it should be the last chunk.
@@ -475,9 +474,8 @@ type chunkEnd struct {
 	Content []byte
 }
 
-func (chunkEnd) Signature() (sig [4]byte) {
-	copy(sig[:], sigEND)
-	return sig
+func (chunkEnd) Signature() uint32 {
+	return sigEND
 }
 
 func (c *chunkEnd) Compressed() bool {
@@ -506,7 +504,7 @@ func (c *chunkEnd) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-const sigPRNT = "\x50\x52\x4E\x54" // PRNT
+const sigPRNT = 0x54_4E_52_50 // TNRP
 
 // chunkParent is a Chunk that contains information about the parent-child
 // relationships between instances in the model.
@@ -530,9 +528,8 @@ type chunkParent struct {
 	Parents []int32
 }
 
-func (chunkParent) Signature() (sig [4]byte) {
-	copy(sig[:], sigPRNT)
-	return sig
+func (chunkParent) Signature() uint32 {
+	return sigPRNT
 }
 
 func (c *chunkParent) Compressed() bool {
@@ -647,7 +644,7 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-const sigPROP = "\x50\x52\x4F\x50" // PROP
+const sigPROP = 0x50_4F_52_50 // PORP
 
 // chunkProperty is a Chunk that contains information about the properties of
 // a group of instances.
@@ -671,9 +668,8 @@ type chunkProperty struct {
 	Properties []value
 }
 
-func (chunkProperty) Signature() (sig [4]byte) {
-	copy(sig[:], sigPROP)
-	return sig
+func (chunkProperty) Signature() uint32 {
+	return sigPROP
 }
 
 func (c *chunkProperty) Compressed() bool {
@@ -749,7 +745,7 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-const sigMETA = "\x4D\x45\x54\x41" // META
+const sigMETA = 0x41_54_45_4D // ATEM
 
 // chunkMeta is a Chunk that contains file metadata.
 type chunkMeta struct {
@@ -759,9 +755,8 @@ type chunkMeta struct {
 	Values [][2]string
 }
 
-func (chunkMeta) Signature() (sig [4]byte) {
-	copy(sig[:], sigMETA)
-	return sig
+func (chunkMeta) Signature() uint32 {
+	return sigMETA
 }
 
 func (c *chunkMeta) Compressed() bool {
@@ -814,7 +809,7 @@ func (c *chunkMeta) WriteTo(w io.Writer) (n int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-const sigSSTR = "\x53\x53\x54\x52" // SSTR
+const sigSSTR = 0x52_54_53_53 // RTSS
 
 // chunkSharedStrings is a Chunk that contains shared strings.
 type chunkSharedStrings struct {
@@ -830,9 +825,8 @@ type sharedString struct {
 	Value []byte
 }
 
-func (chunkSharedStrings) Signature() (sig [4]byte) {
-	copy(sig[:], sigSSTR)
-	return sig
+func (chunkSharedStrings) Signature() uint32 {
+	return sigSSTR
 }
 
 func (c *chunkSharedStrings) Compressed() bool {

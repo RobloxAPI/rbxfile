@@ -1,6 +1,7 @@
 package rbxl
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strconv"
@@ -140,16 +141,18 @@ type ChunkError struct {
 	// Index is the position of the chunk within the file.
 	Index int
 	// Sig is the signature of the chunk.
-	Sig [4]byte
+	Sig uint32
 
 	Cause error
 }
 
 func (err ChunkError) Error() string {
+	var sig [4]byte
+	binary.LittleEndian.PutUint32(sig[:], err.Sig)
 	if err.Index < 0 {
-		return fmt.Sprintf("%q chunk: %s", string(err.Sig[:]), err.Cause.Error())
+		return fmt.Sprintf("%q chunk: %s", string(sig[:]), err.Cause.Error())
 	}
-	return fmt.Sprintf("#%d %q chunk: %s", err.Index, string(err.Sig[:]), err.Cause.Error())
+	return fmt.Sprintf("#%d %q chunk: %s", err.Index, string(sig[:]), err.Cause.Error())
 }
 
 func (err ChunkError) Unwrap() error {

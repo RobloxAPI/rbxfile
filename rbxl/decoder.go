@@ -3,6 +3,7 @@ package rbxl
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"strconv"
@@ -255,15 +256,17 @@ func dumpNewline(w *bufio.Writer, indent int) {
 	}
 }
 
-func dumpSig(w *bufio.Writer, sig [4]byte) {
-	for _, c := range sig {
+func dumpSig(w *bufio.Writer, sig uint32) {
+	var b [4]byte
+	binary.LittleEndian.PutUint32(b[:], sig)
+	for _, c := range b {
 		if unicode.IsPrint(rune(c)) {
 			w.WriteByte(c)
 		} else {
 			w.WriteByte('.')
 		}
 	}
-	fmt.Fprintf(w, " (% 02X)", sig)
+	fmt.Fprintf(w, " (% 02X)", b)
 }
 
 func dumpString(w *bufio.Writer, indent int, s string) {
@@ -397,7 +400,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		var err error
 		var chunk chunk
 		payload := bytes.NewReader(rawChunk.payload)
-		switch string(rawChunk.signature[:]) {
+		switch rawChunk.signature {
 		case sigMETA:
 			ch := chunkMeta{}
 			n, err = ch.ReadFrom(payload)
