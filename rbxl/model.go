@@ -2,7 +2,6 @@ package rbxl
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 
@@ -20,55 +19,6 @@ const binaryMarker = "!"
 
 // binaryHeader is the header magic of a binary file.
 const binaryHeader = "\x89\xff\r\n\x1a\n"
-
-var (
-	ErrInvalidSig       = errors.New("invalid signature")
-	ErrCorruptHeader    = errors.New("the file header is corrupted")
-	ErrChunkParentArray = errors.New("length of parent array does not match children array")
-)
-
-type ErrUnrecognizedVersion uint16
-
-func (err ErrUnrecognizedVersion) Error() string {
-	return fmt.Sprintf("unrecognized version %d", err)
-}
-
-// ErrChunk is an error produced by a chunk of a certain type.
-type ErrChunk struct {
-	Sig [4]byte
-	Err error
-}
-
-func (err ErrChunk) Error() string {
-	return fmt.Sprintf("chunk %s: %s", err.Sig, err.Err.Error())
-}
-
-type ErrInvalidType struct {
-	Chunk *chunkProperty
-	Bytes []byte
-}
-
-func (err *ErrInvalidType) Error() string {
-	return fmt.Sprintf("invalid data type 0x%X", byte(err.Chunk.DataType))
-}
-
-// ErrValue is an error that is produced by a Value of a certain Type.
-type ErrValue struct {
-	Type  typeID
-	Bytes []byte
-	Err   error
-}
-
-func (err ErrValue) Error() string {
-	return fmt.Sprintf("type %s (0x%X): %s", err.Type.String(), byte(err.Type), err.Err.Error())
-}
-
-var (
-	WarnReserveNonZero     = errors.New("reserved space in file header is non-zero")
-	WarnEndChunkCompressed = errors.New("end chunk is compressed")
-	WarnEndChunkContent    = errors.New("end chunk content is not `</roblox>`")
-	WarnEndChunkNotLast    = errors.New("end chunk is not the last chunk")
-)
 
 ////////////////////////////////////////////////////////////////
 
@@ -155,15 +105,6 @@ type formatModel struct {
 
 	// Chunks is a list of Chunks present in the model.
 	Chunks []chunk
-
-	// If Strict is true, certain errors normally emitted as warnings are
-	// instead emitted as errors.
-	Strict bool
-
-	// Warnings is a list of non-fatal problems that have occurred. This will
-	// be cleared and populated when calling either ReadFrom and WriteTo.
-	// Codecs may also clear and populate this when decoding or encoding.
-	Warnings []error
 }
 
 ////////////////////////////////////////////////////////////////
@@ -359,8 +300,37 @@ func (c *chunkUnknown) WriteTo(w io.Writer) (n int64, err error) {
 	return fw.End()
 }
 
-func (c *chunkUnknown) Error() string {
-	return fmt.Sprintf("unknown chunk signature `%s`", c.Sig)
+////////////////////////////////////////////////////////////////
+
+// chunkErrored is a chunk that has errored.
+type chunkErrored struct {
+	// The state of the chunk as the error occurred.
+	chunk
+
+	// Offset is the number of parsed before the error occurred.
+	Offset int64
+
+	// The error that occurred.
+	Cause error
+
+	// The raw bytes of the chunk.
+	Bytes []byte
+}
+
+func (c *chunkErrored) ReadFrom(r io.Reader) (n int64, err error) {
+	fr := parse.NewBinaryReader(r)
+
+	c.Bytes, _ = fr.All()
+
+	return fr.End()
+}
+
+func (c *chunkErrored) WriteTo(w io.Writer) (n int64, err error) {
+	fw := parse.NewBinaryWriter(w)
+
+	fw.Bytes(c.Bytes)
+
+	return fw.End()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -757,20 +727,18 @@ func (c *chunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.End()
 	}
 
+	if !c.DataType.Valid() {
+		fr.Add(0, ErrUnknownType(c.DataType))
+		return fr.End()
+	}
+
 	rawBytes, failed := fr.All()
 	if failed {
 		return fr.End()
 	}
 
-	if !c.DataType.Valid() {
-		fr.Add(0, &ErrInvalidType{Chunk: c, Bytes: rawBytes})
-		return fr.End()
-	}
-
 	if c.Properties, err = valuesFromBytes(c.DataType, rawBytes); err != nil {
-		errBytes := make([]byte, len(rawBytes))
-		copy(errBytes, rawBytes)
-		fr.Add(0, ErrValue{Type: c.DataType, Bytes: errBytes, Err: err})
+		fr.Add(0, ErrValue{Type: byte(c.DataType), Cause: err})
 		return fr.End()
 	}
 
@@ -793,7 +761,7 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	if !c.DataType.Valid() {
-		fw.Add(0, &ErrInvalidType{Chunk: c})
+		fw.Add(0, ErrUnknownType(c.DataType))
 		return fw.End()
 	}
 

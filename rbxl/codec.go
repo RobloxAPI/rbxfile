@@ -1,11 +1,11 @@
 package rbxl
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/robloxapi/rbxfile"
+	"github.com/robloxapi/rbxfile/errors"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -18,11 +18,19 @@ type robloxCodec struct {
 // Reference value indicating a nil instance.
 const nilInstance = -1
 
-func (c robloxCodec) Decode(model *formatModel) (root *rbxfile.Root, err error) {
+func chunkError(i int, c chunk, format string, v ...interface{}) error {
+	return ChunkError{Index: i, Sig: c.Signature(), Cause: fmt.Errorf(format, v...)}
+}
+
+func chunkWarn(errs errors.Errors, i int, c chunk, format string, v ...interface{}) errors.Errors {
+	return append(errs, ChunkError{Index: i, Sig: c.Signature(), Cause: fmt.Errorf(format, v...)})
+}
+
+func (c robloxCodec) Decode(model *formatModel) (root *rbxfile.Root, warn, err error) {
 	if model == nil {
-		return nil, fmt.Errorf("FormatModel is nil")
+		panic("formatModel is nil")
 	}
-	model.Warnings = model.Warnings[:0]
+	var warns errors.Errors
 
 	root = new(rbxfile.Root)
 
@@ -31,45 +39,29 @@ func (c robloxCodec) Decode(model *formatModel) (root *rbxfile.Root, err error) 
 	instLookup[nilInstance] = nil
 
 	var sharedStrings []SharedString
-	var chunkType string
-	var chunkNum int
-
-	addWarn := func(format string, v ...interface{}) {
-		q := make([]interface{}, 0, len(v)+2)
-		q = append(q, chunkType)
-		q = append(q, chunkNum)
-		q = append(q, v...)
-		model.Warnings = append(model.Warnings, fmt.Errorf("%s chunk (#%d): "+format, q...))
-	}
 
 loop:
 	for ic, chunk := range model.Chunks {
-		chunkNum = ic
 		switch chunk := chunk.(type) {
 		case *chunkInstance:
-			chunkType = "instance"
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
-				err = fmt.Errorf("class index out of bounds: %d", model.ClassCount)
-				goto chunkErr
+				return nil, warns.Return(), chunkError(ic, chunk, "class index out of bounds: %d", model.ClassCount)
 			}
 			// No error if ClassCount > actual count.
 
 			if chunk.IsService && len(chunk.InstanceIDs) != len(chunk.GetService) {
-				err = fmt.Errorf("malformed instance chunk (class ID %d): GetService array length does not equal InstanceIDs array length", chunk.ClassID)
-				goto chunkErr
+				return nil, warns.Return(), chunkError(ic, chunk, "GetService array length does not equal InstanceIDs array length")
 			}
 
 			for i, ref := range chunk.InstanceIDs {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					err = fmt.Errorf("invalid id %d", ref)
-					goto chunkErr
+					return nil, warns.Return(), chunkError(ic, chunk, "invalid instance id %d", ref)
 				}
 				// No error if InstanceCount > actual count.
 
 				inst := rbxfile.NewInstance(chunk.ClassName)
 				if _, ok := instLookup[ref]; ok {
-					err = fmt.Errorf("duplicate id: %d", ref)
-					goto chunkErr
+					return nil, warns.Return(), chunkError(ic, chunk, "duplicate instance id: %d", ref)
 				}
 
 				if chunk.IsService && chunk.GetService[i] == 1 {
@@ -80,28 +72,24 @@ loop:
 			}
 
 			if _, ok := groupLookup[chunk.ClassID]; ok {
-				err = fmt.Errorf("duplicate class index: %d", chunk.ClassID)
-				goto chunkErr
+				return nil, warns.Return(), chunkError(ic, chunk, "duplicate class index: %d", chunk.ClassID)
 			}
 			groupLookup[chunk.ClassID] = chunk
 
 		case *chunkProperty:
-			chunkType = "property"
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
-				err = fmt.Errorf("class index out of bounds: %d", model.ClassCount)
-				goto chunkErr
+				return nil, warns.Return(), chunkError(ic, chunk, "class index out of bounds: %d", model.ClassCount)
 			}
 			// No error if TypeCount > actual count.
 
 			instChunk, ok := groupLookup[chunk.ClassID]
 			if !ok {
-				addWarn("class `%d` of property group is invalid or unknown", chunk.ClassID)
+				warns = chunkWarn(warns, ic, chunk, "class `%d` of property group is invalid or unknown", chunk.ClassID)
 				continue
 			}
 
 			if len(chunk.Properties) != len(instChunk.InstanceIDs) {
-				err = fmt.Errorf("length of properties array (%d) does not equal length of class array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
-				goto chunkErr
+				return nil, warns.Return(), chunkError(ic, chunk, "length of properties array (%d) does not equal length of class array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs))
 			}
 
 			for i, bvalue := range chunk.Properties {
@@ -125,26 +113,22 @@ loop:
 			}
 
 		case *chunkParent:
-			chunkType = "parent"
 			if chunk.Version != 0 {
-				err = fmt.Errorf("unrecognized parent link format %d", chunk.Version)
-				goto chunkErr
+				return nil, warns.Return(), chunkError(ic, chunk, "unrecognized parent link format %d", chunk.Version)
 			}
 
 			if len(chunk.Parents) != len(chunk.Children) {
-				err = fmt.Errorf("length of Parents array does not equal length of Children array")
-				goto chunkErr
+				return nil, warns.Return(), chunkError(ic, chunk, "length of Parents array does not equal length of Children array")
 			}
 
 			for i, ref := range chunk.Children {
 				if ref < 0 || uint32(ref) >= model.InstanceCount {
-					err = fmt.Errorf("invalid id %d", ref)
-					goto chunkErr
+					return nil, warns.Return(), chunkError(ic, chunk, "invalid id %d", ref)
 				}
 
 				child := instLookup[ref]
 				if child == nil {
-					addWarn("referent #%d `%d` does not exist", i, ref)
+					warns = chunkWarn(warns, ic, chunk, "referent #%d `%d` does not exist", i, ref)
 					continue
 				}
 
@@ -163,7 +147,6 @@ loop:
 			}
 
 		case *chunkMeta:
-			chunkType = "meta"
 			if root.Metadata == nil {
 				root.Metadata = make(map[string]string, len(chunk.Values))
 			}
@@ -172,21 +155,15 @@ loop:
 			}
 
 		case *chunkSharedStrings:
-			chunkType = "sharedstring"
 			// TODO: How are multiple chunks handled (overwrite or append)?
 			sharedStrings = chunk.Values
 
 		case *chunkEnd:
-			chunkType = "end"
 			break loop
 		}
 	}
 
-	return
-
-chunkErr:
-	err = fmt.Errorf("%s chunk (#%d): %s", chunkType, chunkNum, err)
-	return nil, err
+	return root, warns.Return(), nil
 }
 
 // decodeValue converts a Value to a rbxfile.Value. Returns nil if the value
@@ -401,12 +378,13 @@ type sharedEntry struct {
 
 type sharedMap map[[16]byte]sharedEntry
 
-func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) {
+func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err error) {
 	if root == nil {
-		return nil, errors.New("Root is nil")
+		return nil, nil, errors.New("Root is nil")
 	}
 
 	model = new(formatModel)
+	var warns errors.Errors
 
 	// A list of instances in the tree. The index serves as the instance's
 	// reference number.
@@ -485,15 +463,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) 
 	for i, instChunk := range instChunkList {
 		instChunk.ClassID = int32(i)
 
-		addWarn := func(format string, v ...interface{}) {
-			q := make([]interface{}, 0, len(v)+1)
-			q = append(q, instChunk.ClassID)
-			q = append(q, v...)
-			model.Warnings = append(model.Warnings, fmt.Errorf("instance chunk #%d: "+format, q...))
-		}
-
 		propChunkMap := map[string]*chunkProperty{}
-
 		// Populate propChunkMap.
 		for _, ref := range instChunk.InstanceIDs {
 			for name := range instList[ref].Properties {
@@ -525,7 +495,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) 
 					// Set data type to the first valid property.
 					dataType = fromValueType(prop.Type())
 					if dataType == typeInvalid {
-						addWarn("unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(dataType), instList[instRef].ClassName, name, instRef)
+						warns = chunkWarn(warns, i, instChunk, "unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(dataType), instList[instRef].ClassName, name, instRef)
 						continue checkPropType
 					}
 					instRef = ref
@@ -535,7 +505,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) 
 					// If at least one property type does not match with the
 					// rest, then stop.
 					delete(propChunkMap, name)
-					addWarn("mismatched types %s and %s for property %s.%s, chunk skipped", t, dataType, instList[instRef].ClassName, name)
+					warns = chunkWarn(warns, i, instChunk, "mismatched types %s and %s for property %s.%s, chunk skipped", t, dataType, instList[instRef].ClassName, name)
 					continue checkPropType
 				}
 			}
@@ -690,7 +660,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, err error) 
 	model.Chunks = append(model.Chunks, parentChunk)
 	model.Chunks = append(model.Chunks, endChunk)
 
-	return
+	return model, warns.Return(), nil
 }
 
 type sortInstChunks []*chunkInstance
