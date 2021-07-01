@@ -10,8 +10,6 @@ import (
 var (
 	// Indicates an unexpected file signature.
 	errInvalidSig = errors.New("invalid signature")
-	// Indicates the unexpected detection of the legacy XML format.
-	ErrXML = errors.New("unexpected XML format")
 	// Indicates unexpected header content.
 	errCorruptHeader = errors.New("the file header is corrupted")
 	// Indicates a chunk signature not known by the codec.
@@ -54,6 +52,9 @@ type errReserve struct {
 func (err errReserve) Error() string {
 	return fmt.Sprintf("unexpected content for reserved bytes near %d: % 02X", err.Offset, err.Bytes)
 }
+
+// ErrXML indicates the unexpected detection of the legacy XML format.
+var ErrXML = errors.New("unexpected XML format")
 
 // ValueError is an error that is produced by a Value of a certain Type.
 type ValueError struct {
