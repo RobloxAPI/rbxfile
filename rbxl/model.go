@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"unicode"
 
 	"github.com/anaminus/parse"
 	"github.com/bkaradzic/go-lz4"
@@ -57,8 +58,8 @@ func writeString(f *parse.BinaryWriter, data string) (failed bool) {
 ////////////////////////////////////////////////////////////////
 
 // validChunk returns whether a chunk signature is valid for a format version.
-func validChunk(sig uint32) bool {
-	switch sig {
+func validChunk(s sig) bool {
+	switch s {
 	case sigMETA,
 		sigSSTR,
 		sigINST,
@@ -91,10 +92,24 @@ type formatModel struct {
 
 ////////////////////////////////////////////////////////////////
 
+// sig is the signature of a chunk.
+type sig uint32
+
+func (s sig) String() string {
+	var b [4]byte
+	binary.LittleEndian.PutUint32(b[:], uint32(s))
+	for i, c := range b {
+		if !unicode.IsPrint(rune(c)) {
+			b[i] = '.'
+		}
+	}
+	return string(b[:])
+}
+
 // chunk is a portion of the model that contains distinct data.
 type chunk interface {
 	// Signature returns a signature used to identify the chunk's type.
-	Signature() uint32
+	Signature() sig
 
 	// Compressed returns whether the chunk was compressed when decoding, or
 	// whether thed chunk should be compressed when encoding.
@@ -127,8 +142,8 @@ type rawChunk struct {
 	payload []byte
 }
 
-func (c rawChunk) Signature() uint32 {
-	return c.signature
+func (c rawChunk) Signature() sig {
+	return sig(c.signature)
 }
 
 // Reads out a raw chunk from a stream, decompressing the chunk if necessary.
@@ -340,7 +355,7 @@ type chunkInstance struct {
 	GetService []byte
 }
 
-func (chunkInstance) Signature() uint32 {
+func (chunkInstance) Signature() sig {
 	return sigINST
 }
 
@@ -458,7 +473,7 @@ type chunkEnd struct {
 	Content []byte
 }
 
-func (chunkEnd) Signature() uint32 {
+func (chunkEnd) Signature() sig {
 	return sigEND
 }
 
@@ -503,7 +518,7 @@ type chunkParent struct {
 	Parents []int32
 }
 
-func (chunkParent) Signature() uint32 {
+func (chunkParent) Signature() sig {
 	return sigPRNT
 }
 
@@ -634,7 +649,7 @@ type chunkProperty struct {
 	Properties []value
 }
 
-func (chunkProperty) Signature() uint32 {
+func (chunkProperty) Signature() sig {
 	return sigPROP
 }
 
@@ -717,7 +732,7 @@ type chunkMeta struct {
 	Values [][2]string
 }
 
-func (chunkMeta) Signature() uint32 {
+func (chunkMeta) Signature() sig {
 	return sigMETA
 }
 
@@ -778,7 +793,7 @@ type sharedString struct {
 	Value []byte
 }
 
-func (chunkSharedStrings) Signature() uint32 {
+func (chunkSharedStrings) Signature() sig {
 	return sigSSTR
 }
 

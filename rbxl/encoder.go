@@ -92,7 +92,7 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 		}
 
 		rawChunk := new(rawChunk)
-		rawChunk.signature = chunk.Signature()
+		rawChunk.signature = uint32(chunk.Signature())
 		if !e.Uncompressed {
 			rawChunk.compressed = compressed(chunk.Compressed())
 		}

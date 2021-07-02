@@ -256,9 +256,9 @@ func dumpNewline(w *bufio.Writer, indent int) {
 	}
 }
 
-func dumpSig(w *bufio.Writer, sig uint32) {
+func dumpSig(w *bufio.Writer, sig sig) {
 	var b [4]byte
-	binary.LittleEndian.PutUint32(b[:], sig)
+	binary.LittleEndian.PutUint32(b[:], uint32(sig))
 	for _, c := range b {
 		if unicode.IsPrint(rune(c)) {
 			w.WriteByte(c)
@@ -338,21 +338,21 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 	fr := parse.NewBinaryReader(r)
 
 	// Check signature.
-	sig := make([]byte, len(robloxSig+binaryMarker))
-	if fr.Bytes(sig) {
+	signature := make([]byte, len(robloxSig+binaryMarker))
+	if fr.Bytes(signature) {
 		return f, nil, nil, decodeError(fr, nil)
 	}
-	if !bytes.Equal(sig[:len(robloxSig)], []byte(robloxSig)) {
+	if !bytes.Equal(signature[:len(robloxSig)], []byte(robloxSig)) {
 		return f, nil, nil, decodeError(fr, errInvalidSig)
 	}
 
 	// Check for legacy XML.
-	if !bytes.Equal(sig[len(robloxSig):], []byte(binaryMarker)) {
+	if !bytes.Equal(signature[len(robloxSig):], []byte(binaryMarker)) {
 		if d.NoXML {
 			return nil, nil, nil, decodeError(fr, errInvalidSig)
 		} else {
 			// Reconstruct original reader.
-			return nil, io.MultiReader(bytes.NewReader(sig), r), nil, nil
+			return nil, io.MultiReader(bytes.NewReader(signature), r), nil, nil
 		}
 	}
 
@@ -431,13 +431,13 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 			chunk = &ch
 		default:
 			chunk = &chunkUnknown{rawChunk: *rawChunk}
-			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: errUnknownChunkSig})
+			warns = append(warns, ChunkError{Index: i, Sig: sig(rawChunk.signature), Cause: errUnknownChunkSig})
 		}
 
 		chunk.SetCompressed(bool(rawChunk.compressed))
 
 		if err != nil {
-			warns = append(warns, ChunkError{Index: i, Sig: rawChunk.signature, Cause: err})
+			warns = append(warns, ChunkError{Index: i, Sig: sig(rawChunk.signature), Cause: err})
 			f.Chunks = append(f.Chunks, &chunkErrored{
 				chunk:  chunk,
 				Offset: n,
