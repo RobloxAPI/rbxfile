@@ -468,9 +468,9 @@ func deinterleaveAppend(t typeID, b []byte) (a []value, err error) {
 	return appendByteValues(t, bc)
 }
 
-// valuesFromBytes decodes b according to t, into a slice of values, the type of
-// each corresponding to t.
-func valuesFromBytes(t typeID, b []byte) (a []value, err error) {
+// valuesFromBytes decodes b according to t, into a slice of values of length n,
+// the type of each corresponding to t.
+func valuesFromBytes(t typeID, n int, b []byte) (a []value, err error) {
 	if !t.Valid() {
 		return nil, errInvalidType(t)
 	}

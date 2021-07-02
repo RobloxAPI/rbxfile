@@ -44,7 +44,6 @@ func (c robloxCodec) Decode(model *formatModel) (root *rbxfile.Root, warn, err e
 
 	root = new(rbxfile.Root)
 
-	groupLookup := make(map[int32]*chunkInstance, model.ClassCount)
 	instLookup := make(map[int32]*rbxfile.Instance, model.InstanceCount+1)
 	instLookup[nilInstance] = nil
 
@@ -81,10 +80,10 @@ loop:
 				instLookup[ref] = inst
 			}
 
-			if _, ok := groupLookup[chunk.ClassID]; ok {
+			if _, ok := model.groupLookup[chunk.ClassID]; ok {
 				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("duplicate class index: %d", chunk.ClassID))
 			}
-			groupLookup[chunk.ClassID] = chunk
+			model.groupLookup[chunk.ClassID] = chunk
 
 		case *chunkProperty:
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
@@ -92,7 +91,7 @@ loop:
 			}
 			// No error if TypeCount > actual count.
 
-			instChunk, ok := groupLookup[chunk.ClassID]
+			instChunk, ok := model.groupLookup[chunk.ClassID]
 			if !ok {
 				warns = chunkWarn(warns, ic, chunk, "class `%d` of property group is invalid or unknown", chunk.ClassID)
 				continue

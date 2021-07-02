@@ -85,6 +85,8 @@ type formatModel struct {
 
 	// Chunks is a list of Chunks present in the model.
 	Chunks []chunk
+
+	groupLookup map[int32]*chunkInstance
 }
 
 ////////////////////////////////////////////////////////////////
@@ -101,9 +103,6 @@ type chunk interface {
 	// SetCompressed sets whether the chunk should be compressed when
 	// encoding.
 	SetCompressed(bool)
-
-	// ReadFrom processes the payload of a decompressed chunk.
-	ReadFrom(r io.Reader) (n int64, err error)
 
 	// WriteTo writes the data from a chunk to an uncompressed payload. The
 	// payload will be compressed afterward depending on the chunk's
@@ -133,7 +132,7 @@ func (c rawChunk) Signature() uint32 {
 }
 
 // Reads out a raw chunk from a stream, decompressing the chunk if necessary.
-func (c *rawChunk) ReadFrom(fr *parse.BinaryReader) bool {
+func (c *rawChunk) Decode(fr *parse.BinaryReader) bool {
 	if fr.Number(&c.signature) {
 		return true
 	}
@@ -255,7 +254,7 @@ type chunkUnknown struct {
 	rawChunk
 }
 
-func (c *chunkUnknown) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkUnknown) Decode(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	c.payload, _ = fr.All()
@@ -288,7 +287,7 @@ type chunkErrored struct {
 	Bytes []byte
 }
 
-func (c *chunkErrored) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkErrored) Decode(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	c.Bytes, _ = fr.All()
@@ -345,7 +344,7 @@ func (chunkInstance) Signature() uint32 {
 	return sigINST
 }
 
-func (c *chunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkInstance) Decode(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.ClassID) {
@@ -374,7 +373,7 @@ func (c *chunkInstance) ReadFrom(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := valuesFromBytes(typeReference, raw)
+		values, err := valuesFromBytes(typeReference, int(groupLength), raw)
 		if fr.Add(0, err) {
 			return fr.End()
 		}
@@ -463,7 +462,7 @@ func (chunkEnd) Signature() uint32 {
 	return sigEND
 }
 
-func (c *chunkEnd) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkEnd) Decode(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	c.Content, _ = fr.All()
@@ -508,7 +507,7 @@ func (chunkParent) Signature() uint32 {
 	return sigPRNT
 }
 
-func (c *chunkParent) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkParent) Decode(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.Version) {
@@ -527,7 +526,7 @@ func (c *chunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := valuesFromBytes(typeReference, raw)
+		values, err := valuesFromBytes(typeReference, int(instanceCount), raw)
 		if fr.Add(0, err) {
 			return fr.End()
 		}
@@ -544,7 +543,7 @@ func (c *chunkParent) ReadFrom(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := valuesFromBytes(typeReference, raw)
+		values, err := valuesFromBytes(typeReference, int(instanceCount), raw)
 		if fr.Add(0, err) {
 			return fr.End()
 		}
@@ -639,10 +638,15 @@ func (chunkProperty) Signature() uint32 {
 	return sigPROP
 }
 
-func (c *chunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkProperty) Decode(r io.Reader, groupLookup map[int32]*chunkInstance) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.ClassID) {
+		return fr.End()
+	}
+	inst, ok := groupLookup[c.ClassID]
+	if !ok {
+		fr.Add(0, fmt.Errorf("unknown ID `%d`", c.ClassID))
 		return fr.End()
 	}
 
@@ -664,7 +668,7 @@ func (c *chunkProperty) ReadFrom(r io.Reader) (n int64, err error) {
 		return fr.End()
 	}
 
-	if c.Properties, err = valuesFromBytes(c.DataType, rawBytes); err != nil {
+	if c.Properties, err = valuesFromBytes(c.DataType, len(inst.InstanceIDs), rawBytes); err != nil {
 		fr.Add(0, ValueError{Type: byte(c.DataType), Cause: err})
 		return fr.End()
 	}
@@ -717,7 +721,7 @@ func (chunkMeta) Signature() uint32 {
 	return sigMETA
 }
 
-func (c *chunkMeta) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkMeta) Decode(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	var size uint32
@@ -778,7 +782,7 @@ func (chunkSharedStrings) Signature() uint32 {
 	return sigSSTR
 }
 
-func (c *chunkSharedStrings) ReadFrom(r io.Reader) (n int64, err error) {
+func (c *chunkSharedStrings) Decode(r io.Reader) (n int64, err error) {
 	fr := parse.NewBinaryReader(r)
 
 	if fr.Number(&c.Version) {

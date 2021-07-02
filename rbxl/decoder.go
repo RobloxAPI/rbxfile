@@ -376,6 +376,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 	if fr.Number(&f.ClassCount) {
 		return nil, nil, nil, decodeError(fr, nil)
 	}
+	f.groupLookup = make(map[int32]*chunkInstance, f.ClassCount)
 
 	if fr.Number(&f.InstanceCount) {
 		return nil, nil, nil, decodeError(fr, nil)
@@ -392,7 +393,7 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 
 	for i := 0; ; i++ {
 		rawChunk := new(rawChunk)
-		if rawChunk.ReadFrom(fr) {
+		if rawChunk.Decode(fr) {
 			return nil, nil, warns.Return(), decodeError(fr, nil)
 		}
 
@@ -403,27 +404,30 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		switch rawChunk.signature {
 		case sigMETA:
 			ch := chunkMeta{}
-			n, err = ch.ReadFrom(payload)
+			n, err = ch.Decode(payload)
 			chunk = &ch
 		case sigSSTR:
 			ch := chunkSharedStrings{}
-			n, err = ch.ReadFrom(payload)
+			n, err = ch.Decode(payload)
 			chunk = &ch
 		case sigINST:
 			ch := chunkInstance{}
-			n, err = ch.ReadFrom(payload)
+			n, err = ch.Decode(payload)
 			chunk = &ch
+			if err == nil {
+				f.groupLookup[ch.ClassID] = &ch
+			}
 		case sigPROP:
 			ch := chunkProperty{}
-			n, err = ch.ReadFrom(payload)
+			n, err = ch.Decode(payload, f.groupLookup)
 			chunk = &ch
 		case sigPRNT:
 			ch := chunkParent{}
-			n, err = ch.ReadFrom(payload)
+			n, err = ch.Decode(payload)
 			chunk = &ch
 		case sigEND:
 			ch := chunkEnd{}
-			n, err = ch.ReadFrom(payload)
+			n, err = ch.Decode(payload)
 			chunk = &ch
 		default:
 			chunk = &chunkUnknown{rawChunk: *rawChunk}
