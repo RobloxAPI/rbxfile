@@ -10,10 +10,6 @@ import (
 	"github.com/robloxapi/rbxfile"
 )
 
-// Expected maximum length of fielder.fieldLen() slice. This MUST be set to the
-// maximum of all implementations.
-const maxFieldLen = 4
-
 const (
 	// Primitive sizes.
 	zb   = 1 // byte
@@ -28,17 +24,32 @@ const (
 	zu64 = 8 // uint64
 	zf64 = 8 // float64
 
-	// Number of bytes used to contain length of array-like type.
+	// Variable size, where the type is an array of constant-size fields.
+	zArray = -1
+
+	// Variable size, where the size depends on the first decoded byte.
+	zCond = -2
+
+	// Number of bytes used to contain length of a zArray type.
 	zArrayLen = 4
 
-	// Variable size.
-	zVar = -1
+	// Number of bytes used for the condition of a zCond type.
+	zCondLen = 1
 
 	// Invalid size.
 	zInvalid = 0
 )
 
 // typeID represents a type that can be serialized.
+//
+// Each type has a certain size indicating the number of bytes required to
+// encode a value of the type.
+//
+// There are 3 kinds of type size: constant, array, and conditional. Constant
+// indicates that the size is constant, not depending on the content of the
+// bytes. Array indicates an array of constant-sized fields, where the first
+// zArrayLen bytes determines the length of the array. Conditional indicates
+// that the size depends on the value of the first byte.
 type typeID byte
 
 const (
@@ -81,12 +92,8 @@ func (t typeID) Valid() bool {
 // Size returns the number of bytes required to hold a value of the type.
 // Returns < 0 if the size depends on the value, and 0 if the type is invalid.
 //
-// A Size() of < 0 with a non-zero FieldSize() indicates an array-like type,
-// where the first 4 bytes are the size of the array, and each element has a
-// size of FieldSize().
-//
-// A Size() of < 0 with a FieldSize() of 0 indicates a type with a customized
-// size.
+// When < 0 is returned, the FieldSize or CondSize methods can be used to
+// further determine the size.
 func (t typeID) Size() int {
 	switch t {
 	case typeString:
@@ -150,9 +157,8 @@ func (t typeID) Size() int {
 	}
 }
 
-// FieldSize returns the number of bytes of each field within a value of the
-// type, where the type is a variable-length array of fields. Returns 0 if the
-// type is invalid or not array-like.
+// FieldSize returns the byte size of each field within a value of the type,
+// when the type's size is an array. Returns 0 if Size() does not return zArray.
 func (t typeID) FieldSize() int {
 	// Must return value that does not overflow uint32.
 	switch t {
@@ -165,6 +171,30 @@ func (t typeID) FieldSize() int {
 	default:
 		return zInvalid
 	}
+}
+
+// CondSize returns the byte size of the conditonal type t for condition b.
+// Returns 0 if Size() does not return zCond. Note that the returned size
+// includes the byte used as the condition.
+func (t typeID) CondSize(b byte) int {
+	switch t {
+	case typeCFrame:
+		if b == 0 {
+			return zCFrameFull
+		}
+		return zCFrameShort
+	case typeCFrameQuat:
+		if b == 0 {
+			return zCFrameQuatFull
+		}
+		return zCFrameQuatShort
+	case typePhysicalProperties:
+		if b == 0 {
+			return zPhysicalPropertiesShort
+		}
+		return zPhysicalPropertiesFull
+	}
+	return zInvalid
 }
 
 // String returns a string representation of the type. If the type is not
@@ -372,13 +402,12 @@ type value interface {
 	// BytesLen returns the number of bytes required to encode the value.
 	BytesLen() int
 
-	// Bytes encodes value to buf, panicking if buf is shorter than BytesLen().
-	Bytes(buf []byte)
+	// Bytes encodes value to b, returning the extended buffer.
+	Bytes(b []byte) []byte
 
-	// FromBytes decodes the value from buf. Returns an error if the value could
-	// not be decoded. If successful, BytesLen() will return the number of bytes
-	// read from buf.
-	FromBytes(buf []byte) error
+	// FromBytes decodes the value from b. Returns an error if the value could
+	// not be decoded. Otherwise, returns the number of bytes read from b.
+	FromBytes(b []byte) (n int, err error)
 
 	Dump(bw *bufio.Writer, indent int)
 }
@@ -491,21 +520,28 @@ func (err buflenError) Error() string {
 	return fmt.Sprintf("%s: expected %d bytes, got %d", err.typ, err.exp, err.got)
 }
 
-// checklen does a basic check of the buffer's length against a value with a
-// constant expected byte length.
-func checklen(v value, b []byte) error {
-	if len(b) < v.BytesLen() {
-		return buflenError{typ: v.Type(), exp: uint64(v.BytesLen()), got: len(b)}
+// checkLengthConst does a basic check of the buffer's length against a value
+// with a constant expected byte length. Returns the number of bytes expected,
+// and an error if len(b) is less than n.
+func checkLengthConst(v interface {
+	Type() typeID
+	BytesLen() int
+}, b []byte) (n int, err error) {
+	if n = v.BytesLen(); len(b) < n {
+		return n, buflenError{typ: v.Type(), exp: uint64(n), got: len(b)}
 	}
-	return nil
+	return n, nil
 }
 
-// checkvarlen checks the buffer's length to make sure it can be decoded into
-// the value. The first 4 bytes are decoded as the number of fields of the
-// value, and the remaining length of the buffer is expected to be
-// v.Type().FieldSize()*length. Returns the remaining buffer and the number of
-// fields. Returns an error if the buffer is too short.
-func checkvarlen(v value, b []byte) ([]byte, int, error) {
+// checkLengthArray checks the number of bytes required to decode v from b,
+// where v is assumed to be of a type where Type().Size() returns a zArray.
+// Returns the number of fields in the array and the remaining buffer. Returns
+// an error if the buffer is too short.
+//
+// At least zArrayLen bytes are required, which are decoded as the length of the
+// array. The remaining buffer is expected to be v.Type().FieldSize()*length in
+// length.
+func checkLengthArray(v value, b []byte) (r []byte, n int, err error) {
 	if len(b) < zArrayLen {
 		return b, 0, buflenError{typ: v.Type(), exp: zArrayLen, got: len(b)}
 	}
@@ -516,9 +552,108 @@ func checkvarlen(v value, b []byte) ([]byte, int, error) {
 	return b[zArrayLen:], int(length), nil
 }
 
+// checkLengthCond returns the number of bytes required to decode v from b,
+// where v is assumed to be of a type where Type().Size() returns zCond.
+//
+// At least 1 byte is required, which is decoded as the condition.
+func checkLengthCond(v value, b []byte) (cond byte, r []byte, n int, err error) {
+	if len(b) < zCondLen {
+		return 0, b, zCondLen, buflenError{typ: v.Type(), exp: zCondLen, got: len(b)}
+	}
+	if n = v.Type().CondSize(b[0]); len(b) < n {
+		return b[0], b, n, buflenError{typ: v.Type(), exp: uint64(n), got: len(b)}
+	}
+	return b[0], b[zCondLen:], n, nil
+}
+
+var le = binary.LittleEndian
+var be = binary.BigEndian
+
+// appendUint16 appends v to b in the given byte order, returning the extended
+// buffer.
+func appendUint16(b []byte, order binary.ByteOrder, v uint16) []byte {
+	var a [zu16]byte
+	order.PutUint16(a[:], v)
+	return append(b, a[:]...)
+}
+
+// appendUint32 appends v to b in the given byte order, returning the extended
+// buffer.
+func appendUint32(b []byte, order binary.ByteOrder, v uint32) []byte {
+	var a [zu32]byte
+	order.PutUint32(a[:], v)
+	return append(b, a[:]...)
+}
+
+// appendUint64 appends v to b in the given byte order, returning the extended
+// buffer.
+func appendUint64(b []byte, order binary.ByteOrder, v uint64) []byte {
+	var a [zu64]byte
+	order.PutUint64(a[:], v)
+	return append(b, a[:]...)
+}
+
+// appendFlags appends to b up to 8 flags as one byte.
+func appendFlags(b []byte, flags ...bool) []byte {
+	var a byte
+	for i, flag := range flags {
+		if flag {
+			a |= 1 << uint(i)
+		}
+	}
+	return append(b, a)
+}
+
+func readFlags(b byte, flags ...*bool) {
+	for i, f := range flags {
+		*f = b&(1<<i) != 0
+	}
+}
+
+// readUint8 decodes a uint8 from b, then advances b by the size of the value.
+func readUint8(b *[]byte) uint8 {
+	n := (*b)[0]
+	*b = (*b)[zu8:]
+	return n
+}
+
+// readUint16 decodes a uint16 from b in the given byte order, then advances b
+// by the size of the value.
+func readUint16(b *[]byte, order binary.ByteOrder) uint16 {
+	n := order.Uint16(*b)
+	*b = (*b)[zu16:]
+	return n
+}
+
+// readUint32 decodes a uint32 from b in the given byte order, then advances b
+// by the size of the value.
+func readUint32(b *[]byte, order binary.ByteOrder) uint32 {
+	n := order.Uint32(*b)
+	*b = (*b)[zu32:]
+	return n
+}
+
+// readUint64 decodes a uint64 from b in the given byte order, then advances b
+// by the size of the value.
+func readUint64(b *[]byte, order binary.ByteOrder) uint64 {
+	n := order.Uint64(*b)
+	*b = (*b)[zu64:]
+	return n
+}
+
+// fromBytes calls v.FromBytes(b), then returns b advanced by n bytes. Panics if
+// v.FromBytes returns an error.
+func fromBytes(b []byte, v value) []byte {
+	n, err := v.FromBytes(b)
+	if err != nil {
+		panic(err)
+	}
+	return b[n:]
+}
+
 ////////////////////////////////////////////////////////////////
 
-const zString = zVar
+const zString = zArray
 
 type valueString []byte
 
@@ -530,20 +665,19 @@ func (v valueString) BytesLen() int {
 	return zArrayLen + len(v)
 }
 
-func (v valueString) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint32(b, uint32(len(v)))
-	copy(b[zArrayLen:], v)
+func (v valueString) Bytes(b []byte) []byte {
+	b = appendUint32(b, le, uint32(len(v)))
+	b = append(b, v...)
+	return b
 }
 
-func (v *valueString) FromBytes(b []byte) error {
-	b, n, err := checkvarlen(v, b)
-	if err != nil {
-		return err
+func (v *valueString) FromBytes(b []byte) (n int, err error) {
+	if b, n, err = checkLengthArray(v, b); err != nil {
+		return n, err
 	}
 	*v = make(valueString, n)
 	copy(*v, b)
-	return nil
+	return n, nil
 }
 
 func (v valueString) Dump(w *bufio.Writer, indent int) {
@@ -564,21 +698,20 @@ func (v valueBool) BytesLen() int {
 	return zBool
 }
 
-func (v valueBool) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
+func (v valueBool) Bytes(b []byte) []byte {
 	if v {
-		b[0] = 1
+		return append(b, 1)
 	} else {
-		b[0] = 0
+		return append(b, 0)
 	}
 }
 
-func (v *valueBool) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueBool) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = b[0] != 0
-	return nil
+	return n, nil
 }
 
 func (v valueBool) Dump(w *bufio.Writer, indent int) {
@@ -603,17 +736,16 @@ func (v valueInt) BytesLen() int {
 	return zInt
 }
 
-func (v valueInt) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.BigEndian.PutUint32(b, encodeZigzag32(int32(v)))
+func (v valueInt) Bytes(b []byte) []byte {
+	return appendUint32(b, be, encodeZigzag32(int32(v)))
 }
 
-func (v *valueInt) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueInt) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueInt(decodeZigzag32(binary.BigEndian.Uint32(b)))
-	return nil
+	return n, nil
 }
 
 func (v valueInt) Dump(w *bufio.Writer, indent int) {
@@ -634,17 +766,16 @@ func (v valueFloat) BytesLen() int {
 	return zFloat
 }
 
-func (v valueFloat) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.BigEndian.PutUint32(b, encodeRobloxFloat(float32(v)))
+func (v valueFloat) Bytes(b []byte) []byte {
+	return appendUint32(b, be, encodeRobloxFloat(float32(v)))
 }
 
-func (v *valueFloat) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueFloat) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueFloat(decodeRobloxFloat(binary.BigEndian.Uint32(b)))
-	return nil
+	return n, nil
 }
 
 func (v valueFloat) Dump(w *bufio.Writer, indent int) {
@@ -665,17 +796,16 @@ func (v valueDouble) BytesLen() int {
 	return zDouble
 }
 
-func (v valueDouble) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint64(b, math.Float64bits(float64(v)))
+func (v valueDouble) Bytes(b []byte) []byte {
+	return appendUint64(b, le, math.Float64bits(float64(v)))
 }
 
-func (v *valueDouble) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueDouble) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueDouble(math.Float64frombits(binary.LittleEndian.Uint64(b)))
-	return nil
+	return n, nil
 }
 
 func (v valueDouble) Dump(w *bufio.Writer, indent int) {
@@ -699,19 +829,19 @@ func (v valueUDim) BytesLen() int {
 	return zUDim
 }
 
-func (v valueUDim) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	v.Scale.Bytes(b[0:4])
-	v.Offset.Bytes(b[4:8])
+func (v valueUDim) Bytes(b []byte) []byte {
+	b = v.Scale.Bytes(b)
+	b = v.Offset.Bytes(b)
+	return b
 }
 
-func (v *valueUDim) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueUDim) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.Scale.FromBytes(b[0:4])
-	v.Offset.FromBytes(b[4:8])
-	return nil
+	b = fromBytes(b, &v.Scale)
+	b = fromBytes(b, &v.Offset)
+	return n, nil
 }
 
 func (v valueUDim) Dump(w *bufio.Writer, indent int) {
@@ -727,30 +857,6 @@ func (v valueUDim) Dump(w *bufio.Writer, indent int) {
 
 	dumpNewline(w, indent)
 	w.WriteByte('}')
-}
-
-func (valueUDim) fieldLen() []int {
-	return []int{4, 4}
-}
-
-func (v *valueUDim) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		err = v.Scale.FromBytes(b)
-	case 1:
-		err = v.Offset.FromBytes(b)
-	}
-	return
-}
-
-func (v valueUDim) fieldGet(i int, b []byte) {
-	switch i {
-	case 0:
-		v.Scale.Bytes(b)
-	case 1:
-		v.Offset.Bytes(b)
-	}
-	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -772,23 +878,23 @@ func (v valueUDim2) BytesLen() int {
 	return zUDim2
 }
 
-func (v valueUDim2) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	v.ScaleX.Bytes(b[0:4])
-	v.ScaleY.Bytes(b[4:8])
-	v.OffsetX.Bytes(b[8:12])
-	v.OffsetY.Bytes(b[12:16])
+func (v valueUDim2) Bytes(b []byte) []byte {
+	b = v.ScaleX.Bytes(b)
+	b = v.ScaleY.Bytes(b)
+	b = v.OffsetX.Bytes(b)
+	b = v.OffsetY.Bytes(b)
+	return b
 }
 
-func (v *valueUDim2) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueUDim2) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.ScaleX.FromBytes(b[0:4])
-	v.ScaleY.FromBytes(b[4:8])
-	v.OffsetX.FromBytes(b[8:12])
-	v.OffsetY.FromBytes(b[12:16])
-	return nil
+	b = fromBytes(b, &v.ScaleX)
+	b = fromBytes(b, &v.ScaleY)
+	b = fromBytes(b, &v.OffsetX)
+	b = fromBytes(b, &v.OffsetY)
+	return n, nil
 }
 
 func (v valueUDim2) Dump(w *bufio.Writer, indent int) {
@@ -814,37 +920,6 @@ func (v valueUDim2) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('}')
 }
 
-func (valueUDim2) fieldLen() []int {
-	return []int{4, 4, 4, 4}
-}
-
-func (v *valueUDim2) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		err = v.ScaleX.FromBytes(b)
-	case 1:
-		err = v.ScaleY.FromBytes(b)
-	case 2:
-		err = v.OffsetX.FromBytes(b)
-	case 3:
-		err = v.OffsetY.FromBytes(b)
-	}
-	return
-}
-
-func (v valueUDim2) fieldGet(i int, b []byte) {
-	switch i {
-	case 0:
-		v.ScaleX.Bytes(b)
-	case 1:
-		v.ScaleY.Bytes(b)
-	case 2:
-		v.OffsetX.Bytes(b)
-	case 3:
-		v.OffsetY.Bytes(b)
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 
 const zRay = zf32 * 6
@@ -866,27 +941,27 @@ func (v valueRay) BytesLen() int {
 	return zRay
 }
 
-func (v valueRay) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.OriginX))
-	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.OriginY))
-	binary.LittleEndian.PutUint32(b[8:12], math.Float32bits(v.OriginZ))
-	binary.LittleEndian.PutUint32(b[12:16], math.Float32bits(v.DirectionX))
-	binary.LittleEndian.PutUint32(b[16:20], math.Float32bits(v.DirectionY))
-	binary.LittleEndian.PutUint32(b[20:24], math.Float32bits(v.DirectionZ))
+func (v valueRay) Bytes(b []byte) []byte {
+	b = appendUint32(b, le, math.Float32bits(v.OriginX))
+	b = appendUint32(b, le, math.Float32bits(v.OriginY))
+	b = appendUint32(b, le, math.Float32bits(v.OriginZ))
+	b = appendUint32(b, le, math.Float32bits(v.DirectionX))
+	b = appendUint32(b, le, math.Float32bits(v.DirectionY))
+	b = appendUint32(b, le, math.Float32bits(v.DirectionZ))
+	return b
 }
 
-func (v *valueRay) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueRay) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.OriginX = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
-	v.OriginY = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
-	v.OriginZ = math.Float32frombits(binary.LittleEndian.Uint32(b[8:12]))
-	v.DirectionX = math.Float32frombits(binary.LittleEndian.Uint32(b[12:16]))
-	v.DirectionY = math.Float32frombits(binary.LittleEndian.Uint32(b[16:20]))
-	v.DirectionZ = math.Float32frombits(binary.LittleEndian.Uint32(b[20:24]))
-	return nil
+	v.OriginX = math.Float32frombits(readUint32(&b, le))
+	v.OriginY = math.Float32frombits(readUint32(&b, le))
+	v.OriginZ = math.Float32frombits(readUint32(&b, le))
+	v.DirectionX = math.Float32frombits(readUint32(&b, le))
+	v.DirectionY = math.Float32frombits(readUint32(&b, le))
+	v.DirectionZ = math.Float32frombits(readUint32(&b, le))
+	return n, nil
 }
 
 func (v valueRay) Dump(w *bufio.Writer, indent int) {
@@ -936,28 +1011,16 @@ func (v valueFaces) BytesLen() int {
 	return zFaces
 }
 
-func (v valueFaces) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	flags := [6]bool{v.Right, v.Top, v.Back, v.Left, v.Bottom, v.Front}
-	b[0] = 0
-	for i, flag := range flags {
-		if flag {
-			b[0] |= 1 << uint(i)
-		}
-	}
+func (v valueFaces) Bytes(b []byte) []byte {
+	return appendFlags(b, v.Right, v.Top, v.Back, v.Left, v.Bottom, v.Front)
 }
 
-func (v *valueFaces) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueFaces) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.Right = b[0]&(1<<0) != 0
-	v.Top = b[0]&(1<<1) != 0
-	v.Back = b[0]&(1<<2) != 0
-	v.Left = b[0]&(1<<3) != 0
-	v.Bottom = b[0]&(1<<4) != 0
-	v.Front = b[0]&(1<<5) != 0
-	return nil
+	readFlags(b[0], &v.Right, &v.Top, &v.Back, &v.Left, &v.Bottom, &v.Front)
+	return n, nil
 }
 
 func (v valueFaces) Dump(w *bufio.Writer, indent int) {
@@ -1007,25 +1070,16 @@ func (v valueAxes) BytesLen() int {
 	return zAxes
 }
 
-func (v valueAxes) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	flags := [3]bool{v.X, v.Y, v.Z}
-	b[0] = 0
-	for i, flag := range flags {
-		if flag {
-			b[0] |= 1 << uint(i)
-		}
-	}
+func (v valueAxes) Bytes(b []byte) []byte {
+	return appendFlags(b, v.X, v.Y, v.Z)
 }
 
-func (v *valueAxes) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueAxes) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.X = b[0]&(1<<0) != 0
-	v.Y = b[0]&(1<<1) != 0
-	v.Z = b[0]&(1<<2) != 0
-	return nil
+	readFlags(b[0], &v.X, &v.Y, &v.Z)
+	return n, nil
 }
 
 func (v valueAxes) Dump(w *bufio.Writer, indent int) {
@@ -1061,17 +1115,16 @@ func (v valueBrickColor) BytesLen() int {
 	return zBrickColor
 }
 
-func (v valueBrickColor) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.BigEndian.PutUint32(b, uint32(v))
+func (v valueBrickColor) Bytes(b []byte) []byte {
+	return appendUint32(b, be, uint32(v))
 }
 
-func (v *valueBrickColor) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueBrickColor) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueBrickColor(binary.BigEndian.Uint32(b))
-	return nil
+	return n, nil
 }
 
 func (v valueBrickColor) Dump(w *bufio.Writer, indent int) {
@@ -1094,21 +1147,21 @@ func (v valueColor3) BytesLen() int {
 	return zColor3
 }
 
-func (v valueColor3) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	v.R.Bytes(b[0:4])
-	v.G.Bytes(b[4:8])
-	v.B.Bytes(b[8:12])
+func (v valueColor3) Bytes(b []byte) []byte {
+	b = v.R.Bytes(b)
+	b = v.G.Bytes(b)
+	b = v.B.Bytes(b)
+	return b
 }
 
-func (v *valueColor3) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueColor3) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.R.FromBytes(b[0:4])
-	v.G.FromBytes(b[4:8])
-	v.B.FromBytes(b[8:12])
-	return nil
+	b = fromBytes(b, &v.R)
+	b = fromBytes(b, &v.G)
+	b = fromBytes(b, &v.B)
+	return n, nil
 }
 
 func (v valueColor3) Dump(w *bufio.Writer, indent int) {
@@ -1130,33 +1183,6 @@ func (v valueColor3) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('}')
 }
 
-func (valueColor3) fieldLen() []int {
-	return []int{4, 4, 4}
-}
-
-func (v *valueColor3) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		err = v.R.FromBytes(b)
-	case 1:
-		err = v.G.FromBytes(b)
-	case 2:
-		err = v.B.FromBytes(b)
-	}
-	return
-}
-
-func (v valueColor3) fieldGet(i int, b []byte) {
-	switch i {
-	case 0:
-		v.R.Bytes(b)
-	case 1:
-		v.G.Bytes(b)
-	case 2:
-		v.B.Bytes(b)
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 
 const zVector2 = zFloat * 2
@@ -1173,19 +1199,19 @@ func (v valueVector2) BytesLen() int {
 	return zVector2
 }
 
-func (v valueVector2) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	v.X.Bytes(b[0:4])
-	v.Y.Bytes(b[4:8])
+func (v valueVector2) Bytes(b []byte) []byte {
+	b = v.X.Bytes(b)
+	b = v.Y.Bytes(b)
+	return b
 }
 
-func (v *valueVector2) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueVector2) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.X.FromBytes(b[0:4])
-	v.Y.FromBytes(b[4:8])
-	return nil
+	b = fromBytes(b, &v.X)
+	b = fromBytes(b, &v.Y)
+	return n, nil
 }
 
 func (v valueVector2) Dump(w *bufio.Writer, indent int) {
@@ -1201,29 +1227,6 @@ func (v valueVector2) Dump(w *bufio.Writer, indent int) {
 
 	dumpNewline(w, indent)
 	w.WriteByte('}')
-}
-
-func (valueVector2) fieldLen() []int {
-	return []int{4, 4}
-}
-
-func (v *valueVector2) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		err = v.X.FromBytes(b)
-	case 1:
-		err = v.Y.FromBytes(b)
-	}
-	return
-}
-
-func (v valueVector2) fieldGet(i int, b []byte) {
-	switch i {
-	case 0:
-		v.X.Bytes(b)
-	case 1:
-		v.Y.Bytes(b)
-	}
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1242,21 +1245,21 @@ func (v valueVector3) BytesLen() int {
 	return zVector3
 }
 
-func (v valueVector3) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	v.X.Bytes(b[0:4])
-	v.Y.Bytes(b[4:8])
-	v.Z.Bytes(b[8:12])
+func (v valueVector3) Bytes(b []byte) []byte {
+	b = v.X.Bytes(b)
+	b = v.Y.Bytes(b)
+	b = v.Z.Bytes(b)
+	return b
 }
 
-func (v *valueVector3) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueVector3) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.X.FromBytes(b[0:4])
-	v.Y.FromBytes(b[4:8])
-	v.Z.FromBytes(b[8:12])
-	return nil
+	b = fromBytes(b, &v.X)
+	b = fromBytes(b, &v.Y)
+	b = fromBytes(b, &v.Z)
+	return n, nil
 }
 
 func (v valueVector3) Dump(w *bufio.Writer, indent int) {
@@ -1278,33 +1281,6 @@ func (v valueVector3) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('}')
 }
 
-func (valueVector3) fieldLen() []int {
-	return []int{4, 4, 4}
-}
-
-func (v *valueVector3) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		err = v.X.FromBytes(b)
-	case 1:
-		err = v.Y.FromBytes(b)
-	case 2:
-		err = v.Z.FromBytes(b)
-	}
-	return
-}
-
-func (v valueVector3) fieldGet(i int, b []byte) {
-	switch i {
-	case 0:
-		v.X.Bytes(b)
-	case 1:
-		v.Y.Bytes(b)
-	case 2:
-		v.Z.Bytes(b)
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 
 const zVector2int16 = zi16 * 2
@@ -1321,19 +1297,19 @@ func (v valueVector2int16) BytesLen() int {
 	return zVector2int16
 }
 
-func (v valueVector2int16) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint16(b[0:2], uint16(v.X))
-	binary.LittleEndian.PutUint16(b[2:4], uint16(v.Y))
+func (v valueVector2int16) Bytes(b []byte) []byte {
+	b = appendUint16(b, le, uint16(v.X))
+	b = appendUint16(b, le, uint16(v.Y))
+	return b
 }
 
-func (v *valueVector2int16) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueVector2int16) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
-	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
-	return nil
+	v.X = int16(readUint16(&b, le))
+	v.Y = int16(readUint16(&b, le))
+	return n, nil
 }
 
 func (v valueVector2int16) Dump(w *bufio.Writer, indent int) {
@@ -1353,8 +1329,8 @@ func (v valueVector2int16) Dump(w *bufio.Writer, indent int) {
 
 ////////////////////////////////////////////////////////////////
 
-const zCFrame = zVar
-const zCFrameSp = zu8
+const zCFrame = zCond
+const zCFrameSp = zCondLen
 const zCFrameRo = zf32 * 9
 const zCFrameFull = zCFrameSp + zCFrameRo + zVector3
 const zCFrameShort = zCFrameSp + zVector3
@@ -1370,51 +1346,37 @@ func (valueCFrame) Type() typeID {
 }
 
 func (v valueCFrame) BytesLen() int {
-	if v.Special == 0 {
-		return zCFrameFull
-	}
-	return zCFrameShort
+	return v.Type().CondSize(v.Special)
 }
 
-func (v valueCFrame) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	n := 1
+func (v valueCFrame) Bytes(b []byte) []byte {
+	b = append(b, v.Special)
 	if v.Special == 0 {
-		b[0] = 0
-		r := b[zCFrameSp:]
-		for i, f := range v.Rotation {
-			binary.LittleEndian.PutUint32(r[i*zf32:i*zf32+zf32], math.Float32bits(f))
+		for _, f := range v.Rotation {
+			b = appendUint32(b, le, math.Float32bits(f))
 		}
-		n += len(v.Rotation) * zf32
-	} else {
-		b[0] = v.Special
 	}
-	v.Position.Bytes(b[n:])
+	b = v.Position.Bytes(b)
+	return b
 }
 
-func (v *valueCFrame) FromBytes(b []byte) error {
-	if len(b) < zCFrameSp {
-		return buflenError{typ: v.Type(), exp: zCFrameSp, got: len(b)}
+func (v *valueCFrame) FromBytes(b []byte) (n int, err error) {
+	cond, b, n, err := checkLengthCond(v, b)
+	if err != nil {
+		return n, err
 	}
-	if b[0] == 0 && len(b) < zCFrameFull {
-		return buflenError{typ: v.Type(), exp: zCFrameFull, got: len(b)}
-	} else if b[0] != 0 && len(b) < zCFrameShort {
-		return buflenError{typ: v.Type(), exp: zCFrameShort, got: len(b)}
-	}
-	v.Special = b[0]
-	if b[0] == 0 {
-		r := b[zCFrameSp:]
+	v.Special = cond
+	if cond == 0 {
 		for i := range v.Rotation {
-			v.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*zf32 : i*zf32+zf32]))
+			v.Rotation[i] = math.Float32frombits(readUint32(&b, le))
 		}
-		v.Position.FromBytes(b[zCFrameSp+zCFrameRo:])
 	} else {
 		for i := range v.Rotation {
 			v.Rotation[i] = 0
 		}
-		v.Position.FromBytes(b[zCFrameSp:])
 	}
-	return nil
+	v.Position.FromBytes(b)
+	return n, nil
 }
 
 func (v valueCFrame) Dump(w *bufio.Writer, indent int) {
@@ -1482,8 +1444,8 @@ func (v valueCFrame) ToCFrameQuat() (q valueCFrameQuat) {
 
 ////////////////////////////////////////////////////////////////
 
-const zCFrameQuat = -1
-const zCFrameQuatSp = zu8
+const zCFrameQuat = zCond
+const zCFrameQuatSp = zCondLen
 const zCFrameQuatQ = zf32 * 4
 const zCFrameQuatFull = zCFrameQuatSp + zCFrameQuatQ + zVector3
 const zCFrameQuatShort = zCFrameQuatSp + zVector3
@@ -1499,60 +1461,50 @@ func (valueCFrameQuat) Type() typeID {
 }
 
 func (v valueCFrameQuat) BytesLen() int {
+	return v.Type().CondSize(v.Special)
+}
+
+func (v valueCFrameQuat) quatBytes(b []byte) []byte {
+	b = appendUint32(b, le, math.Float32bits(v.QX))
+	b = appendUint32(b, le, math.Float32bits(v.QY))
+	b = appendUint32(b, le, math.Float32bits(v.QZ))
+	b = appendUint32(b, le, math.Float32bits(v.QW))
+	return b
+}
+
+func (v valueCFrameQuat) Bytes(b []byte) []byte {
+	b = append(b, v.Special)
 	if v.Special == 0 {
-		return zCFrameQuatFull
+		b = v.quatBytes(b)
 	}
-	return zCFrameQuatShort
+	b = v.Position.Bytes(b)
+	return b
 }
 
-func (v valueCFrameQuat) quatBytes(b []byte) {
-	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.QX))
-	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.QY))
-	binary.LittleEndian.PutUint32(b[8:12], math.Float32bits(v.QZ))
-	binary.LittleEndian.PutUint32(b[12:16], math.Float32bits(v.QW))
+func (v *valueCFrameQuat) quatFromBytes(b []byte) []byte {
+	v.QX = math.Float32frombits(readUint32(&b, le))
+	v.QY = math.Float32frombits(readUint32(&b, le))
+	v.QZ = math.Float32frombits(readUint32(&b, le))
+	v.QW = math.Float32frombits(readUint32(&b, le))
+	return b
 }
 
-func (v valueCFrameQuat) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	n := 1
-	if v.Special == 0 {
-		b[0] = 0
-		v.quatBytes(b[zCFrameQuatSp:])
-		n += zCFrameQuatQ
-	} else {
-		b[0] = v.Special
+func (v *valueCFrameQuat) FromBytes(b []byte) (n int, err error) {
+	cond, b, n, err := checkLengthCond(v, b)
+	if err != nil {
+		return n, err
 	}
-	v.Position.Bytes(b[n:])
-}
-
-func (v *valueCFrameQuat) quatFromBytes(b []byte) {
-	v.QX = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
-	v.QY = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
-	v.QZ = math.Float32frombits(binary.LittleEndian.Uint32(b[8:12]))
-	v.QW = math.Float32frombits(binary.LittleEndian.Uint32(b[12:16]))
-}
-
-func (v *valueCFrameQuat) FromBytes(b []byte) error {
-	if len(b) < zCFrameQuatSp {
-		return buflenError{typ: v.Type(), exp: zCFrameQuatSp, got: len(b)}
-	}
-	if b[0] == 0 && len(b) < zCFrameQuatFull {
-		return buflenError{typ: v.Type(), exp: zCFrameQuatFull, got: len(b)}
-	} else if b[0] != 0 && len(b) < zCFrameQuatShort {
-		return buflenError{typ: v.Type(), exp: zCFrameQuatShort, got: len(b)}
-	}
-	v.Special = b[0]
-	if b[0] == 0 {
-		v.quatFromBytes(b[zCFrameQuatSp:])
-		v.Position.FromBytes(b[zCFrameQuatSp+zCFrameQuatQ:])
+	v.Special = cond
+	if cond == 0 {
+		b = v.quatFromBytes(b)
 	} else {
 		v.QX = 0
 		v.QY = 0
 		v.QZ = 0
 		v.QW = 0
-		v.Position.FromBytes(b[zCFrameQuatSp:])
 	}
-	return nil
+	v.Position.FromBytes(b)
+	return n, nil
 }
 
 func (v valueCFrameQuat) Dump(w *bufio.Writer, indent int) {
@@ -1617,17 +1569,16 @@ func (v valueToken) BytesLen() int {
 	return zToken
 }
 
-func (v valueToken) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.BigEndian.PutUint32(b, uint32(v))
+func (v valueToken) Bytes(b []byte) []byte {
+	return appendUint32(b, be, uint32(v))
 }
 
-func (v *valueToken) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueToken) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueToken(binary.BigEndian.Uint32(b))
-	return nil
+	return n, nil
 }
 
 func (v valueToken) Dump(w *bufio.Writer, indent int) {
@@ -1648,17 +1599,16 @@ func (v valueReference) BytesLen() int {
 	return zReference
 }
 
-func (v valueReference) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.BigEndian.PutUint32(b, encodeZigzag32(int32(v)))
+func (v valueReference) Bytes(b []byte) []byte {
+	return appendUint32(b, be, encodeZigzag32(int32(v)))
 }
 
-func (v *valueReference) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueReference) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueReference(decodeZigzag32(binary.BigEndian.Uint32(b)))
-	return nil
+	return n, nil
 }
 
 func (v valueReference) Dump(w *bufio.Writer, indent int) {
@@ -1681,21 +1631,21 @@ func (v valueVector3int16) BytesLen() int {
 	return zVector3int16
 }
 
-func (v valueVector3int16) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint16(b[0:2], uint16(v.X))
-	binary.LittleEndian.PutUint16(b[2:4], uint16(v.Y))
-	binary.LittleEndian.PutUint16(b[4:6], uint16(v.Z))
+func (v valueVector3int16) Bytes(b []byte) []byte {
+	b = appendUint16(b, le, uint16(v.X))
+	b = appendUint16(b, le, uint16(v.Y))
+	b = appendUint16(b, le, uint16(v.Z))
+	return b
 }
 
-func (v *valueVector3int16) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueVector3int16) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.X = int16(binary.LittleEndian.Uint16(b[0:2]))
-	v.Y = int16(binary.LittleEndian.Uint16(b[2:4]))
-	v.Z = int16(binary.LittleEndian.Uint16(b[4:6]))
-	return nil
+	v.X = int16(readUint16(&b, le))
+	v.Y = int16(readUint16(&b, le))
+	v.Z = int16(readUint16(&b, le))
+	return n, nil
 }
 
 func (v valueVector3int16) Dump(w *bufio.Writer, indent int) {
@@ -1744,7 +1694,7 @@ func (v valueNumberSequenceKeypoint) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('}')
 }
 
-const zNumberSequence = zVar
+const zNumberSequence = zArray
 
 type valueNumberSequence []valueNumberSequenceKeypoint
 
@@ -1756,34 +1706,30 @@ func (v valueNumberSequence) BytesLen() int {
 	return zArrayLen + zNumberSequenceKeypoint*len(v)
 }
 
-func (v valueNumberSequence) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint32(b, uint32(len(v)))
-	ba := b[zArrayLen:]
-	for i, nsk := range v {
-		bk := ba[i*zNumberSequenceKeypoint:]
-		binary.LittleEndian.PutUint32(bk[0:4], math.Float32bits(nsk.Time))
-		binary.LittleEndian.PutUint32(bk[4:8], math.Float32bits(nsk.Value))
-		binary.LittleEndian.PutUint32(bk[8:12], math.Float32bits(nsk.Envelope))
+func (v valueNumberSequence) Bytes(b []byte) []byte {
+	b = appendUint32(b, le, uint32(len(v)))
+	for _, nsk := range v {
+		b = appendUint32(b, le, math.Float32bits(nsk.Time))
+		b = appendUint32(b, le, math.Float32bits(nsk.Value))
+		b = appendUint32(b, le, math.Float32bits(nsk.Envelope))
 	}
+	return b
 }
 
-func (v *valueNumberSequence) FromBytes(b []byte) error {
-	b, n, err := checkvarlen(v, b)
-	if err != nil {
-		return err
+func (v *valueNumberSequence) FromBytes(b []byte) (n int, err error) {
+	if b, n, err = checkLengthArray(v, b); err != nil {
+		return n, err
 	}
 	a := make(valueNumberSequence, n)
 	for i := 0; i < n; i++ {
-		bk := b[i*zNumberSequenceKeypoint:]
 		a[i] = valueNumberSequenceKeypoint{
-			Time:     math.Float32frombits(binary.LittleEndian.Uint32(bk[0:4])),
-			Value:    math.Float32frombits(binary.LittleEndian.Uint32(bk[4:8])),
-			Envelope: math.Float32frombits(binary.LittleEndian.Uint32(bk[8:12])),
+			Time:     math.Float32frombits(readUint32(&b, le)),
+			Value:    math.Float32frombits(readUint32(&b, le)),
+			Envelope: math.Float32frombits(readUint32(&b, le)),
 		}
 	}
 	*v = a
-	return nil
+	return v.BytesLen(), nil
 }
 
 func (v valueNumberSequence) Dump(w *bufio.Writer, indent int) {
@@ -1828,7 +1774,7 @@ func (v valueColorSequenceKeypoint) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('}')
 }
 
-const zColorSequence = zVar
+const zColorSequence = zArray
 
 type valueColorSequence []valueColorSequenceKeypoint
 
@@ -1840,42 +1786,36 @@ func (v valueColorSequence) BytesLen() int {
 	return zArrayLen + zColorSequenceKeypoint*len(v)
 }
 
-func (v valueColorSequence) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint32(b, uint32(len(v)))
-	ba := b[zArrayLen:]
-	for i, csk := range v {
-		bk := ba[i*zColorSequenceKeypoint:]
-		binary.LittleEndian.PutUint32(bk[0:4], math.Float32bits(csk.Time))
-		binary.LittleEndian.PutUint32(bk[4:8], math.Float32bits(float32(csk.Value.R)))
-		binary.LittleEndian.PutUint32(bk[8:12], math.Float32bits(float32(csk.Value.G)))
-		binary.LittleEndian.PutUint32(bk[12:16], math.Float32bits(float32(csk.Value.B)))
-		binary.LittleEndian.PutUint32(bk[16:20], math.Float32bits(csk.Envelope))
+func (v valueColorSequence) Bytes(b []byte) []byte {
+	b = appendUint32(b, le, uint32(len(v)))
+	for _, csk := range v {
+		b = appendUint32(b, le, math.Float32bits(csk.Time))
+		b = appendUint32(b, le, math.Float32bits(float32(csk.Value.R)))
+		b = appendUint32(b, le, math.Float32bits(float32(csk.Value.G)))
+		b = appendUint32(b, le, math.Float32bits(float32(csk.Value.B)))
+		b = appendUint32(b, le, math.Float32bits(csk.Envelope))
 	}
+	return b
 }
 
-func (v *valueColorSequence) FromBytes(b []byte) error {
-	b, n, err := checkvarlen(v, b)
-	if err != nil {
-		return err
+func (v *valueColorSequence) FromBytes(b []byte) (n int, err error) {
+	if b, n, err = checkLengthArray(v, b); err != nil {
+		return n, err
 	}
 	a := make(valueColorSequence, n)
 	for i := 0; i < n; i++ {
-		bk := b[i*zColorSequenceKeypoint:]
-		c3 := *new(valueColor3)
-		c3.FromBytes(bk[4:16])
 		a[i] = valueColorSequenceKeypoint{
-			Time: math.Float32frombits(binary.LittleEndian.Uint32(bk[0:4])),
+			Time: math.Float32frombits(readUint32(&b, le)),
 			Value: valueColor3{
-				R: valueFloat(math.Float32frombits(binary.LittleEndian.Uint32(bk[4:8]))),
-				G: valueFloat(math.Float32frombits(binary.LittleEndian.Uint32(bk[8:12]))),
-				B: valueFloat(math.Float32frombits(binary.LittleEndian.Uint32(bk[12:16]))),
+				R: valueFloat(math.Float32frombits(readUint32(&b, le))),
+				G: valueFloat(math.Float32frombits(readUint32(&b, le))),
+				B: valueFloat(math.Float32frombits(readUint32(&b, le))),
 			},
-			Envelope: math.Float32frombits(binary.LittleEndian.Uint32(bk[16:20])),
+			Envelope: math.Float32frombits(readUint32(&b, le)),
 		}
 	}
 	*v = a
-	return nil
+	return v.BytesLen(), nil
 }
 
 func (v valueColorSequence) Dump(w *bufio.Writer, indent int) {
@@ -1907,19 +1847,19 @@ func (v valueNumberRange) BytesLen() int {
 	return zNumberRange
 }
 
-func (v valueNumberRange) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.LittleEndian.PutUint32(b[0:4], math.Float32bits(v.Min))
-	binary.LittleEndian.PutUint32(b[4:8], math.Float32bits(v.Max))
+func (v valueNumberRange) Bytes(b []byte) []byte {
+	b = appendUint32(b, le, math.Float32bits(v.Min))
+	b = appendUint32(b, le, math.Float32bits(v.Max))
+	return b
 }
 
-func (v *valueNumberRange) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueNumberRange) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.Min = math.Float32frombits(binary.LittleEndian.Uint32(b[0:4]))
-	v.Max = math.Float32frombits(binary.LittleEndian.Uint32(b[4:8]))
-	return nil
+	v.Min = math.Float32frombits(readUint32(&b, le))
+	v.Max = math.Float32frombits(readUint32(&b, le))
+	return n, nil
 }
 
 func (v valueNumberRange) Dump(w *bufio.Writer, indent int) {
@@ -1953,19 +1893,19 @@ func (v valueRect) BytesLen() int {
 	return zRect
 }
 
-func (v valueRect) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	v.Min.Bytes(b[0:8])
-	v.Max.Bytes(b[8:16])
+func (v valueRect) Bytes(b []byte) []byte {
+	b = v.Min.Bytes(b)
+	b = v.Max.Bytes(b)
+	return b
 }
 
-func (v *valueRect) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueRect) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
-	v.Min.FromBytes(b[0:8])
-	v.Max.FromBytes(b[8:16])
-	return nil
+	b = fromBytes(b, &v.Min)
+	b = fromBytes(b, &v.Max)
+	return n, nil
 }
 
 func (v valueRect) Dump(w *bufio.Writer, indent int) {
@@ -1983,41 +1923,10 @@ func (v valueRect) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('}')
 }
 
-func (valueRect) fieldLen() []int {
-	return []int{4, 4, 4, 4}
-}
-
-func (v *valueRect) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		err = v.Min.X.FromBytes(b)
-	case 1:
-		err = v.Min.Y.FromBytes(b)
-	case 2:
-		err = v.Max.X.FromBytes(b)
-	case 3:
-		err = v.Max.Y.FromBytes(b)
-	}
-	return
-}
-
-func (v valueRect) fieldGet(i int, b []byte) {
-	switch i {
-	case 0:
-		v.Min.X.Bytes(b)
-	case 1:
-		v.Min.Y.Bytes(b)
-	case 2:
-		v.Max.X.Bytes(b)
-	case 3:
-		v.Max.Y.Bytes(b)
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 
-const zPhysicalProperties = zVar
-const zPhysicalPropertiesCP = zb
+const zPhysicalProperties = zCond
+const zPhysicalPropertiesCP = zCondLen
 const zPhysicalPropertiesFields = zf32 * 5
 const zPhysicalPropertiesShort = zPhysicalPropertiesCP
 const zPhysicalPropertiesFull = zPhysicalPropertiesCP + zPhysicalPropertiesFields
@@ -2036,46 +1945,43 @@ func (valuePhysicalProperties) Type() typeID {
 }
 
 func (v valuePhysicalProperties) BytesLen() int {
-	if v.CustomPhysics == 0 {
-		return zPhysicalPropertiesShort
-	}
-	return zPhysicalPropertiesFull
+	return v.Type().CondSize(v.CustomPhysics)
 }
 
-func (v valuePhysicalProperties) ppBytes(b []byte) {
-	binary.LittleEndian.PutUint32(b[0*zf32:0*zf32+zf32], math.Float32bits(v.Density))
-	binary.LittleEndian.PutUint32(b[1*zf32:1*zf32+zf32], math.Float32bits(v.Friction))
-	binary.LittleEndian.PutUint32(b[2*zf32:2*zf32+zf32], math.Float32bits(v.Elasticity))
-	binary.LittleEndian.PutUint32(b[3*zf32:3*zf32+zf32], math.Float32bits(v.FrictionWeight))
-	binary.LittleEndian.PutUint32(b[4*zf32:4*zf32+zf32], math.Float32bits(v.ElasticityWeight))
+func (v valuePhysicalProperties) ppBytes(b []byte) []byte {
+	b = appendUint32(b, le, math.Float32bits(v.Density))
+	b = appendUint32(b, le, math.Float32bits(v.Friction))
+	b = appendUint32(b, le, math.Float32bits(v.Elasticity))
+	b = appendUint32(b, le, math.Float32bits(v.FrictionWeight))
+	b = appendUint32(b, le, math.Float32bits(v.ElasticityWeight))
+	return b
 }
 
-func (v valuePhysicalProperties) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	b[0] = v.CustomPhysics
+func (v valuePhysicalProperties) Bytes(b []byte) []byte {
+	b = append(b, v.CustomPhysics)
 	if v.CustomPhysics != 0 {
-		v.ppBytes(b[zPhysicalPropertiesCP:])
+		b = v.ppBytes(b)
 	}
+	return b
 }
 
-func (v *valuePhysicalProperties) ppFromBytes(b []byte) {
-	v.Density = math.Float32frombits(binary.LittleEndian.Uint32(b[0*zf32 : 0*zf32+zf32]))
-	v.Friction = math.Float32frombits(binary.LittleEndian.Uint32(b[1*zf32 : 1*zf32+zf32]))
-	v.Elasticity = math.Float32frombits(binary.LittleEndian.Uint32(b[2*zf32 : 2*zf32+zf32]))
-	v.FrictionWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[3*zf32 : 3*zf32+zf32]))
-	v.ElasticityWeight = math.Float32frombits(binary.LittleEndian.Uint32(b[4*zf32 : 4*zf32+zf32]))
+func (v *valuePhysicalProperties) ppFromBytes(b []byte) []byte {
+	v.Density = math.Float32frombits(readUint32(&b, le))
+	v.Friction = math.Float32frombits(readUint32(&b, le))
+	v.Elasticity = math.Float32frombits(readUint32(&b, le))
+	v.FrictionWeight = math.Float32frombits(readUint32(&b, le))
+	v.ElasticityWeight = math.Float32frombits(readUint32(&b, le))
+	return b
 }
 
-func (v *valuePhysicalProperties) FromBytes(b []byte) error {
-	if len(b) < zPhysicalPropertiesCP {
-		return buflenError{typ: v.Type(), exp: zPhysicalPropertiesCP, got: len(b)}
+func (v *valuePhysicalProperties) FromBytes(b []byte) (n int, err error) {
+	cond, b, n, err := checkLengthCond(v, b)
+	if err != nil {
+		return n, err
 	}
-	if b[0] != 0 && len(b) < zPhysicalPropertiesFull {
-		return buflenError{typ: v.Type(), exp: zPhysicalPropertiesFull, got: len(b)}
-	}
-	v.CustomPhysics = b[0]
-	if v.CustomPhysics != 0 {
-		v.ppFromBytes(b[zPhysicalPropertiesCP:])
+	v.CustomPhysics = cond
+	if cond != 0 {
+		b = v.ppFromBytes(b)
 	} else {
 		v.Density = 0
 		v.Friction = 0
@@ -2083,7 +1989,7 @@ func (v *valuePhysicalProperties) FromBytes(b []byte) error {
 		v.FrictionWeight = 0
 		v.ElasticityWeight = 0
 	}
-	return nil
+	return n, nil
 }
 
 func (v valuePhysicalProperties) Dump(w *bufio.Writer, indent int) {
@@ -2120,7 +2026,7 @@ func (v valuePhysicalProperties) Dump(w *bufio.Writer, indent int) {
 
 ////////////////////////////////////////////////////////////////
 
-const zColor3uint8 = zb * 3
+const zColor3uint8 = zu8 * 3
 
 type valueColor3uint8 struct {
 	R, G, B byte
@@ -2134,21 +2040,18 @@ func (v valueColor3uint8) BytesLen() int {
 	return zColor3uint8
 }
 
-func (v valueColor3uint8) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	b[0] = v.R
-	b[1] = v.G
-	b[2] = v.B
+func (v valueColor3uint8) Bytes(b []byte) []byte {
+	return append(b, v.R, v.G, v.B)
 }
 
-func (v *valueColor3uint8) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueColor3uint8) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	v.R = b[0]
 	v.G = b[1]
 	v.B = b[2]
-	return nil
+	return n, nil
 }
 
 func (v valueColor3uint8) Dump(w *bufio.Writer, indent int) {
@@ -2170,33 +2073,6 @@ func (v valueColor3uint8) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('}')
 }
 
-func (valueColor3uint8) fieldLen() []int {
-	return []int{1, 1, 1}
-}
-
-func (v *valueColor3uint8) fieldSet(i int, b []byte) (err error) {
-	switch i {
-	case 0:
-		v.R = b[0]
-	case 1:
-		v.G = b[0]
-	case 2:
-		v.B = b[0]
-	}
-	return
-}
-
-func (v valueColor3uint8) fieldGet(i int, b []byte) {
-	switch i {
-	case 0:
-		b[0] = v.R
-	case 1:
-		b[0] = v.G
-	case 2:
-		b[0] = v.B
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 
 const zInt64 = zu64
@@ -2211,17 +2087,16 @@ func (v valueInt64) BytesLen() int {
 	return zInt64
 }
 
-func (v valueInt64) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.BigEndian.PutUint64(b, encodeZigzag64(int64(v)))
+func (v valueInt64) Bytes(b []byte) []byte {
+	return appendUint64(b, be, encodeZigzag64(int64(v)))
 }
 
-func (v *valueInt64) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueInt64) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueInt64(decodeZigzag64(binary.BigEndian.Uint64(b)))
-	return nil
+	return n, nil
 }
 
 func (v valueInt64) Dump(w *bufio.Writer, indent int) {
@@ -2242,17 +2117,16 @@ func (v valueSharedString) BytesLen() int {
 	return zSharedString
 }
 
-func (v valueSharedString) Bytes(b []byte) {
-	_ = b[v.BytesLen()-1]
-	binary.BigEndian.PutUint32(b, uint32(v))
+func (v valueSharedString) Bytes(b []byte) []byte {
+	return appendUint32(b, be, uint32(v))
 }
 
-func (v *valueSharedString) FromBytes(b []byte) error {
-	if err := checklen(v, b); err != nil {
-		return err
+func (v *valueSharedString) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
 	}
 	*v = valueSharedString(binary.BigEndian.Uint32(b))
-	return nil
+	return n, nil
 }
 
 func (v valueSharedString) Dump(w *bufio.Writer, indent int) {

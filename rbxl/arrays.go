@@ -1,7 +1,6 @@
 package rbxl
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -29,16 +28,17 @@ func (err errInvalidType) Error() string {
 	return fmt.Sprintf("invalid type (%02X)", byte(err))
 }
 
-// Encodes and decodes a Value based on its fields
-type fielder interface {
-	// Value.Type
-	Type() typeID
-	// Length of each field
-	fieldLen() []int
-	// Set bytes of nth field
-	fieldSet(int, []byte) error
-	// Get bytes of nth field
-	fieldGet(int, []byte)
+type indexError struct {
+	Index int
+	Cause error
+}
+
+func (err indexError) Error() string {
+	return fmt.Sprintf("#%d: %s", err.Index, err.Cause)
+}
+
+func (err indexError) Unwrap() error {
+	return err.Cause
 }
 
 // Interleave transforms an array of bytes by interleaving them based on a
@@ -47,8 +47,8 @@ type fielder interface {
 // The array is divided into groups, each `length` in size. The nth elements
 // of each group are then moved so that they are group together. For example:
 //
-//     Original:    abcd1234
-//     Interleaved: a1b2c3d4
+//     Original:    ABCDabcd
+//     Interleaved: AaBbCcDd
 func interleave(bytes []byte, length int) error {
 	if length <= 0 {
 		return errors.New("length must be greater than 0")
@@ -96,255 +96,6 @@ func interleave(bytes []byte, length int) error {
 	return nil
 }
 
-// Encodes Values that implement the fielder interface.
-func interleaveFields(id typeID, a []value) (b []byte, err error) {
-	if len(a) == 0 {
-		return b, nil
-	}
-
-	af := make([]fielder, len(a))
-	for i, v := range a {
-		af[i] = v.(fielder)
-		if af[i].Type() != id {
-			return nil, errElementType{Index: i, Got: af[i].Type().String(), Want: id.String()}
-		}
-	}
-
-	// list is assumed to contain the same kinds of values
-
-	// Number of bytes per field
-	nbytes := af[0].fieldLen()
-	// Number fields per value
-	nfields := len(nbytes)
-	// Number of values
-	nvalues := len(af)
-
-	// Total bytes per value
-	tbytes := 0
-	// Offset of each field slice
-	ofields := make([]int, maxFieldLen+1)[:len(nbytes)+1]
-	for i, n := range nbytes {
-		tbytes += n
-		ofields[i+1] = ofields[i] + n*nvalues
-	}
-
-	b = make([]byte, tbytes*nvalues)
-
-	// List of each field slice
-	fields := make([][]byte, maxFieldLen)[:nfields]
-	for i := range fields {
-		// Each field slice affects the final array
-		fields[i] = b[ofields[i]:ofields[i+1]]
-	}
-
-	for i, v := range af {
-		for f, field := range fields {
-			v.fieldGet(f, field[i*nbytes[f]:])
-		}
-	}
-
-	// Interleave each field slice independently
-	for i, field := range fields {
-		if err = interleave(field, nbytes[i]); err != nil {
-			return nil, err
-		}
-	}
-
-	return b, nil
-}
-
-// Appends the bytes of a list of Values into a byte array.
-func appendValueBytes(id typeID, a []value) []byte {
-	n := 0
-	for _, v := range a {
-		n += v.BytesLen()
-	}
-	b := make([]byte, n)
-	c := b[:]
-	for _, v := range a {
-		n := v.BytesLen()
-		v.Bytes(c[:n])
-		c = c[n:]
-	}
-	return b
-}
-
-// Append each value as bytes, then interleave to improve compression.
-func interleaveAppend(t typeID, a []value) (b []byte, err error) {
-	b = appendValueBytes(t, a)
-	if err = interleave(b, t.Size()); err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-// valuesToBytes encodes a slice of values into binary form, according to t.
-// Returns an error if a value cannot be encoded as t.
-func valuesToBytes(t typeID, a []value) (b []byte, err error) {
-	if !t.Valid() {
-		return nil, errInvalidType(t)
-	}
-	for i, v := range a {
-		if v.Type() != t {
-			return nil, errElementType{Index: i, Got: v.Type().String(), Want: t.String()}
-		}
-	}
-
-	switch t {
-	case typeString:
-		return appendValueBytes(t, a), nil
-
-	case typeBool:
-		return appendValueBytes(t, a), nil
-
-	case typeInt:
-		return interleaveAppend(t, a)
-
-	case typeFloat:
-		return interleaveAppend(t, a)
-
-	case typeDouble:
-		return appendValueBytes(t, a), nil
-
-	case typeUDim:
-		return interleaveFields(t, a)
-
-	case typeUDim2:
-		return interleaveFields(t, a)
-
-	case typeRay:
-		return appendValueBytes(t, a), nil
-
-	case typeFaces:
-		return appendValueBytes(t, a), nil
-
-	case typeAxes:
-		return appendValueBytes(t, a), nil
-
-	case typeBrickColor:
-		return interleaveAppend(t, a)
-
-	case typeColor3:
-		return interleaveFields(t, a)
-
-	case typeVector2:
-		return interleaveFields(t, a)
-
-	case typeVector3:
-		return interleaveFields(t, a)
-
-	case typeVector2int16:
-		return nil, errors.New("not implemented")
-
-	case typeCFrame:
-		// The bytes of each value can vary in length.
-		p := make([]value, len(a))
-		for i, cf := range a {
-			cf := cf.(*valueCFrame)
-			// Build matrix part.
-			b = append(b, cf.Special)
-			if cf.Special == 0 {
-				// Write all components.
-				r := make([]byte, len(cf.Rotation)*zf32)
-				for i, f := range cf.Rotation {
-					binary.LittleEndian.PutUint32(r[i*zf32:i*zf32+zf32], math.Float32bits(f))
-				}
-				b = append(b, r...)
-			}
-			// Prepare position part.
-			p[i] = &cf.Position
-		}
-		// Build position part.
-		pb, _ := interleaveFields(typeVector3, p)
-		b = append(b, pb...)
-		return b, nil
-
-	case typeCFrameQuat:
-		p := make([]value, len(a))
-		for i, cf := range a {
-			cf := cf.(*valueCFrameQuat)
-			b = append(b, cf.Special)
-			if cf.Special == 0 {
-				r := make([]byte, zCFrameQuatQ)
-				cf.quatBytes(r)
-				b = append(b, r...)
-			}
-			p[i] = &cf.Position
-		}
-		pb, _ := interleaveFields(typeVector3, p)
-		b = append(b, pb...)
-		return b, nil
-
-	case typeToken:
-		return interleaveAppend(t, a)
-
-	case typeReference:
-		// Because values are generated in sequence, they are likely to be
-		// relatively close to each other. Subtracting each value from the
-		// previous will likely produce small values that compress well.
-		if len(a) == 0 {
-			return b, nil
-		}
-		b = make([]byte, len(a)*zReference)
-		var prev valueReference
-		for i, ref := range a {
-			ref := ref.(*valueReference)
-			if i == 0 {
-				ref.Bytes(b[i*zReference : i*zReference+zReference])
-			} else {
-				// Convert absolute ref to relative ref.
-				(*ref - prev).Bytes(b[i*zReference : i*zReference+zReference])
-			}
-			prev = *ref
-		}
-		if err = interleave(b, zReference); err != nil {
-			return nil, err
-		}
-		return b, nil
-
-	case typeVector3int16:
-		return appendValueBytes(t, a), nil
-
-	case typeNumberSequence:
-		return appendValueBytes(t, a), nil
-
-	case typeColorSequence:
-		return appendValueBytes(t, a), nil
-
-	case typeNumberRange:
-		return appendValueBytes(t, a), nil
-
-	case typeRect:
-		return interleaveFields(t, a)
-
-	case typePhysicalProperties:
-		// The bytes of each value can vary in length.
-		q := make([]byte, zPhysicalPropertiesFields)
-		for _, pp := range a {
-			pp := pp.(*valuePhysicalProperties)
-			b = append(b, pp.CustomPhysics)
-			if pp.CustomPhysics != 0 {
-				// Write all fields.
-				pp.ppBytes(q)
-				b = append(b, q...)
-			}
-		}
-		return b, nil
-
-	case typeColor3uint8:
-		return interleaveFields(t, a)
-
-	case typeInt64:
-		return interleaveAppend(t, a)
-
-	case typeSharedString:
-		return interleaveAppend(t, a)
-
-	default:
-		return b, nil
-	}
-}
-
 func deinterleave(bytes []byte, size int) error {
 	if size <= 0 {
 		return errors.New("size must be greater than 0")
@@ -356,314 +107,1203 @@ func deinterleave(bytes []byte, size int) error {
 	return interleave(bytes, len(bytes)/size)
 }
 
-// Decodes Values that implement the fielder interface.
-func deinterleaveFields(id typeID, b []byte) (a []value, err error) {
-	if len(b) == 0 {
-		return a, nil
+// arrayFromBytes decodes an array of length elements from b into a. Returns an
+// error if the array could not be decoded. n is the number of bytes
+// successfully read from b.
+func arrayFromBytes(b []byte, t typeID, length int) (a array, n int, err error) {
+	if !t.Valid() {
+		return nil, 0, errInvalidType(t)
 	}
 
-	if !id.Valid() {
-		return nil, fmt.Errorf("type identifier 0x%X is not a valid Type.", id)
-	}
+	a = newArray(t, length)
 
-	// Number of bytes per field
-	nbytes := newValue(id).(fielder).fieldLen()
-	// Number fields per value
-	nfields := len(nbytes)
-
-	// Total bytes per value
-	tbytes := 0
-	for _, n := range nbytes {
-		tbytes += n
-	}
-
-	if len(b)%tbytes != 0 {
-		return nil, fmt.Errorf("length of array (%d) is not divisible by value byte size (%d)", len(b), tbytes)
-	}
-
-	// Number of values
-	nvalues := len(b) / tbytes
-	// Offset of each field slice.
-	ofields := make([]int, maxFieldLen+1)[:len(nbytes)+1]
-	for i, n := range nbytes {
-		ofields[i+1] = ofields[i] + n*nvalues
-	}
-
-	a = make([]value, nvalues)
-
-	// List of each field slice
-	fields := make([][]byte, maxFieldLen)[:nfields]
-	for i := range fields {
-		fields[i] = b[ofields[i]:ofields[i+1]]
-	}
-
-	// Deinterleave each field slice independently
-	for i, field := range fields {
-		if err = deinterleave(field, nbytes[i]); err != nil {
-			return nil, err
+	if _, ok := a.(interleaver); ok {
+		size := t.Size()
+		if size <= 0 {
+			panic("deinterleaving non-constant type size")
+		}
+		if err := deinterleave(b, size); err != nil {
+			return nil, 0, err
 		}
 	}
 
+	if a, ok := a.(fromByter); ok {
+		if n, err = a.FromBytes(b); err != nil {
+			return nil, n, err
+		}
+		return a, n, nil
+	}
+
+	for i := 0; i < length; i++ {
+		v := newValue(a.Type())
+		nn, err := v.FromBytes(b)
+		if err != nil {
+			return nil, n, indexError{Index: i, Cause: err}
+		}
+		n += nn
+		b = b[nn:]
+		a.Set(i, v)
+	}
+	return a, n, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type array interface {
+	// Type returns an identifier indicating the type of each value in the
+	// array.
+	Type() typeID
+
+	// Len returns the length of the array.
+	Len() int
+
+	// Get gets index i to v. Panics if i is out of bounds.
+	Get(i int) value
+
+	// Set sets index i to v. Panics if i is out of bounds, or v is not of the
+	// array's type.
+	Set(i int, v value)
+
+	// BytesLen returns the number of bytes required to encode the array.
+	BytesLen() int
+
+	// Bytes encodes the array, appending to b. Returns the extended buffer.
+	Bytes(b []byte) []byte
+}
+
+// interleaver indicates that the encoded bytes of the array are interleaved.
+// The type of an interleaver must have a constant size.
+type interleaver interface {
+	array
+	Interleaved()
+}
+
+// fromByter is an array with a custom decoding implementation.
+type fromByter interface {
+	array
+	FromBytes(b []byte) (n int, err error)
+}
+
+func newArray(t typeID, n int) array {
+	switch t {
+	case typeString:
+		return make(arrayString, n)
+	case typeBool:
+		return make(arrayBool, n)
+	case typeInt:
+		return make(arrayInt, n)
+	case typeFloat:
+		return make(arrayFloat, n)
+	case typeDouble:
+		return make(arrayDouble, n)
+	case typeUDim:
+		return make(arrayUDim, n)
+	case typeUDim2:
+		return make(arrayUDim2, n)
+	case typeRay:
+		return make(arrayRay, n)
+	case typeFaces:
+		return make(arrayFaces, n)
+	case typeAxes:
+		return make(arrayAxes, n)
+	case typeBrickColor:
+		return make(arrayBrickColor, n)
+	case typeColor3:
+		return make(arrayColor3, n)
+	case typeVector2:
+		return make(arrayVector2, n)
+	case typeVector3:
+		return make(arrayVector3, n)
+	case typeVector2int16:
+		return make(arrayVector2int16, n)
+	case typeCFrame:
+		return make(arrayCFrame, n)
+	case typeCFrameQuat:
+		return make(arrayCFrameQuat, n)
+	case typeToken:
+		return make(arrayToken, n)
+	case typeReference:
+		return make(arrayReference, n)
+	case typeVector3int16:
+		return make(arrayVector3int16, n)
+	case typeNumberSequence:
+		return make(arrayNumberSequence, n)
+	case typeColorSequence:
+		return make(arrayColorSequence, n)
+	case typeNumberRange:
+		return make(arrayNumberRange, n)
+	case typeRect:
+		return make(arrayRect, n)
+	case typePhysicalProperties:
+		return make(arrayPhysicalProperties, n)
+	case typeColor3uint8:
+		return make(arrayColor3uint8, n)
+	case typeInt64:
+		return make(arrayInt64, n)
+	case typeSharedString:
+		return make(arraySharedString, n)
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayString []valueString
+
+func (arrayString) Type() typeID {
+	return typeString
+}
+
+func (a arrayString) Len() int {
+	return len(a)
+}
+
+func (a arrayString) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayString) Set(i int, v value) {
+	a[i] = *v.(*valueString)
+}
+
+func (a arrayString) BytesLen() int {
+	var n int
+	for _, v := range a {
+		n += v.BytesLen()
+	}
+	return n
+}
+
+func (a arrayString) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayBool []valueBool
+
+func (arrayBool) Type() typeID {
+	return typeBool
+}
+
+func (a arrayBool) Len() int {
+	return len(a)
+}
+
+func (a arrayBool) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayBool) Set(i int, v value) {
+	a[i] = *v.(*valueBool)
+}
+
+func (a arrayBool) BytesLen() int {
+	return len(a) * zBool
+}
+
+func (a arrayBool) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayInt []valueInt
+
+func (arrayInt) Type() typeID {
+	return typeInt
+}
+
+func (a arrayInt) Len() int {
+	return len(a)
+}
+
+func (a arrayInt) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayInt) Set(i int, v value) {
+	a[i] = *v.(*valueInt)
+}
+
+func (a arrayInt) BytesLen() int {
+	return len(a) * zInt
+}
+
+func (a arrayInt) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayInt) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayFloat []valueFloat
+
+func (arrayFloat) Type() typeID {
+	return typeFloat
+}
+
+func (a arrayFloat) Len() int {
+	return len(a)
+}
+
+func (a arrayFloat) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayFloat) Set(i int, v value) {
+	a[i] = *v.(*valueFloat)
+}
+
+func (a arrayFloat) BytesLen() int {
+	return len(a) * zFloat
+}
+
+func (a arrayFloat) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayFloat) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayDouble []valueDouble
+
+func (arrayDouble) Type() typeID {
+	return typeDouble
+}
+
+func (a arrayDouble) Len() int {
+	return len(a)
+}
+
+func (a arrayDouble) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayDouble) Set(i int, v value) {
+	a[i] = *v.(*valueDouble)
+}
+
+func (a arrayDouble) BytesLen() int {
+	return len(a) * zDouble
+}
+
+func (a arrayDouble) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayUDim []valueUDim
+
+func (arrayUDim) Type() typeID {
+	return typeUDim
+}
+
+func (a arrayUDim) Len() int {
+	return len(a)
+}
+
+func (a arrayUDim) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayUDim) Set(i int, v value) {
+	a[i] = *v.(*valueUDim)
+}
+
+func (a arrayUDim) BytesLen() int {
+	return len(a) * zUDim
+}
+
+func (a arrayUDim) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayUDim) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayUDim2 []valueUDim2
+
+func (arrayUDim2) Type() typeID {
+	return typeUDim2
+}
+
+func (a arrayUDim2) Len() int {
+	return len(a)
+}
+
+func (a arrayUDim2) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayUDim2) Set(i int, v value) {
+	a[i] = *v.(*valueUDim2)
+}
+
+func (a arrayUDim2) BytesLen() int {
+	return len(a) * zUDim2
+}
+
+func (a arrayUDim2) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayUDim2) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayRay []valueRay
+
+func (arrayRay) Type() typeID {
+	return typeRay
+}
+
+func (a arrayRay) Len() int {
+	return len(a)
+}
+
+func (a arrayRay) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayRay) Set(i int, v value) {
+	a[i] = *v.(*valueRay)
+}
+
+func (a arrayRay) BytesLen() int {
+	return len(a) * zRay
+}
+
+func (a arrayRay) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayFaces []valueFaces
+
+func (arrayFaces) Type() typeID {
+	return typeFaces
+}
+
+func (a arrayFaces) Len() int {
+	return len(a)
+}
+
+func (a arrayFaces) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayFaces) Set(i int, v value) {
+	a[i] = *v.(*valueFaces)
+}
+
+func (a arrayFaces) BytesLen() int {
+	return len(a) * zFaces
+}
+
+func (a arrayFaces) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayAxes []valueAxes
+
+func (arrayAxes) Type() typeID {
+	return typeAxes
+}
+
+func (a arrayAxes) Len() int {
+	return len(a)
+}
+
+func (a arrayAxes) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayAxes) Set(i int, v value) {
+	a[i] = *v.(*valueAxes)
+}
+
+func (a arrayAxes) BytesLen() int {
+	return len(a) * zAxes
+}
+
+func (a arrayAxes) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayBrickColor []valueBrickColor
+
+func (arrayBrickColor) Type() typeID {
+	return typeBrickColor
+}
+
+func (a arrayBrickColor) Len() int {
+	return len(a)
+}
+
+func (a arrayBrickColor) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayBrickColor) Set(i int, v value) {
+	a[i] = *v.(*valueBrickColor)
+}
+
+func (a arrayBrickColor) BytesLen() int {
+	return len(a) * zBrickColor
+}
+
+func (a arrayBrickColor) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayBrickColor) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayColor3 []valueColor3
+
+func (arrayColor3) Type() typeID {
+	return typeColor3
+}
+
+func (a arrayColor3) Len() int {
+	return len(a)
+}
+
+func (a arrayColor3) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayColor3) Set(i int, v value) {
+	a[i] = *v.(*valueColor3)
+}
+
+func (a arrayColor3) BytesLen() int {
+	return len(a) * zColor3
+}
+
+func (a arrayColor3) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayColor3) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayVector2 []valueVector2
+
+func (arrayVector2) Type() typeID {
+	return typeVector2
+}
+
+func (a arrayVector2) Len() int {
+	return len(a)
+}
+
+func (a arrayVector2) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayVector2) Set(i int, v value) {
+	a[i] = *v.(*valueVector2)
+}
+
+func (a arrayVector2) BytesLen() int {
+	return len(a) * zVector2
+}
+
+func (a arrayVector2) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayVector2) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayVector3 []valueVector3
+
+func (arrayVector3) Type() typeID {
+	return typeVector3
+}
+
+func (a arrayVector3) Len() int {
+	return len(a)
+}
+
+func (a arrayVector3) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayVector3) Set(i int, v value) {
+	a[i] = *v.(*valueVector3)
+}
+
+func (a arrayVector3) BytesLen() int {
+	return len(a) * zVector3
+}
+
+func (a arrayVector3) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayVector3) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayVector2int16 []valueVector2int16
+
+func (arrayVector2int16) Type() typeID {
+	return typeVector2int16
+}
+
+func (a arrayVector2int16) Len() int {
+	return len(a)
+}
+
+func (a arrayVector2int16) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayVector2int16) Set(i int, v value) {
+	a[i] = *v.(*valueVector2int16)
+}
+
+func (a arrayVector2int16) BytesLen() int {
+	return len(a) * zVector2int16
+}
+
+func (a arrayVector2int16) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayCFrame []valueCFrame
+
+func (arrayCFrame) Type() typeID {
+	return typeCFrame
+}
+
+func (a arrayCFrame) Len() int {
+	return len(a)
+}
+
+func (a arrayCFrame) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayCFrame) Set(i int, v value) {
+	a[i] = *v.(*valueCFrame)
+}
+
+func (a arrayCFrame) BytesLen() int {
+	var n int
+	for _, v := range a {
+		n += v.BytesLen()
+	}
+	return n
+}
+
+func (a arrayCFrame) Bytes(b []byte) []byte {
+	p := make([]byte, 0, len(a)*zVector3)
+	for _, v := range a {
+		b = append(b, v.Special)
+		if v.Special == 0 {
+			for _, f := range v.Rotation {
+				b = appendUint32(b, le, math.Float32bits(f))
+			}
+		}
+		p = v.Position.Bytes(p)
+	}
+	interleave(p, zVector3)
+	b = append(b, p...)
+	return b
+}
+
+func (a arrayCFrame) FromBytes(b []byte) (n int, err error) {
 	for i := range a {
-		v := newValue(id)
-		vf := v.(fielder)
-		for f, field := range fields {
-			n := nbytes[f]
-			fb := field[i*n : i*n+n]
-			vf.fieldSet(f, fb)
+		cond, b, _, err := checkLengthCond(&a[i], b)
+		if err != nil {
+			return n, indexError{Index: i, Cause: err}
+		}
+		n += zCFrameSp
+		a[i].Special = cond
+		if cond == 0 {
+			n += zCFrameRo
+			for j := range a[i].Rotation {
+				a[i].Rotation[j] = math.Float32frombits(readUint32(&b, le))
+			}
+		} else {
+			for j := range a[i].Rotation {
+				a[i].Rotation[j] = 0
+			}
+		}
+	}
+	if err := deinterleave(b, zVector3); err != nil {
+		return n, err
+	}
+	for i := 0; i < len(a); i++ {
+		var v valueVector3
+		nn, err := v.FromBytes(b)
+		if err != nil {
+			return n, indexError{Index: i, Cause: err}
+		}
+		n += nn
+		b = b[nn:]
+		a[i].Position = v
+	}
+	return n, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayCFrameQuat []valueCFrameQuat
+
+func (arrayCFrameQuat) Type() typeID {
+	return typeCFrameQuat
+}
+
+func (a arrayCFrameQuat) Len() int {
+	return len(a)
+}
+
+func (a arrayCFrameQuat) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayCFrameQuat) Set(i int, v value) {
+	a[i] = *v.(*valueCFrameQuat)
+}
+
+func (a arrayCFrameQuat) BytesLen() int {
+	var n int
+	for _, v := range a {
+		n += v.BytesLen()
+	}
+	return n
+}
+
+func (a arrayCFrameQuat) Bytes(b []byte) []byte {
+	p := make([]byte, 0, len(a)*zVector3)
+	for _, v := range a {
+		b = append(b, v.Special)
+		if v.Special == 0 {
+			b = v.quatBytes(b)
+		}
+		p = v.Position.Bytes(p)
+	}
+	interleave(p, zVector3)
+	b = append(b, p...)
+	return b
+}
+
+func (a arrayCFrameQuat) FromBytes(b []byte) (n int, err error) {
+	for i := range a {
+		cond, b, _, err := checkLengthCond(&a[i], b)
+		if err != nil {
+			return n, indexError{Index: i, Cause: err}
+		}
+		n += zCFrameQuatSp
+		a[i].Special = cond
+		if cond == 0 {
+			n += zCFrameQuatQ
+			b = a[i].quatFromBytes(b)
+		} else {
+			a[i].QX = 0
+			a[i].QY = 0
+			a[i].QZ = 0
+			a[i].QW = 0
+		}
+	}
+	if err := deinterleave(b, zVector3); err != nil {
+		return n, err
+	}
+	for i := 0; i < len(a); i++ {
+		var v valueVector3
+		nn, err := v.FromBytes(b)
+		if err != nil {
+			return n, indexError{Index: i, Cause: err}
+		}
+		n += nn
+		b = b[nn:]
+		a[i].Position = v
+	}
+	return n, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayToken []valueToken
+
+func (arrayToken) Type() typeID {
+	return typeToken
+}
+
+func (a arrayToken) Len() int {
+	return len(a)
+}
+
+func (a arrayToken) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayToken) Set(i int, v value) {
+	a[i] = *v.(*valueToken)
+}
+
+func (a arrayToken) BytesLen() int {
+	return len(a) * zToken
+}
+
+func (a arrayToken) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayToken) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayReference []valueReference
+
+func (arrayReference) Type() typeID {
+	return typeReference
+}
+
+func (a arrayReference) Len() int {
+	return len(a)
+}
+
+func (a arrayReference) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayReference) Set(i int, v value) {
+	a[i] = *v.(*valueReference)
+}
+
+func (a arrayReference) BytesLen() int {
+	return len(a) * zReference
+}
+
+func (a arrayReference) Bytes(b []byte) []byte {
+	// Because values are generated in sequence, they are likely to be
+	// relatively close to each other. Subtracting each value from the previous
+	// will likely produce small values that compress well.
+	if len(a) > 0 {
+		return b
+	}
+	prev := a[0]
+	b = prev.Bytes(b)
+	for i := 1; i < len(a); i++ {
+		v := a[i]
+		b = (v - prev).Bytes(b)
+		prev = v
+	}
+	return b
+}
+
+func (a arrayReference) FromBytes(b []byte) (n int, err error) {
+	for i := 0; i < len(a); i++ {
+		var v valueReference
+		nn, err := v.FromBytes(b)
+		if err != nil {
+			return n, indexError{Index: i, Cause: err}
+		}
+		n += nn
+		b = b[nn:]
+		if i > 0 {
+			v += a[i-1]
 		}
 		a[i] = v
 	}
-
-	return a, nil
+	return n, nil
 }
 
-// appendByteValues reads a byte array as an array of Values of a certain type.
-// If id.Size() is less than 0, then values are assumed to be of variable
-// length. The first 4 bytes of a value is read as length N of the value.
-// id.FieldSize() indicates the size of each field in the value, so the next
-// N*field bytes are read as the full value.
-func appendByteValues(id typeID, b []byte) (a []value, err error) {
-	if size := id.Size(); size >= 0 {
-		for i := 0; i+size <= len(b); i += size {
-			v := newValue(id)
-			if err := v.FromBytes(b[i : i+size]); err != nil {
-				return nil, err
-			}
-			a = append(a, v)
-		}
-		return a, nil
-	}
-	// Variable length; get size from first 4 bytes.
-	field := id.FieldSize()
-	ba := b
-	for len(ba) > 0 {
-		if len(ba) < zArrayLen {
-			return nil, errExpectedMoreBytes(4)
-		}
-		size := int(binary.LittleEndian.Uint32(ba))
-		if len(ba[zArrayLen:]) < size*field {
-			return nil, errExpectedMoreBytes(size * field)
-		}
+func (a arrayReference) Interleaved() {}
 
-		v := newValue(id)
-		if err := v.FromBytes(ba[:zArrayLen+size*field]); err != nil {
-			return nil, err
-		}
-		a = append(a, v)
+////////////////////////////////////////////////////////////////////////////////
 
-		ba = ba[zArrayLen+size*field:]
-	}
-	return a, nil
+type arrayVector3int16 []valueVector3int16
+
+func (arrayVector3int16) Type() typeID {
+	return typeVector3int16
 }
 
-// Deinterleave, then append from given size.
-func deinterleaveAppend(t typeID, b []byte) (a []value, err error) {
-	bc := make([]byte, len(b))
-	copy(bc, b)
-	size := t.Size()
-	if err = deinterleave(bc, size); err != nil {
-		return nil, err
-	}
-	return appendByteValues(t, bc)
+func (a arrayVector3int16) Len() int {
+	return len(a)
 }
 
-// valuesFromBytes decodes b according to t, into a slice of values of length n,
-// the type of each corresponding to t.
-func valuesFromBytes(t typeID, n int, b []byte) (a []value, err error) {
-	if !t.Valid() {
-		return nil, errInvalidType(t)
-	}
-
-	switch t {
-	case typeString:
-		return appendByteValues(t, b)
-
-	case typeBool:
-		return appendByteValues(t, b)
-
-	case typeInt:
-		return deinterleaveAppend(t, b)
-
-	case typeFloat:
-		return deinterleaveAppend(t, b)
-
-	case typeDouble:
-		return appendByteValues(t, b)
-
-	case typeUDim:
-		return deinterleaveFields(t, b)
-
-	case typeUDim2:
-		return deinterleaveFields(t, b)
-
-	case typeRay:
-		return appendByteValues(t, b)
-
-	case typeFaces:
-		return appendByteValues(t, b)
-
-	case typeAxes:
-		return appendByteValues(t, b)
-
-	case typeBrickColor:
-		return deinterleaveAppend(t, b)
-
-	case typeColor3:
-		return deinterleaveFields(t, b)
-
-	case typeVector2:
-		return deinterleaveFields(t, b)
-
-	case typeVector3:
-		return deinterleaveFields(t, b)
-
-	case typeVector2int16:
-		return nil, errors.New("not implemented")
-
-	case typeCFrame:
-		cfs := make([]*valueCFrame, 0)
-		// This loop reads the matrix data. i is the current position in the
-		// byte array. n is the expected size of the position data, which
-		// increases every time another CFrame is read. As long as the number of
-		// remaining bytes is greater than n, then the next byte can be assumed
-		// to be matrix data.
-		i := 0
-		n := 0
-		for ; len(b)-i > n; n += zVector3 {
-			cf := new(valueCFrame)
-			cf.Special = b[i]
-			i++
-			if cf.Special == 0 {
-				q := len(cf.Rotation) * zf32
-				r := b[i:]
-				if len(r) < q {
-					return nil, errExpectedMoreBytes(q)
-				}
-				for i := range cf.Rotation {
-					cf.Rotation[i] = math.Float32frombits(binary.LittleEndian.Uint32(r[i*zf32 : i*zf32+zf32]))
-				}
-				i += q
-			}
-			cfs = append(cfs, cf)
-		}
-		// Read remaining position data using the Position field, which is a
-		// valueVector3.
-		if a, err = deinterleaveFields(typeVector3, b[i:i+n]); err != nil {
-			return nil, err
-		}
-		if len(a) != len(cfs) {
-			return nil, errors.New("number of positions does not match number of matrices")
-		}
-		// Hack: use 'a' variable to receive Vector3 values, then replace them
-		// with CFrames. This lets us avoid needing to copy 'cfs' to 'a', and
-		// needing to create a second array.
-		for i, p := range a {
-			cfs[i].Position = *p.(*valueVector3)
-			a[i] = cfs[i]
-		}
-		return a, nil
-
-	case typeCFrameQuat:
-		cfs := make([]*valueCFrame, 0)
-		i := 0
-		n := 0
-		for ; len(b)-i > n; n += zVector3 {
-			cf := new(valueCFrameQuat)
-			cf.Special = b[i]
-			i++
-			if cf.Special == 0 {
-				r := b[i:]
-				if len(r) < zCFrameQuatQ {
-					return nil, errExpectedMoreBytes(zCFrameQuatQ)
-				}
-				cf.quatFromBytes(r)
-				i += zCFrameQuatQ
-			}
-			c := cf.ToCFrame()
-			cfs = append(cfs, &c)
-		}
-		if a, err = deinterleaveFields(typeVector3, b[i:i+n]); err != nil {
-			return nil, err
-		}
-		if len(a) != len(cfs) {
-			return nil, errors.New("number of positions does not match number of matrices")
-		}
-		for i, p := range a {
-			cfs[i].Position = *p.(*valueVector3)
-			a[i] = cfs[i]
-		}
-		return a, nil
-
-	case typeToken:
-		return deinterleaveAppend(t, b)
-
-	case typeReference:
-		if len(b) == 0 {
-			return a, nil
-		}
-		if len(b)%zReference != 0 {
-			return nil, fmt.Errorf("array must be divisible by %d", zReference)
-		}
-		bc := make([]byte, len(b))
-		copy(bc, b)
-		if err = deinterleave(bc, zReference); err != nil {
-			return nil, err
-		}
-		a = make([]value, len(bc)/zReference)
-		for i := 0; i < len(bc)/zReference; i++ {
-			ref := new(valueReference)
-			ref.FromBytes(bc[i*zReference : i*zReference+zReference])
-			if i > 0 {
-				// Convert relative ref to absolute ref.
-				r := *a[i-1].(*valueReference)
-				*ref = r + *ref
-			}
-			a[i] = ref
-		}
-		return a, nil
-
-	case typeVector3int16:
-		return appendByteValues(t, b)
-
-	case typeNumberSequence:
-		return appendByteValues(t, b)
-
-	case typeColorSequence:
-		return appendByteValues(t, b)
-
-	case typeNumberRange:
-		return appendByteValues(t, b)
-
-	case typeRect:
-		return deinterleaveFields(t, b)
-
-	case typePhysicalProperties:
-		for i := 0; i < len(b); {
-			pp := new(valuePhysicalProperties)
-			pp.CustomPhysics = b[i]
-			i++
-			if pp.CustomPhysics != 0 {
-				if len(b[i:]) < zPhysicalPropertiesFields {
-					return nil, errExpectedMoreBytes(zPhysicalPropertiesFields)
-				}
-				pp.ppFromBytes(b[i:])
-				i += zPhysicalPropertiesFields
-			}
-			a = append(a, pp)
-		}
-		return a, nil
-
-	case typeColor3uint8:
-		return deinterleaveFields(t, b)
-
-	case typeInt64:
-		return deinterleaveAppend(t, b)
-
-	case typeSharedString:
-		return deinterleaveAppend(t, b)
-
-	default:
-		return a, nil
-	}
+func (a arrayVector3int16) Get(i int) value {
+	v := a[i]
+	return &v
 }
+
+func (a arrayVector3int16) Set(i int, v value) {
+	a[i] = *v.(*valueVector3int16)
+}
+
+func (a arrayVector3int16) BytesLen() int {
+	return len(a) * zVector3int16
+}
+
+func (a arrayVector3int16) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayNumberSequence []valueNumberSequence
+
+func (arrayNumberSequence) Type() typeID {
+	return typeNumberSequence
+}
+
+func (a arrayNumberSequence) Len() int {
+	return len(a)
+}
+
+func (a arrayNumberSequence) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayNumberSequence) Set(i int, v value) {
+	a[i] = *v.(*valueNumberSequence)
+}
+
+func (a arrayNumberSequence) BytesLen() int {
+	var n int
+	for _, v := range a {
+		n += v.BytesLen()
+	}
+	return n
+}
+
+func (a arrayNumberSequence) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayColorSequence []valueColorSequence
+
+func (arrayColorSequence) Type() typeID {
+	return typeColorSequence
+}
+
+func (a arrayColorSequence) Len() int {
+	return len(a)
+}
+
+func (a arrayColorSequence) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayColorSequence) Set(i int, v value) {
+	a[i] = *v.(*valueColorSequence)
+}
+
+func (a arrayColorSequence) BytesLen() int {
+	var n int
+	for _, v := range a {
+		n += v.BytesLen()
+	}
+	return n
+}
+
+func (a arrayColorSequence) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayNumberRange []valueNumberRange
+
+func (arrayNumberRange) Type() typeID {
+	return typeNumberRange
+}
+
+func (a arrayNumberRange) Len() int {
+	return len(a)
+}
+
+func (a arrayNumberRange) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayNumberRange) Set(i int, v value) {
+	a[i] = *v.(*valueNumberRange)
+}
+
+func (a arrayNumberRange) BytesLen() int {
+	return len(a) * zNumberRange
+}
+
+func (a arrayNumberRange) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayRect []valueRect
+
+func (arrayRect) Type() typeID {
+	return typeRect
+}
+
+func (a arrayRect) Len() int {
+	return len(a)
+}
+
+func (a arrayRect) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayRect) Set(i int, v value) {
+	a[i] = *v.(*valueRect)
+}
+
+func (a arrayRect) BytesLen() int {
+	return len(a) * zRect
+}
+
+func (a arrayRect) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayRect) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayPhysicalProperties []valuePhysicalProperties
+
+func (arrayPhysicalProperties) Type() typeID {
+	return typePhysicalProperties
+}
+
+func (a arrayPhysicalProperties) Len() int {
+	return len(a)
+}
+
+func (a arrayPhysicalProperties) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayPhysicalProperties) Set(i int, v value) {
+	a[i] = *v.(*valuePhysicalProperties)
+}
+
+func (a arrayPhysicalProperties) BytesLen() int {
+	var n int
+	for _, v := range a {
+		n += v.BytesLen()
+	}
+	return n
+}
+
+func (a arrayPhysicalProperties) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayColor3uint8 []valueColor3uint8
+
+func (arrayColor3uint8) Type() typeID {
+	return typeColor3uint8
+}
+
+func (a arrayColor3uint8) Len() int {
+	return len(a)
+}
+
+func (a arrayColor3uint8) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayColor3uint8) Set(i int, v value) {
+	a[i] = *v.(*valueColor3uint8)
+}
+
+func (a arrayColor3uint8) BytesLen() int {
+	return len(a) * zColor3uint8
+}
+
+func (a arrayColor3uint8) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayColor3uint8) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayInt64 []valueInt64
+
+func (arrayInt64) Type() typeID {
+	return typeInt64
+}
+
+func (a arrayInt64) Len() int {
+	return len(a)
+}
+
+func (a arrayInt64) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayInt64) Set(i int, v value) {
+	a[i] = *v.(*valueInt64)
+}
+
+func (a arrayInt64) BytesLen() int {
+	return len(a) * zInt64
+}
+
+func (a arrayInt64) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayInt64) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arraySharedString []valueSharedString
+
+func (arraySharedString) Type() typeID {
+	return typeSharedString
+}
+
+func (a arraySharedString) Len() int {
+	return len(a)
+}
+
+func (a arraySharedString) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arraySharedString) Set(i int, v value) {
+	a[i] = *v.(*valueSharedString)
+}
+
+func (a arraySharedString) BytesLen() int {
+	return len(a) * zSharedString
+}
+
+func (a arraySharedString) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arraySharedString) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////

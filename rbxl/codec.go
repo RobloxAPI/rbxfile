@@ -97,28 +97,36 @@ loop:
 				continue
 			}
 
-			if len(chunk.Properties) != len(instChunk.InstanceIDs) {
-				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("length of properties array (%d) does not equal length of class array (%d)", len(chunk.Properties), len(instChunk.InstanceIDs)))
+			length := chunk.Properties.Len()
+			if length != len(instChunk.InstanceIDs) {
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("length of properties array (%d) does not equal length of class array (%d)", length, len(instChunk.InstanceIDs)))
 			}
 
-			for i, bvalue := range chunk.Properties {
-				inst := instLookup[instChunk.InstanceIDs[i]]
-				var value rbxfile.Value
-				switch bvalue := bvalue.(type) {
-				case *valueReference:
-					value = rbxfile.ValueReference{Instance: instLookup[int32(*bvalue)]}
-				case *valueSharedString:
-					i := int(*bvalue)
-					if i < 0 || i >= len(sharedStrings) {
-						// TODO: How are invalid indexes handled?
-						value = rbxfile.ValueSharedString("")
-						break
-					}
-					value = rbxfile.ValueSharedString(sharedStrings[i].Value)
-				default:
-					value = decodeValue(bvalue)
+			switch props := chunk.Properties.(type) {
+			case arrayReference:
+				for i, bvalue := range props {
+					inst := instLookup[instChunk.InstanceIDs[i]]
+					value := rbxfile.ValueReference{Instance: instLookup[int32(bvalue)]}
+					inst.Properties[chunk.PropertyName] = value
 				}
-				inst.Properties[chunk.PropertyName] = value
+			case arraySharedString:
+				for i, bvalue := range props {
+					inst := instLookup[instChunk.InstanceIDs[i]]
+					i := int(bvalue)
+					var value rbxfile.ValueSharedString
+					// TODO: How are invalid indexes handled?
+					if i >= 0 && i < len(sharedStrings) {
+						value = rbxfile.ValueSharedString(sharedStrings[i].Value)
+					}
+					inst.Properties[chunk.PropertyName] = value
+				}
+			default:
+				for i := 0; i < length; i++ {
+					bvalue := props.Get(i)
+					inst := instLookup[instChunk.InstanceIDs[i]]
+					value := decodeValue(bvalue)
+					inst.Properties[chunk.PropertyName] = value
+				}
 			}
 
 		case *chunkParent:
@@ -484,7 +492,6 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					compressed:   true,
 					ClassID:      instChunk.ClassID,
 					PropertyName: name,
-					Properties:   make([]value, len(instChunk.InstanceIDs)),
 				}
 			}
 		}
@@ -521,6 +528,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 			// Because propChunkMap was populated from InstanceIDs, dataType
 			// should always be a valid value by this point.
 			propChunk.DataType = dataType
+			propChunk.Properties = newArray(dataType, len(instChunk.InstanceIDs))
 		}
 
 		// Set the values for each property chunk.
@@ -567,7 +575,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					bvalue = newValue(propChunk.DataType)
 				}
 
-				propChunk.Properties[i] = bvalue
+				propChunk.Properties.Set(i, bvalue)
 			}
 		}
 

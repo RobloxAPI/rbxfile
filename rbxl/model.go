@@ -388,13 +388,13 @@ func (c *chunkInstance) Decode(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := valuesFromBytes(typeReference, int(groupLength), raw)
+		values, _, err := arrayFromBytes(raw, typeReference, int(groupLength))
 		if fr.Add(0, err) {
 			return fr.End()
 		}
 
-		for i, v := range values {
-			c.InstanceIDs[i] = int32(*v.(*valueReference))
+		for i, v := range values.(arrayReference) {
+			c.InstanceIDs[i] = int32(v)
 		}
 	}
 
@@ -432,16 +432,14 @@ func (c *chunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	if len(c.InstanceIDs) > 0 {
-		values := make([]value, len(c.InstanceIDs))
+		values := make(arrayReference, len(c.InstanceIDs))
 		for i, id := range c.InstanceIDs {
 			n := id
-			values[i] = (*valueReference)(&n)
+			values[i] = valueReference(n)
 		}
 
-		raw, err := valuesToBytes(typeReference, values)
-		if fw.Add(0, err) {
-			return fw.End()
-		}
+		raw := make([]byte, 0, values.BytesLen())
+		raw = values.Bytes(raw)
 
 		if fw.Bytes(raw) {
 			return fw.End()
@@ -541,13 +539,13 @@ func (c *chunkParent) Decode(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := valuesFromBytes(typeReference, int(instanceCount), raw)
+		values, _, err := arrayFromBytes(raw, typeReference, int(instanceCount))
 		if fr.Add(0, err) {
 			return fr.End()
 		}
 
-		for i, v := range values {
-			c.Children[i] = int32(*v.(*valueReference))
+		for i, v := range values.(arrayReference) {
+			c.Children[i] = int32(v)
 		}
 	}
 
@@ -558,13 +556,13 @@ func (c *chunkParent) Decode(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, err := valuesFromBytes(typeReference, int(instanceCount), raw)
+		values, _, err := arrayFromBytes(raw, typeReference, int(instanceCount))
 		if fr.Add(0, err) {
 			return fr.End()
 		}
 
-		for i, v := range values {
-			c.Parents[i] = int32(*v.(*valueReference))
+		for i, v := range values.(arrayReference) {
+			c.Parents[i] = int32(v)
 		}
 	}
 
@@ -585,17 +583,14 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 
 	if instanceCount > 0 {
 		// Children
-		values := make([]value, instanceCount)
+		values := make(arrayReference, instanceCount)
 		for i, id := range c.Children {
 			n := id
-			values[i] = (*valueReference)(&n)
+			values[i] = valueReference(n)
 		}
 
-		raw, err := valuesToBytes(typeReference, values)
-		if fw.Add(0, err) {
-			return fw.End()
-		}
-
+		raw := make([]byte, 0, values.BytesLen())
+		raw = values.Bytes(raw)
 		if fw.Bytes(raw) {
 			return fw.End()
 		}
@@ -608,14 +603,11 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 
 		for i, id := range c.Parents {
 			n := id
-			values[i] = (*valueReference)(&n)
+			values[i] = valueReference(n)
 		}
 
-		raw, err = valuesToBytes(typeReference, values)
-		if fw.Add(0, err) {
-			return fw.End()
-		}
-
+		raw = raw[:0]
+		raw = values.Bytes(raw)
 		if fw.Bytes(raw) {
 			return fw.End()
 		}
@@ -646,7 +638,7 @@ type chunkProperty struct {
 	// Properties is a list of Values of the given DataType. Each value in the
 	// array corresponds to the property of an instance in the specified
 	// group.
-	Properties []value
+	Properties array
 }
 
 func (chunkProperty) Signature() sig {
@@ -683,7 +675,7 @@ func (c *chunkProperty) Decode(r io.Reader, groupLookup map[int32]*chunkInstance
 		return fr.End()
 	}
 
-	if c.Properties, err = valuesFromBytes(c.DataType, len(inst.InstanceIDs), rawBytes); err != nil {
+	if c.Properties, _, err = arrayFromBytes(rawBytes, c.DataType, len(inst.InstanceIDs)); err != nil {
 		fr.Add(0, ValueError{Type: byte(c.DataType), Cause: err})
 		return fr.End()
 	}
@@ -711,11 +703,8 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.End()
 	}
 
-	rawBytes, err := valuesToBytes(c.DataType, c.Properties)
-	if fw.Add(0, err) {
-		return fw.End()
-	}
-
+	rawBytes := make([]byte, 0, c.Properties.BytesLen())
+	rawBytes = c.Properties.Bytes(rawBytes)
 	fw.Bytes(rawBytes)
 
 	return fw.End()
