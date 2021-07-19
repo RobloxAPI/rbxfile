@@ -54,7 +54,7 @@ func interleave(bytes []byte, length int) error {
 		return errors.New("length must be greater than 0")
 	}
 	if len(bytes)%length != 0 {
-		return errors.New("length must be a divisor of array length")
+		return fmt.Errorf("length (%d) must be a divisor of array length (%d)", length, len(bytes))
 	}
 
 	// Matrix transpose algorithm
@@ -101,7 +101,7 @@ func deinterleave(bytes []byte, size int) error {
 		return errors.New("size must be greater than 0")
 	}
 	if len(bytes)%size != 0 {
-		return errors.New("size must be a divisor of array length")
+		return fmt.Errorf("size (%d) must be a divisor of array length (%d)", size, len(bytes))
 	}
 
 	return interleave(bytes, len(bytes)/size)
