@@ -557,12 +557,13 @@ func checkLengthArray(v value, b []byte) (r []byte, n int, err error) {
 // At least 1 byte is required, which is decoded as the condition.
 func checkLengthCond(v value, b []byte) (cond byte, r []byte, n int, err error) {
 	if len(b) < zCondLen {
-		return 0, b, zCondLen, buflenError{exp: zCondLen, got: len(b)}
+		return cond, b, 0, buflenError{exp: zCondLen, got: len(b)}
 	}
-	if n = v.Type().CondSize(b[0]); len(b) < n {
-		return b[0], b, n, buflenError{exp: uint64(n), got: len(b)}
+	cond = b[0]
+	if n = v.Type().CondSize(cond); len(b) < n {
+		return cond, b[zCondLen:], zCondLen, buflenError{exp: uint64(n), got: len(b)}
 	}
-	return b[0], b[zCondLen:], n, nil
+	return cond, b[zCondLen:], n, nil
 }
 
 var le = binary.LittleEndian
