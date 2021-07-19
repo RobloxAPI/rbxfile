@@ -111,6 +111,17 @@ func toBytes(a array) (b []byte, err error) {
 	b = make([]byte, 0, zb+a.BytesLen())
 	b[0] = byte(a.Type())
 	a.Bytes(b[1:])
+
+	if _, ok := a.(interleaver); ok {
+		size := a.Type().Size()
+		if size <= 0 {
+			panic("interleaving non-constant type size")
+		}
+		if err := interleave(b[1:], size); err != nil {
+			return nil, err
+		}
+	}
+
 	return b, nil
 }
 
