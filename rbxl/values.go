@@ -511,13 +511,12 @@ func decodeRobloxFloat(n uint32) float32 {
 }
 
 type buflenError struct {
-	typ typeID
 	exp uint64
 	got int
 }
 
 func (err buflenError) Error() string {
-	return fmt.Sprintf("%s: expected %d bytes, got %d", err.typ, err.exp, err.got)
+	return fmt.Sprintf("expected %d bytes, got %d", err.exp, err.got)
 }
 
 // checkLengthConst does a basic check of the buffer's length against a value
@@ -528,7 +527,7 @@ func checkLengthConst(v interface {
 	BytesLen() int
 }, b []byte) (n int, err error) {
 	if n = v.BytesLen(); len(b) < n {
-		return n, buflenError{typ: v.Type(), exp: uint64(n), got: len(b)}
+		return n, buflenError{exp: uint64(n), got: len(b)}
 	}
 	return n, nil
 }
@@ -543,11 +542,11 @@ func checkLengthConst(v interface {
 // length.
 func checkLengthArray(v value, b []byte) (r []byte, n int, err error) {
 	if len(b) < zArrayLen {
-		return b, 0, buflenError{typ: v.Type(), exp: zArrayLen, got: len(b)}
+		return b, 0, buflenError{exp: zArrayLen, got: len(b)}
 	}
 	length := binary.LittleEndian.Uint32(b[:zArrayLen])
 	if n := zArrayLen + uint64(v.Type().FieldSize())*uint64(length); uint64(len(b)) < n {
-		return b, 0, buflenError{typ: v.Type(), exp: n, got: len(b)}
+		return b, 0, buflenError{exp: n, got: len(b)}
 	}
 	return b[zArrayLen:], int(length), nil
 }
@@ -558,10 +557,10 @@ func checkLengthArray(v value, b []byte) (r []byte, n int, err error) {
 // At least 1 byte is required, which is decoded as the condition.
 func checkLengthCond(v value, b []byte) (cond byte, r []byte, n int, err error) {
 	if len(b) < zCondLen {
-		return 0, b, zCondLen, buflenError{typ: v.Type(), exp: zCondLen, got: len(b)}
+		return 0, b, zCondLen, buflenError{exp: zCondLen, got: len(b)}
 	}
 	if n = v.Type().CondSize(b[0]); len(b) < n {
-		return b[0], b, n, buflenError{typ: v.Type(), exp: uint64(n), got: len(b)}
+		return b[0], b, n, buflenError{exp: uint64(n), got: len(b)}
 	}
 	return b[0], b[zCondLen:], n, nil
 }
