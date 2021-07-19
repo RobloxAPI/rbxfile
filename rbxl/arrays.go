@@ -854,7 +854,7 @@ func (a arrayCFrame) FromBytes(b []byte) (n int, err error) {
 	if err := deinterleave(b, zVector3); err != nil {
 		return n, err
 	}
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		var v valueVector3
 		nn, err := v.FromBytes(b)
 		if err != nil {
@@ -933,7 +933,7 @@ func (a arrayCFrameQuat) FromBytes(b []byte) (n int, err error) {
 	if err := deinterleave(b, zVector3); err != nil {
 		return n, err
 	}
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		var v valueVector3
 		nn, err := v.FromBytes(b)
 		if err != nil {
