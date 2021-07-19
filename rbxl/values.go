@@ -676,7 +676,7 @@ func (v *valueString) FromBytes(b []byte) (n int, err error) {
 	}
 	*v = make(valueString, n)
 	copy(*v, b)
-	return n, nil
+	return v.BytesLen(), nil
 }
 
 func (v valueString) Dump(w *bufio.Writer, indent int) {
