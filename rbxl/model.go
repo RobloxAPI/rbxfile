@@ -388,12 +388,12 @@ func (c *chunkInstance) Decode(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, _, err := arrayFromBytes(raw, typeReference, int(groupLength))
+		values, err := refArrayFromBytes(raw, int(groupLength))
 		if fr.Add(0, err) {
 			return fr.End()
 		}
 
-		for i, v := range values.(arrayReference) {
+		for i, v := range values {
 			c.InstanceIDs[i] = int32(v)
 		}
 	}
@@ -539,12 +539,12 @@ func (c *chunkParent) Decode(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, _, err := arrayFromBytes(raw, typeReference, int(instanceCount))
+		values, err := refArrayFromBytes(raw, int(instanceCount))
 		if fr.Add(0, err) {
 			return fr.End()
 		}
 
-		for i, v := range values.(arrayReference) {
+		for i, v := range values {
 			c.Children[i] = int32(v)
 		}
 	}
@@ -556,12 +556,12 @@ func (c *chunkParent) Decode(r io.Reader) (n int64, err error) {
 			return fr.End()
 		}
 
-		values, _, err := arrayFromBytes(raw, typeReference, int(instanceCount))
+		values, err := refArrayFromBytes(raw, int(instanceCount))
 		if fr.Add(0, err) {
 			return fr.End()
 		}
 
-		for i, v := range values.(arrayReference) {
+		for i, v := range values {
 			c.Parents[i] = int32(v)
 		}
 	}
@@ -632,9 +632,6 @@ type chunkProperty struct {
 	// corresponding instance group.
 	PropertyName string
 
-	// DataType is a number indicating the type of the property.
-	DataType typeID
-
 	// Properties is a list of Values of the given DataType. Each value in the
 	// array corresponds to the property of an instance in the specified
 	// group.
@@ -661,22 +658,17 @@ func (c *chunkProperty) Decode(r io.Reader, groupLookup map[int32]*chunkInstance
 		return fr.End()
 	}
 
-	if fr.Number((*uint8)(&c.DataType)) {
-		return fr.End()
-	}
-
-	if !c.DataType.Valid() {
-		fr.Add(0, errUnknownType(c.DataType))
-		return fr.End()
-	}
-
 	rawBytes, failed := fr.All()
 	if failed {
 		return fr.End()
 	}
 
-	if c.Properties, _, err = arrayFromBytes(rawBytes, c.DataType, len(inst.InstanceIDs)); err != nil {
-		fr.Add(0, ValueError{Type: byte(c.DataType), Cause: err})
+	if c.Properties, _, err = typeArrayFromBytes(rawBytes, len(inst.InstanceIDs)); err != nil {
+		if c.Properties != nil {
+			fr.Add(0, ValueError{Type: byte(c.Properties.Type()), Cause: err})
+		} else {
+			fr.Add(0, err)
+		}
 		return fr.End()
 	}
 
@@ -694,17 +686,16 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.End()
 	}
 
-	if fw.Number(uint8(c.DataType)) {
+	if c.Properties == nil {
+		fw.Add(0, errUnknownType(0))
 		return fw.End()
 	}
 
-	if !c.DataType.Valid() {
-		fw.Add(0, errUnknownType(c.DataType))
+	rawBytes, err := toBytes(c.Properties)
+	if err != nil {
+		fw.Add(0, err)
 		return fw.End()
 	}
-
-	rawBytes := make([]byte, 0, c.Properties.BytesLen())
-	rawBytes = c.Properties.Bytes(rawBytes)
 	fw.Bytes(rawBytes)
 
 	return fw.End()

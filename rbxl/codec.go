@@ -496,6 +496,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 			}
 		}
 
+		var t typeID
 		// Check to see if all existing properties types match.
 	checkPropType:
 		for name, propChunk := range propChunkMap {
@@ -527,7 +528,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 			}
 			// Because propChunkMap was populated from InstanceIDs, dataType
 			// should always be a valid value by this point.
-			propChunk.DataType = dataType
+			t = dataType
 			propChunk.Properties = newArray(dataType, len(instChunk.InstanceIDs))
 		}
 
@@ -570,9 +571,9 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					}
 				}
 
-				if bvalue == nil || bvalue.Type() != propChunk.DataType {
+				if bvalue == nil || bvalue.Type() != t {
 					// Use default value for DataType.
-					bvalue = newValue(propChunk.DataType)
+					bvalue = newValue(t)
 				}
 
 				propChunk.Properties.Set(i, bvalue)

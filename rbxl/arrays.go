@@ -107,44 +107,72 @@ func deinterleave(bytes []byte, size int) error {
 	return interleave(bytes, len(bytes)/size)
 }
 
+func toBytes(a array) (b []byte, err error) {
+	b = make([]byte, 0, zb+a.BytesLen())
+	b[0] = byte(a.Type())
+	a.Bytes(b[1:])
+	return b, nil
+}
+
 // arrayFromBytes decodes an array of length elements from b into a. Returns an
 // error if the array could not be decoded. n is the number of bytes
 // successfully read from b.
-func arrayFromBytes(b []byte, t typeID, length int) (a array, n int, err error) {
-	if !t.Valid() {
-		return nil, 0, errInvalidType(t)
-	}
-
-	a = newArray(t, length)
-
+func arrayFromBytes(b []byte, a array) (n int, err error) {
 	if _, ok := a.(interleaver); ok {
-		size := t.Size()
+		size := a.Type().Size()
 		if size <= 0 {
 			panic("deinterleaving non-constant type size")
 		}
 		if err := deinterleave(b, size); err != nil {
-			return nil, 0, err
+			return 0, err
 		}
 	}
 
 	if a, ok := a.(fromByter); ok {
 		if n, err = a.FromBytes(b); err != nil {
-			return nil, n, err
+			return n, err
 		}
-		return a, n, nil
+		return n, nil
 	}
 
-	for i := 0; i < length; i++ {
+	for i := 0; i < a.Len(); i++ {
 		v := newValue(a.Type())
 		nn, err := v.FromBytes(b)
 		if err != nil {
-			return nil, n, indexError{Index: i, Cause: err}
+			return n, indexError{Index: i, Cause: err}
 		}
 		n += nn
 		b = b[nn:]
 		a.Set(i, v)
 	}
+	return n, nil
+}
+
+func typeArrayFromBytes(b []byte, length int) (a array, n int, err error) {
+	if len(b) < zb {
+		return nil, 0, buflenError{exp: zb, got: len(b)}
+	}
+	t := typeID(b[0])
+	n += zb
+	if !t.Valid() {
+		return a, n, errUnknownType(t)
+	}
+	b = b[n:]
+
+	a = newArray(t, length)
+
+	nn, err := arrayFromBytes(b, a)
+	if err != nil {
+		return a, n, err
+	}
+	n += nn
 	return a, n, nil
+}
+
+func refArrayFromBytes(b []byte, length int) (a arrayReference, err error) {
+	a = make(arrayReference, length)
+	_, err = arrayFromBytes(b, a)
+	return a, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
