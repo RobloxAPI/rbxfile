@@ -1009,7 +1009,7 @@ func (a arrayReference) Bytes(b []byte) []byte {
 	// Because values are generated in sequence, they are likely to be
 	// relatively close to each other. Subtracting each value from the previous
 	// will likely produce small values that compress well.
-	if len(a) > 0 {
+	if len(a) == 0 {
 		return b
 	}
 	prev := a[0]
