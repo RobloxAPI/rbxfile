@@ -109,8 +109,8 @@ func deinterleave(bytes []byte, size int) error {
 
 func toBytes(a array) (b []byte, err error) {
 	b = make([]byte, 0, zb+a.BytesLen())
-	b[0] = byte(a.Type())
-	a.Bytes(b[1:])
+	b = append(b, byte(a.Type()))
+	b = a.Bytes(b)
 
 	if _, ok := a.(interleaver); ok {
 		size := a.Type().Size()
