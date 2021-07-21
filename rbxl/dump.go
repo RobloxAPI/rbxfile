@@ -106,7 +106,11 @@ func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]st
 			fmt.Fprintf(w, "InstanceIDs: (count:%d) (service) {", len(chunk.InstanceIDs))
 			for i, id := range chunk.InstanceIDs {
 				dumpNewline(w, indent+2)
-				fmt.Fprintf(w, "%d: %d (%d)", i, id, chunk.GetService[i])
+				if i >= len(chunk.GetService) {
+					fmt.Fprintf(w, "%d: %d (invalid)", i, id)
+				} else {
+					fmt.Fprintf(w, "%d: %d (%d)", i, id, chunk.GetService[i])
+				}
 			}
 			dumpNewline(w, indent+1)
 			w.WriteByte('}')
@@ -150,9 +154,25 @@ func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]st
 		fmt.Fprintf(w, "Version: %d", chunk.Version)
 		dumpNewline(w, indent+1)
 		w.WriteString("Values (child : parent)")
-		for i, child := range chunk.Children {
+		c := len(chunk.Children)
+		p := len(chunk.Parents)
+		n := c
+		if p > c {
+			n = p
+		}
+		for i := 0; i < n; i++ {
 			dumpNewline(w, indent+2)
-			fmt.Fprintf(w, "%d : %d", child, chunk.Parents[i])
+			if i >= c {
+				w.WriteString("invalid")
+			} else {
+				fmt.Fprintf(w, "%d", chunk.Children[i])
+			}
+			w.WriteString(" : ")
+			if i >= p {
+				w.WriteString("invalid")
+			} else {
+				fmt.Fprintf(w, "%d", chunk.Parents[i])
+			}
 		}
 	case *chunkEnd:
 		dumpNewline(w, indent+1)
