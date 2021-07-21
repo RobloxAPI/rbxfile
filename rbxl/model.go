@@ -432,16 +432,7 @@ func (c *chunkInstance) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	if len(c.InstanceIDs) > 0 {
-		values := make(arrayReference, len(c.InstanceIDs))
-		for i, id := range c.InstanceIDs {
-			n := id
-			values[i] = valueReference(n)
-		}
-
-		raw := make([]byte, 0, values.BytesLen())
-		raw = values.Bytes(raw)
-
-		if fw.Bytes(raw) {
+		if fw.Bytes(refArrayToBytes(c.InstanceIDs)) {
 			return fw.End()
 		}
 	}
@@ -577,38 +568,18 @@ func (c *chunkParent) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	var instanceCount = len(c.Children)
+	if len(c.Parents) != instanceCount {
+		fw.Add(0, errParentArray{Children: instanceCount, Parent: len(c.Parents)})
+		return fw.End()
+	}
 	if fw.Number(uint32(instanceCount)) {
 		return fw.End()
 	}
-
 	if instanceCount > 0 {
-		// Children
-		values := make(arrayReference, instanceCount)
-		for i, id := range c.Children {
-			n := id
-			values[i] = valueReference(n)
-		}
-
-		raw := make([]byte, 0, values.BytesLen())
-		raw = values.Bytes(raw)
-		if fw.Bytes(raw) {
+		if fw.Bytes(refArrayToBytes(c.Children)) {
 			return fw.End()
 		}
-
-		// Parents
-		if len(c.Parents) != instanceCount {
-			fw.Add(0, errParentArray{Children: instanceCount, Parent: len(c.Parents)})
-			return fw.End()
-		}
-
-		for i, id := range c.Parents {
-			n := id
-			values[i] = valueReference(n)
-		}
-
-		raw = raw[:0]
-		raw = values.Bytes(raw)
-		if fw.Bytes(raw) {
+		if fw.Bytes(refArrayToBytes(c.Parents)) {
 			return fw.End()
 		}
 	}
@@ -691,7 +662,7 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.End()
 	}
 
-	rawBytes, err := toBytes(c.Properties)
+	rawBytes, err := typeArrayToBytes(c.Properties)
 	if err != nil {
 		fw.Add(0, err)
 		return fw.End()

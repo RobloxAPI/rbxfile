@@ -107,22 +107,37 @@ func deinterleave(bytes []byte, size int) error {
 	return interleave(bytes, len(bytes)/size)
 }
 
-func toBytes(a array) (b []byte, err error) {
-	b = make([]byte, 0, zb+a.BytesLen())
-	b = append(b, byte(a.Type()))
-	b = a.Bytes(b)
+func arrayToBytes(b []byte, a array) (r []byte, err error) {
+	r = a.Bytes(b)
 
 	if _, ok := a.(interleaver); ok {
 		size := a.Type().Size()
 		if size <= 0 {
 			panic("interleaving non-constant type size")
 		}
-		if err := interleave(b[1:], size); err != nil {
+		// Only interleave the extended part.
+		if err := interleave(r[len(b):], size); err != nil {
 			return nil, err
 		}
 	}
 
-	return b, nil
+	return r, nil
+}
+
+func typeArrayToBytes(a array) (b []byte, err error) {
+	b = make([]byte, 0, zb+a.BytesLen())
+	b = append(b, byte(a.Type()))
+	return arrayToBytes(b, a)
+}
+
+func refArrayToBytes(refs []int32) (b []byte) {
+	a := make(arrayReference, len(refs))
+	for i, r := range refs {
+		a[i] = valueReference(r)
+	}
+	b = make([]byte, 0, a.BytesLen())
+	b, _ = arrayToBytes(b, a)
+	return b
 }
 
 // arrayFromBytes decodes an array of length elements from b into a. Returns an
