@@ -80,10 +80,9 @@ loop:
 				instLookup[ref] = inst
 			}
 
-			if _, ok := model.groupLookup[chunk.ClassID]; ok {
-				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("duplicate class index: %d", chunk.ClassID))
+			if c, ok := model.groupLookup[chunk.ClassID]; !ok || c != chunk {
+				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("invalid class index: %d", chunk.ClassID))
 			}
-			model.groupLookup[chunk.ClassID] = chunk
 
 		case *chunkProperty:
 			if chunk.ClassID < 0 || uint32(chunk.ClassID) >= model.ClassCount {
