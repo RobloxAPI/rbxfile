@@ -224,10 +224,6 @@ type array interface {
 
 	// Bytes encodes the array, appending to b. Returns the extended buffer.
 	Bytes(b []byte) []byte
-
-	// Dump writes to w a readable representation of the array, starting at
-	// indent levels of indentation.
-	Dump(w *bufio.Writer, indent int)
 }
 
 // interleaver indicates that the encoded bytes of the array are interleaved.
@@ -241,6 +237,15 @@ type interleaver interface {
 type fromByter interface {
 	array
 	FromBytes(b []byte) (n int, err error)
+}
+
+// arrayDumper extends an array by providing a custom dump function.
+type arrayDumper interface {
+	array
+
+	// Dump writes to w a readable representation of the array, starting at
+	// indent levels of indentation.
+	Dump(w *bufio.Writer, indent int)
 }
 
 func newArray(t typeID, n int) array {
@@ -305,19 +310,6 @@ func newArray(t typeID, n int) array {
 	return nil
 }
 
-func arrayDump(a array, w *bufio.Writer, indent int) {
-	length := a.Len()
-	w.WriteByte('{')
-	for i := 0; i < length; i++ {
-		v := a.Get(i)
-		dumpNewline(w, indent+1)
-		fmt.Fprintf(w, "%d: ", i)
-		v.Dump(w, indent+1)
-	}
-	dumpNewline(w, indent)
-	w.WriteByte('}')
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayString []valueString
@@ -354,10 +346,6 @@ func (a arrayString) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayString) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayBool []valueBool
@@ -390,10 +378,6 @@ func (a arrayBool) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayBool) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayInt []valueInt
@@ -424,10 +408,6 @@ func (a arrayInt) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayInt) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayInt) Interleaved() {}
@@ -464,10 +444,6 @@ func (a arrayFloat) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayFloat) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 func (a arrayFloat) Interleaved() {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -502,10 +478,6 @@ func (a arrayDouble) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayDouble) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayUDim []valueUDim
@@ -536,10 +508,6 @@ func (a arrayUDim) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayUDim) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayUDim) Interleaved() {}
@@ -576,10 +544,6 @@ func (a arrayUDim2) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayUDim2) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 func (a arrayUDim2) Interleaved() {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -614,10 +578,6 @@ func (a arrayRay) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayRay) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayFaces []valueFaces
@@ -648,10 +608,6 @@ func (a arrayFaces) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayFaces) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -686,10 +642,6 @@ func (a arrayAxes) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayAxes) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayBrickColor []valueBrickColor
@@ -720,10 +672,6 @@ func (a arrayBrickColor) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayBrickColor) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayBrickColor) Interleaved() {}
@@ -760,10 +708,6 @@ func (a arrayColor3) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayColor3) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 func (a arrayColor3) Interleaved() {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -796,10 +740,6 @@ func (a arrayVector2) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayVector2) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayVector2) Interleaved() {}
@@ -836,10 +776,6 @@ func (a arrayVector3) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayVector3) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 func (a arrayVector3) Interleaved() {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -872,10 +808,6 @@ func (a arrayVector2int16) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayVector2int16) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -921,10 +853,6 @@ func (a arrayCFrame) Bytes(b []byte) []byte {
 	interleave(p, zVector3)
 	b = append(b, p...)
 	return b
-}
-
-func (a arrayCFrame) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayCFrame) FromBytes(b []byte) (n int, err error) {
@@ -1007,10 +935,6 @@ func (a arrayCFrameQuat) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayCFrameQuat) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 func (a arrayCFrameQuat) FromBytes(b []byte) (n int, err error) {
 	for i := range a {
 		var cond byte
@@ -1079,10 +1003,6 @@ func (a arrayToken) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayToken) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 func (a arrayToken) Interleaved() {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1125,10 +1045,6 @@ func (a arrayReference) Bytes(b []byte) []byte {
 		prev = v
 	}
 	return b
-}
-
-func (a arrayReference) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayReference) FromBytes(b []byte) (n int, err error) {
@@ -1182,10 +1098,6 @@ func (a arrayVector3int16) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayVector3int16) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayNumberSequence []valueNumberSequence
@@ -1220,10 +1132,6 @@ func (a arrayNumberSequence) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayNumberSequence) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1262,10 +1170,6 @@ func (a arrayColorSequence) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayColorSequence) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayNumberRange []valueNumberRange
@@ -1298,10 +1202,6 @@ func (a arrayNumberRange) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayNumberRange) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayRect []valueRect
@@ -1332,10 +1232,6 @@ func (a arrayRect) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayRect) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayRect) Interleaved() {}
@@ -1376,10 +1272,6 @@ func (a arrayPhysicalProperties) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayPhysicalProperties) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type arrayColor3uint8 []valueColor3uint8
@@ -1410,10 +1302,6 @@ func (a arrayColor3uint8) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arrayColor3uint8) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arrayColor3uint8) Interleaved() {}
@@ -1450,10 +1338,6 @@ func (a arrayInt64) Bytes(b []byte) []byte {
 	return b
 }
 
-func (a arrayInt64) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
-}
-
 func (a arrayInt64) Interleaved() {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1486,10 +1370,6 @@ func (a arraySharedString) Bytes(b []byte) []byte {
 		b = v.Bytes(b)
 	}
 	return b
-}
-
-func (a arraySharedString) Dump(w *bufio.Writer, indent int) {
-	arrayDump(a, w, indent)
 }
 
 func (a arraySharedString) Interleaved() {}
