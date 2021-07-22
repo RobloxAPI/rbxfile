@@ -50,6 +50,7 @@ const (
 	TypeColor3uint8
 	TypeInt64
 	TypeSharedString
+	TypeOptional
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -94,6 +95,7 @@ var typeStrings = map[Type]string{
 	TypeColor3uint8:        "Color3uint8",
 	TypeInt64:              "Int64",
 	TypeSharedString:       "SharedString",
+	TypeOptional:           "Optional",
 }
 
 // Value holds a value of a particular Type.
@@ -152,6 +154,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeColor3uint8:        newValueColor3uint8,
 	TypeInt64:              newValueInt64,
 	TypeSharedString:       newValueSharedString,
+	TypeOptional:           newValueOptional,
 }
 
 func joinstr(a ...string) string {
@@ -923,4 +926,30 @@ func (t ValueSharedString) Copy() Value {
 	c := make(ValueSharedString, len(t))
 	copy(c, t)
 	return c
+}
+
+////////////////
+
+type ValueOptional struct {
+	Value
+}
+
+func newValueOptional() Value {
+	return ValueOptional{}
+}
+
+func (ValueOptional) Type() Type {
+	return TypeOptional
+}
+func (t ValueOptional) String() string {
+	if t.Value == nil {
+		return "nil"
+	}
+	return t.Value.String()
+}
+func (t ValueOptional) Copy() Value {
+	if t.Value == nil {
+		return ValueOptional{}
+	}
+	return ValueOptional{Value: t.Value.Copy()}
 }
