@@ -901,19 +901,19 @@ func (v valueUDim2) Dump(w *bufio.Writer, indent int) {
 	w.WriteByte('{')
 
 	dumpNewline(w, indent+1)
-	w.WriteString("Scale.X: ")
+	w.WriteString("X.Scale: ")
 	v.ScaleX.Dump(w, indent+1)
 
 	dumpNewline(w, indent+1)
-	w.WriteString("Scale.Y: ")
+	w.WriteString("Y.Scale: ")
 	v.OffsetX.Dump(w, indent+1)
 
 	dumpNewline(w, indent+1)
-	w.WriteString("Offset.X: ")
+	w.WriteString("X.Offset: ")
 	v.ScaleY.Dump(w, indent+1)
 
 	dumpNewline(w, indent+1)
-	w.WriteString("Offset.Y: ")
+	w.WriteString("Y.Offset: ")
 	v.OffsetY.Dump(w, indent+1)
 
 	dumpNewline(w, indent)
