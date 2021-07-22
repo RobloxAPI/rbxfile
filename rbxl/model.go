@@ -662,7 +662,8 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 		return fw.End()
 	}
 
-	rawBytes, err := typeArrayToBytes(c.Properties)
+	rawBytes := make([]byte, 0, zb+c.Properties.BytesLen())
+	rawBytes, err = typeArrayToBytes(rawBytes, c.Properties)
 	if err != nil {
 		fw.Add(0, err)
 		return fw.End()

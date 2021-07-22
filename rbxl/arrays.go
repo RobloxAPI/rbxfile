@@ -125,8 +125,7 @@ func arrayToBytes(b []byte, a array) (r []byte, err error) {
 	return r, nil
 }
 
-func typeArrayToBytes(a array) (b []byte, err error) {
-	b = make([]byte, 0, zb+a.BytesLen())
+func typeArrayToBytes(b []byte, a array) (r []byte, err error) {
 	b = append(b, byte(a.Type()))
 	return arrayToBytes(b, a)
 }
