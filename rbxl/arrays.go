@@ -858,12 +858,11 @@ func (a arrayCFrame) Bytes(b []byte) []byte {
 func (a arrayCFrame) FromBytes(b []byte) (n int, err error) {
 	for i := range a {
 		var cond byte
-		var nn int
-		cond, b, nn, err = checkLengthCond(&a[i], b)
+		cond, b, _, err = checkLengthCond(&a[i], b)
 		if err != nil {
 			return n, indexError{Index: i, Cause: err}
 		}
-		n += nn
+		n += zCFrameSp
 		a[i].Special = cond
 		if cond == 0 {
 			n += zCFrameRo
@@ -938,12 +937,11 @@ func (a arrayCFrameQuat) Bytes(b []byte) []byte {
 func (a arrayCFrameQuat) FromBytes(b []byte) (n int, err error) {
 	for i := range a {
 		var cond byte
-		var nn int
-		cond, b, nn, err = checkLengthCond(&a[i], b)
+		cond, b, _, err = checkLengthCond(&a[i], b)
 		if err != nil {
 			return n, indexError{Index: i, Cause: err}
 		}
-		n += nn
+		n += zCFrameQuatSp
 		a[i].Special = cond
 		if cond == 0 {
 			n += zCFrameQuatQ
