@@ -32,7 +32,7 @@ func (d Decoder) Dump(w io.Writer, r io.Reader) (warn, err error) {
 		return warn, ErrXML
 	}
 
-	classes := map[int32]string{}
+	classes := map[int32]*chunkInstance{}
 
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "Version: %d", f.Version)
@@ -48,7 +48,7 @@ func (d Decoder) Dump(w io.Writer, r io.Reader) (warn, err error) {
 	return warn, nil
 }
 
-func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]string) {
+func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]*chunkInstance) {
 	dumpNewline(w, indent)
 	if i >= 0 {
 		fmt.Fprintf(w, "#%d: ", i)
@@ -95,7 +95,7 @@ func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]st
 		dumpNewline(w, indent+1)
 		w.WriteByte('}')
 	case *chunkInstance:
-		classes[chunk.ClassID] = chunk.ClassName
+		classes[chunk.ClassID] = chunk
 		dumpNewline(w, indent+1)
 		fmt.Fprintf(w, "ClassID: %d", chunk.ClassID)
 		dumpNewline(w, indent+1)
@@ -127,9 +127,9 @@ func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]st
 	case *chunkProperty:
 		dumpNewline(w, indent+1)
 		fmt.Fprintf(w, "ClassID: %d", chunk.ClassID)
-		if name, ok := classes[chunk.ClassID]; ok {
-			w.WriteString(" (")
-			dumpString(w, indent+1, name)
+		if inst, ok := classes[chunk.ClassID]; ok {
+			fmt.Fprintf(w, " (count:%d, ", len(inst.InstanceIDs))
+			dumpString(w, indent+1, inst.ClassName)
 			w.WriteByte(')')
 		}
 		dumpNewline(w, indent+1)
