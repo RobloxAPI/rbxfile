@@ -139,7 +139,7 @@ func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]*c
 			t := chunk.Properties.Type()
 			length := chunk.Properties.Len()
 			dumpNewline(w, indent+1)
-			fmt.Fprintf(w, "Properties: (type:%d (%s)) (count:%d) {", t, t.String(), length)
+			fmt.Fprintf(w, "Properties: (count:%d, (type:%d) %s) {", length, t, t.String())
 			for i := 0; i < length; i++ {
 				v := chunk.Properties.Get(i)
 				dumpNewline(w, indent+2)
