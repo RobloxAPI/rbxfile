@@ -212,6 +212,8 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		}
 	}
 
+	f.Trailing, _ = fr.All()
+
 	if err = decodeError(fr, nil); err != nil {
 		return nil, nil, warns.Return(), err
 	}

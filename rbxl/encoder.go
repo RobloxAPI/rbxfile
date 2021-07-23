@@ -109,5 +109,7 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 		}
 	}
 
+	fw.Bytes(f.Trailing)
+
 	return warns.Return(), encodeError(fw, nil)
 }

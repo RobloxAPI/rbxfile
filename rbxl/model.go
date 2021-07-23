@@ -87,6 +87,9 @@ type formatModel struct {
 	// Chunks is a list of Chunks present in the model.
 	Chunks []chunk
 
+	// Trailing is trailing bytes that appear after the END chunk.
+	Trailing []byte
+
 	groupLookup map[int32]*chunkInstance
 }
 
