@@ -382,6 +382,9 @@ func decodeValue(val value) rbxfile.Value {
 		// Must be resolved elsewhere.
 		return nil
 
+	case *valueOptional:
+		return rbxfile.ValueOptional{Value: decodeValue(value.value)}
+
 	default:
 		return nil
 	}
@@ -915,6 +918,9 @@ func encodeValue(val rbxfile.Value) value {
 	case rbxfile.ValueSharedString:
 		// Must be resolved elsewhere.
 		return nil
+
+	case rbxfile.ValueOptional:
+		return &valueOptional{value: encodeValue(value.Value)}
 
 	default:
 		return nil

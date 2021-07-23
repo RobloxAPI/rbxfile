@@ -195,6 +195,29 @@ func typeArrayFromBytes(b []byte, length int) (a array, n int, err error) {
 	return a, n, nil
 }
 
+func expectArrayFromBytes(b []byte, a array) (n int, err error) {
+	if len(b) < zb {
+		return 0, buflenError{exp: zb, got: len(b)}
+	}
+	t := typeID(b[0])
+	n += zb
+	if !t.Valid() {
+		return n, errUnknownType(t)
+	}
+	b = b[n:]
+
+	if t != a.Type() {
+		return n, fmt.Errorf("expected type %d, got %d", a.Type(), t)
+	}
+
+	nn, err := arrayFromBytes(b, a)
+	if err != nil {
+		return n, err
+	}
+	n += nn
+	return n, nil
+}
+
 func refArrayFromBytes(b []byte, length int) (a arrayReference, err error) {
 	a = make(arrayReference, length)
 	_, err = arrayFromBytes(b, a)
@@ -305,6 +328,11 @@ func newArray(t typeID, n int) array {
 		return make(arrayInt64, n)
 	case typeSharedString:
 		return make(arraySharedString, n)
+	case typeOptional:
+		return &arrayOptional{
+			Values:  nil,
+			Present: make(arrayBool, n),
+		}
 	}
 	return nil
 }
@@ -1370,5 +1398,114 @@ func (a arraySharedString) Bytes(b []byte) []byte {
 }
 
 func (a arraySharedString) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayOptional struct {
+	Values  array
+	Present arrayBool
+}
+
+func (arrayOptional) Type() typeID {
+	return typeOptional
+}
+
+func (a arrayOptional) Len() int {
+	if a.Values == nil {
+		return 0
+	}
+	return a.Values.Len()
+}
+
+func (a arrayOptional) Get(i int) value {
+	if a.Values == nil || !a.Present[i] {
+		return &valueOptional{}
+	}
+	return &valueOptional{value: a.Values.Get(i)}
+}
+
+func (a arrayOptional) Set(i int, v value) {
+	if a.Values == nil {
+		return
+	}
+	switch v := v.(type) {
+	case nil:
+		a.Values.Set(i, newValue(a.Values.Type()))
+		a.Present[i] = false
+	case *valueOptional:
+		if v.value == nil {
+			a.Values.Set(i, newValue(a.Values.Type()))
+			a.Present[i] = false
+			return
+		}
+		a.Values.Set(i, v.value)
+		a.Present[i] = true
+	default:
+		a.Values.Set(i, v)
+		a.Present[i] = true
+	}
+}
+
+func (a arrayOptional) BytesLen() int {
+	if a.Values == nil {
+		return 0
+	}
+	return zb + a.Values.BytesLen() + zb + a.Present.BytesLen()
+}
+
+func (a arrayOptional) Bytes(b []byte) []byte {
+	if a.Values == nil {
+		return b
+	}
+	b, _ = typeArrayToBytes(b, a.Values)
+	b, _ = typeArrayToBytes(b, a.Present)
+	return b
+}
+
+func (a *arrayOptional) FromBytes(b []byte) (n int, err error) {
+	var nn int
+
+	a.Values, nn, err = typeArrayFromBytes(b, len(a.Present))
+	if err != nil {
+		return n, err
+	}
+	n += nn
+	b = b[n:]
+
+	nn, err = expectArrayFromBytes(b, a.Present)
+	if err != nil {
+		return n, err
+	}
+	n += nn
+
+	return n, nil
+}
+
+func (a arrayOptional) Dump(w *bufio.Writer, indent int) {
+	if a.Values == nil {
+		w.WriteString("none")
+		return
+	}
+	w.WriteByte('{')
+	length := a.Values.Len()
+	for i := 0; i < length; i++ {
+		dumpNewline(w, indent+2)
+		fmt.Fprintf(w, "%d: ", i)
+		if i >= len(a.Present) {
+			w.WriteString("invalid")
+			continue
+		}
+		if !a.Present[i] {
+			w.WriteString("none (")
+		}
+		v := a.Values.Get(i)
+		v.Dump(w, indent+2)
+		if !a.Present[i] {
+			w.WriteString(")")
+		}
+	}
+	dumpNewline(w, indent+1)
+	w.WriteByte('}')
+}
 
 ////////////////////////////////////////////////////////////////////////////////

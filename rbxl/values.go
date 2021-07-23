@@ -30,6 +30,9 @@ const (
 	// Variable size, where the size depends on the first decoded byte.
 	zCond = -2
 
+	// Variable size, where the type is optional.
+	zOpt = -3
+
 	// Number of bytes used to contain length of a zArray type.
 	zArrayLen = 4
 
@@ -45,11 +48,12 @@ const (
 // Each type has a certain size indicating the number of bytes required to
 // encode a value of the type.
 //
-// There are 3 kinds of type size: constant, array, and conditional. Constant
-// indicates that the size is constant, not depending on the content of the
-// bytes. Array indicates an array of constant-sized fields, where the first
+// There are 4 kinds of type size: constant, array, conditional, and optional.
+// Constant indicates that the size is constant, not depending on the content of
+// the bytes. Array indicates an array of constant-sized fields, where the first
 // zArrayLen bytes determines the length of the array. Conditional indicates
-// that the size depends on the value of the first byte.
+// that the size depends on the value of the first byte. Optional indicates that
+// the type is the optional type, the size depending on the inner type.
 type typeID byte
 
 const (
@@ -82,11 +86,13 @@ const (
 	typeColor3uint8        typeID = 0x1A
 	typeInt64              typeID = 0x1B
 	typeSharedString       typeID = 0x1C
+	typeSignedString       typeID = 0x1D //TODO
+	typeOptional           typeID = 0x1E
 )
 
 // Valid returns whether the type has a valid value.
 func (t typeID) Valid() bool {
-	return typeString <= t && t <= typeSharedString
+	return typeString <= t && t <= typeOptional && t != typeSignedString
 }
 
 // Size returns the number of bytes required to hold a value of the type.
@@ -152,6 +158,8 @@ func (t typeID) Size() int {
 		return zInt64
 	case typeSharedString:
 		return zSharedString
+	case typeOptional:
+		return zOptional
 	default:
 		return zInvalid
 	}
@@ -257,6 +265,8 @@ func (t typeID) String() string {
 		return "Int64"
 	case typeSharedString:
 		return "SharedString"
+	case typeOptional:
+		return "Optional"
 	default:
 		return "Invalid"
 	}
@@ -321,6 +331,8 @@ func (t typeID) ValueType() rbxfile.Type {
 		return rbxfile.TypeInt64
 	case typeSharedString:
 		return rbxfile.TypeSharedString
+	case typeOptional:
+		return rbxfile.TypeOptional
 	default:
 		return rbxfile.TypeInvalid
 	}
@@ -389,6 +401,8 @@ func fromValueType(t rbxfile.Type) typeID {
 		return typeInt64
 	case rbxfile.TypeSharedString:
 		return typeSharedString
+	case rbxfile.TypeOptional:
+		return typeOptional
 	default:
 		return typeInvalid
 	}
@@ -473,6 +487,8 @@ func newValue(typ typeID) value {
 		return new(valueInt64)
 	case typeSharedString:
 		return new(valueSharedString)
+	case typeOptional:
+		return new(valueOptional)
 	}
 	return nil
 }
@@ -2131,6 +2147,66 @@ func (v *valueSharedString) FromBytes(b []byte) (n int, err error) {
 
 func (v valueSharedString) Dump(w *bufio.Writer, indent int) {
 	w.Write(strconv.AppendUint(nil, uint64(v), 10))
+}
+
+////////////////////////////////////////////////////////////////
+
+const zOptional = zOpt
+
+type valueOptional struct {
+	value
+}
+
+func (valueOptional) Type() typeID {
+	return typeOptional
+}
+
+func (v valueOptional) BytesLen() int {
+	if v.value == nil {
+		return 0
+	}
+	return v.value.BytesLen()
+}
+
+func (v valueOptional) Bytes(b []byte) []byte {
+	// Unused.
+
+	if v.value == nil {
+		return append(b, 0)
+	}
+	b = append(b, byte(v.value.Type()))
+	b = v.value.Bytes(b)
+	return b
+}
+
+func (v *valueOptional) FromBytes(b []byte) (n int, err error) {
+	// Unused.
+
+	if len(b) < zb {
+		return 0, buflenError{exp: zb, got: len(b)}
+	}
+	t := typeID(b[0])
+	if t == 0 {
+		v.value = nil
+		return
+	}
+	b = b[zb:]
+	value := newValue(t)
+	nn, err := value.FromBytes(b)
+	if err != nil {
+		return n, err
+	}
+	n += nn
+	v.value = value
+	return n, nil
+}
+
+func (v valueOptional) Dump(w *bufio.Writer, indent int) {
+	if v.value == nil {
+		w.WriteString("nil")
+		return
+	}
+	v.value.Dump(w, indent)
 }
 
 ////////////////////////////////////////////////////////////////
