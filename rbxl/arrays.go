@@ -1486,7 +1486,8 @@ func (a arrayOptional) Dump(w *bufio.Writer, indent int) {
 		w.WriteString("none")
 		return
 	}
-	w.WriteByte('{')
+	t := a.Values.Type()
+	fmt.Fprintf(w, "((type:%d) %s) {", t, t.String())
 	length := a.Values.Len()
 	for i := 0; i < length; i++ {
 		dumpNewline(w, indent+2)
