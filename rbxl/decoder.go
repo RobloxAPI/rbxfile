@@ -27,7 +27,7 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, warn, err error) {
 		return nil, nil, errors.New("nil reader")
 	}
 
-	f, buf, w, err := d.decode(r)
+	f, buf, w, err := d.decode(r, false)
 	warn = errors.Union(warn, w)
 	if err != nil {
 		return nil, warn, err
@@ -59,7 +59,7 @@ func (d Decoder) Decompress(w io.Writer, r io.Reader) (warn, err error) {
 		return nil, errors.New("nil reader")
 	}
 
-	f, buf, ws, err := d.decode(r)
+	f, buf, ws, err := d.decode(r, true)
 	warn = errors.Union(warn, ws)
 	if err != nil {
 		return warn, err
@@ -68,7 +68,7 @@ func (d Decoder) Decompress(w io.Writer, r io.Reader) (warn, err error) {
 		return warn, ErrXML
 	}
 
-	ws, err = Encoder{Mode: d.Mode, Uncompressed: true}.encode(w, f)
+	ws, err = Encoder{Mode: d.Mode, Uncompressed: true}.encode(w, f, true)
 	warn = errors.Union(warn, ws)
 	return warn, err
 }
@@ -85,7 +85,7 @@ func decodeError(r *parse.BinaryReader, err error) error {
 // decode parses the format. If the XML format is detected, then decode returns
 // a non-nil Reader with the original content, ready to be parsed by an XML
 // format decoder.
-func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err error) {
+func (d Decoder) decode(r io.Reader, dcomp bool) (f *formatModel, o io.Reader, warn, err error) {
 	f = &formatModel{}
 	fr := parse.NewBinaryReader(r)
 
@@ -125,15 +125,18 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		return nil, nil, nil, decodeError(fr, errUnrecognizedVersion(f.Version))
 	}
 
+	// Get Class count.
 	if fr.Number(&f.ClassCount) {
 		return nil, nil, nil, decodeError(fr, nil)
 	}
 	f.groupLookup = make(map[int32]*chunkInstance, f.ClassCount)
 
+	// Get Instance count.
 	if fr.Number(&f.InstanceCount) {
 		return nil, nil, nil, decodeError(fr, nil)
 	}
 
+	// Check reserved bytes.
 	var reserved [8]byte
 	if fr.Bytes(reserved[:]) {
 		return nil, nil, nil, decodeError(fr, nil)
@@ -143,10 +146,31 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 		warns = append(warns, errReserve{Offset: fr.N() - int64(len(reserved)), Bytes: reserved[:]})
 	}
 
+	// Decode chunks.
+	if dcomp {
+		if err = d.decompressChunks(f, fr); err != nil {
+			return nil, nil, warns.Return(), err
+		}
+	} else {
+		if err = d.decodeChunks(f, fr, &warns); err != nil {
+			return nil, nil, warns.Return(), err
+		}
+	}
+
+	// Handle trailing content.
+	f.Trailing, _ = fr.All()
+
+	if err = decodeError(fr, nil); err != nil {
+		return nil, nil, warns.Return(), err
+	}
+	return f, nil, warns.Return(), nil
+}
+
+func (d Decoder) decodeChunks(f *formatModel, fr *parse.BinaryReader, warns *errors.Errors) (err error) {
 	for i := 0; ; i++ {
 		rawChunk := new(rawChunk)
 		if rawChunk.Decode(fr) {
-			return nil, nil, warns.Return(), decodeError(fr, nil)
+			return decodeError(fr, nil)
 		}
 
 		var n int64
@@ -183,13 +207,13 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 			chunk = &ch
 		default:
 			chunk = &chunkUnknown{rawChunk: *rawChunk}
-			warns = append(warns, ChunkError{Index: i, Sig: sig(rawChunk.signature), Cause: errUnknownChunkSig})
+			*warns = warns.Append(ChunkError{Index: i, Sig: sig(rawChunk.signature), Cause: errUnknownChunkSig})
 		}
 
 		chunk.SetCompressed(bool(rawChunk.compressed))
 
 		if err != nil {
-			warns = append(warns, ChunkError{Index: i, Sig: sig(rawChunk.signature), Cause: err})
+			*warns = warns.Append(ChunkError{Index: i, Sig: sig(rawChunk.signature), Cause: err})
 			f.Chunks = append(f.Chunks, &chunkErrored{
 				chunk:  chunk,
 				Offset: n,
@@ -203,19 +227,32 @@ func (d Decoder) decode(r io.Reader) (f *formatModel, o io.Reader, warn, err err
 
 		if chunk, ok := chunk.(*chunkEnd); ok {
 			if chunk.Compressed() {
-				warns = append(warns, errEndChunkCompressed)
+				*warns = warns.Append(errEndChunkCompressed)
 			}
 			if !bytes.Equal(chunk.Content, []byte("</roblox>")) {
-				warns = append(warns, errEndChunkContent)
+				*warns = warns.Append(errEndChunkContent)
 			}
 			break
 		}
 	}
 
-	f.Trailing, _ = fr.All()
+	return nil
+}
 
-	if err = decodeError(fr, nil); err != nil {
-		return nil, nil, warns.Return(), err
+func (d Decoder) decompressChunks(f *formatModel, fr *parse.BinaryReader) (err error) {
+	for i := 0; ; i++ {
+		rawChunk := new(rawChunk)
+		if rawChunk.Decode(fr) {
+			return decodeError(fr, nil)
+		}
+
+		chunk := &chunkUnknown{rawChunk: *rawChunk}
+		chunk.SetCompressed(bool(rawChunk.compressed))
+		f.Chunks = append(f.Chunks, chunk)
+
+		if rawChunk.signature == sigEND {
+			break
+		}
 	}
-	return f, nil, warns.Return(), nil
+	return nil
 }

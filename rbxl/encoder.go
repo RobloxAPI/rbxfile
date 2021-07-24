@@ -32,7 +32,7 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (warn, err error) {
 		return warn, CodecError{Cause: err}
 	}
 
-	return e.encode(w, f)
+	return e.encode(w, f, false)
 }
 
 func encodeError(w *parse.BinaryWriter, err error) error {
@@ -47,7 +47,7 @@ func encodeError(w *parse.BinaryWriter, err error) error {
 	return nil
 }
 
-func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
+func (e Encoder) encode(w io.Writer, f *formatModel, dcomp bool) (warn, err error) {
 	var warns errors.Errors
 
 	fw := parse.NewBinaryWriter(w)
@@ -74,7 +74,7 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 	}
 
 	for i, chunk := range f.Chunks {
-		if !validChunk(chunk.Signature()) {
+		if !validChunk(chunk.Signature()) && !dcomp {
 			warns = append(warns, ChunkError{Index: i, Sig: chunk.Signature(), Cause: errUnknownChunkSig})
 		}
 		if endChunk, ok := chunk.(*chunkEnd); ok {
@@ -82,11 +82,11 @@ func (e Encoder) encode(w io.Writer, f *formatModel) (warn, err error) {
 				warns = append(warns, errEndChunkCompressed)
 			}
 
-			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) {
+			if !bytes.Equal(endChunk.Content, []byte("</roblox>")) && !dcomp {
 				warns = append(warns, errEndChunkContent)
 			}
 
-			if i != len(f.Chunks)-1 {
+			if i != len(f.Chunks)-1 && !dcomp {
 				warns = append(warns, errEndChunkNotLast)
 			}
 		}

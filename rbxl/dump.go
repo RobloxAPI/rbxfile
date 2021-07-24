@@ -23,7 +23,7 @@ func (d Decoder) Dump(w io.Writer, r io.Reader) (warn, err error) {
 		return nil, errors.New("nil writer")
 	}
 
-	f, buf, ws, err := d.decode(r)
+	f, buf, ws, err := d.decode(r, false)
 	warn = errors.Union(warn, ws)
 	if err != nil {
 		return warn, err
