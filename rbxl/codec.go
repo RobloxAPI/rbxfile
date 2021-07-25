@@ -96,6 +96,11 @@ loop:
 				continue
 			}
 
+			if chunk.Properties == nil {
+				warns = chunkWarn(warns, ic, chunk, "no value type")
+				continue
+			}
+
 			length := chunk.Properties.Len()
 			if length != len(instChunk.InstanceIDs) {
 				return nil, warns.Return(), chunkError(ic, chunk, fmt.Errorf("length of properties array (%d) does not equal length of class array (%d)", length, len(instChunk.InstanceIDs)))

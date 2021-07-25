@@ -637,6 +637,12 @@ func (c *chunkProperty) Decode(r io.Reader, groupLookup map[int32]*chunkInstance
 		return fr.End()
 	}
 
+	if len(rawBytes) == 0 {
+		// No value data.
+		c.Properties = nil
+		return fr.End()
+	}
+
 	if c.Properties, _, err = typeArrayFromBytes(rawBytes, len(inst.InstanceIDs)); err != nil {
 		if c.Properties != nil {
 			fr.Add(0, ValueError{Type: byte(c.Properties.Type()), Cause: err})
@@ -661,7 +667,7 @@ func (c *chunkProperty) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	if c.Properties == nil {
-		fw.Add(0, errUnknownType(0))
+		// No value data.
 		return fw.End()
 	}
 
