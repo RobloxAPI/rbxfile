@@ -48,6 +48,28 @@ type Encoder struct {
 	// ExcludeMetadata determines whether <Meta> tags should be excluded while
 	// encoding.
 	ExcludeMetadata bool
+
+	// Prefix is a string that appears at the start of each line in the
+	// document. The prefix is added after each newline. Newlines are added
+	// automatically when either Prefix or Indent is not empty.
+	Prefix string
+
+	// Indent is a string that indicates one level of indentation. A sequence of
+	// indents will appear after the Prefix, an amount equal to the current
+	// nesting depth in the markup.
+	Indent string
+
+	// NoDefaultIndent sets how Indent is interpreted when Indent is an empty
+	// string. If false, an empty Indent will be interpreted as "\t".
+	NoDefaultIndent bool
+
+	// Suffix is a string that appears at the very end of the document. This
+	// string is appended to the end of the file, after the root tag.
+	Suffix string
+
+	// ExcludeRoot determines whether the root tag should be excluded when
+	// encoding. This can be combined with Prefix to write documents in-line.
+	ExcludeRoot bool
 }
 
 // Encode formats root, writing the result to w.
@@ -61,6 +83,14 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (warn, err error) {
 	if err != nil {
 		return document.Warnings.Return(), fmt.Errorf("error encoding data: %w", err)
 	}
+	document.Prefix = e.Prefix
+	if e.Indent == "" && !e.NoDefaultIndent {
+		document.Indent = "\t"
+	} else {
+		document.Indent = e.Indent
+	}
+	document.Suffix = e.Suffix
+	document.ExcludeRoot = e.ExcludeRoot
 	if _, err = document.WriteTo(w); err != nil {
 		return document.Warnings.Return(), fmt.Errorf("error encoding format: %w", err)
 	}
