@@ -124,7 +124,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*documentTag) (in
 		case "Item":
 			className, ok := tag.AttrValue("class")
 			if !ok {
-				dec.document.Warnings = append(dec.document.Warnings, errors.New("item with missing class attribute"))
+				dec.document.Warnings = dec.document.Warnings.Append(errors.New("item with missing class attribute"))
 				continue
 			}
 
@@ -407,7 +407,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		for _, subtag := range tag.Tags {
 			switch subtag.StartName {
 			case "binary":
-				dec.document.Warnings = append(dec.document.Warnings, errors.New("not reading binary data"))
+				dec.document.Warnings = dec.document.Warnings.Append(errors.New("not reading binary data"))
 				return rbxfile.ValueContent(nil), true
 			case "hash":
 				// Ignored.

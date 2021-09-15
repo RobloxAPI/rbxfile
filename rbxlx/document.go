@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+
+	"github.com/robloxapi/rbxfile/errors"
 )
 
 // documentTag represents a Roblox XML tag construct. Unlike standard XML, the
@@ -207,7 +209,7 @@ type documentRoot struct {
 	// Warnings is a list of non-fatal problems that have occurred. This will
 	// be cleared and populated when calling either ReadFrom and WriteTo.
 	// Codecs may also clear and populate this when decoding or encoding.
-	Warnings []error
+	Warnings errors.Errors
 }
 
 // syntaxError represents a syntax error in the XML input stream.
@@ -249,7 +251,7 @@ func (d *decoder) tagError() error {
 
 func (d *decoder) ignoreStartTag(err error) int {
 	// Treat error as warning.
-	d.doc.Warnings = append(d.doc.Warnings, err)
+	d.doc.Warnings = d.doc.Warnings.Append(err)
 	// Read until end of start tag.
 	for {
 		b, ok := d.mustgetc()
@@ -943,7 +945,7 @@ func (doc *documentRoot) ReadFrom(r io.Reader) (n int64, err error) {
 
 	doc.Prefix = ""
 	doc.Indent = ""
-	doc.Warnings = doc.Warnings[:0]
+	doc.Warnings = errors.Errors{}
 
 	d := &decoder{
 		doc:      doc,
@@ -1040,13 +1042,13 @@ func (e *encoder) encodeTag(tag *documentTag, noTags bool, noindent bool) int {
 
 	if !noTags {
 		if !e.checkName(tag.StartName, nameTag) {
-			e.d.Warnings = append(e.d.Warnings, fmt.Errorf("ignored tag with malformed start name %q", tag.StartName))
+			e.d.Warnings = e.d.Warnings.Append(fmt.Errorf("ignored tag with malformed start name %q", tag.StartName))
 			return 0
 		}
 
 		if !e.checkName(endName, nameTag) && endName != "" {
 			endName = tag.StartName
-			e.d.Warnings = append(e.d.Warnings, fmt.Errorf("tag with malformed end name %q, used start name instead", tag.EndName))
+			e.d.Warnings = e.d.Warnings.Append(fmt.Errorf("tag with malformed end name %q, used start name instead", tag.EndName))
 		}
 
 		e.writeByte('<')
@@ -1054,7 +1056,7 @@ func (e *encoder) encodeTag(tag *documentTag, noTags bool, noindent bool) int {
 
 		for _, attr := range tag.Attr {
 			if !e.checkName(attr.Name, nameAttr) {
-				e.d.Warnings = append(e.d.Warnings, fmt.Errorf("ignored attribute with malformed name %q", attr.Name))
+				e.d.Warnings = e.d.Warnings.Append(fmt.Errorf("ignored attribute with malformed name %q", attr.Name))
 				continue
 			}
 			e.writeByte(' ')
@@ -1272,7 +1274,7 @@ func (e *encoder) escapeString(s string, escapeLead bool) {
 
 // WriteTo encodes the Document as bytes to w.
 func (d *documentRoot) WriteTo(w io.Writer) (n int64, err error) {
-	d.Warnings = d.Warnings[:0]
+	d.Warnings = errors.Errors{}
 
 	e := &encoder{Writer: bufio.NewWriter(w), d: d}
 
