@@ -8,7 +8,7 @@ package rbxlx
 import (
 	"bufio"
 	"bytes"
-	"errors"
+	"fmt"
 	"io"
 	"strconv"
 )
@@ -938,7 +938,7 @@ func isNameByte(c byte, t int) bool {
 // ReadFrom decode data from r into the Document.
 func (doc *documentRoot) ReadFrom(r io.Reader) (n int64, err error) {
 	if r == nil {
-		return 0, errors.New("reader is nil")
+		return 0, fmt.Errorf("reader is nil")
 	}
 
 	doc.Prefix = ""
@@ -1040,13 +1040,13 @@ func (e *encoder) encodeTag(tag *documentTag, noTags bool, noindent bool) int {
 
 	if !noTags {
 		if !e.checkName(tag.StartName, nameTag) {
-			e.d.Warnings = append(e.d.Warnings, errors.New("ignored tag with malformed start name `"+tag.StartName+"`"))
+			e.d.Warnings = append(e.d.Warnings, fmt.Errorf("ignored tag with malformed start name %q", tag.StartName))
 			return 0
 		}
 
 		if !e.checkName(endName, nameTag) && endName != "" {
 			endName = tag.StartName
-			e.d.Warnings = append(e.d.Warnings, errors.New("tag with malformed end name `"+tag.EndName+"`, used start name instead"))
+			e.d.Warnings = append(e.d.Warnings, fmt.Errorf("tag with malformed end name %q, used start name instead", tag.EndName))
 		}
 
 		e.writeByte('<')
@@ -1054,7 +1054,7 @@ func (e *encoder) encodeTag(tag *documentTag, noTags bool, noindent bool) int {
 
 		for _, attr := range tag.Attr {
 			if !e.checkName(attr.Name, nameAttr) {
-				e.d.Warnings = append(e.d.Warnings, errors.New("ignored attribute with malformed name `"+attr.Name+"`"))
+				e.d.Warnings = append(e.d.Warnings, fmt.Errorf("ignored attribute with malformed name %q", attr.Name))
 				continue
 			}
 			e.writeByte(' ')

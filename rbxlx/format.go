@@ -1,9 +1,10 @@
 package rbxlx
 
 import (
-	"errors"
-	"github.com/robloxapi/rbxfile"
+	"fmt"
 	"io"
+
+	"github.com/robloxapi/rbxfile"
 )
 
 // Decoder decodes a stream of bytes into a rbxfile.Root according to the rbxlx
@@ -21,14 +22,14 @@ type Decoder struct {
 func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	document := new(documentRoot)
 	if _, err = document.ReadFrom(r); err != nil {
-		return nil, errors.New("error parsing document: " + err.Error())
+		return nil, fmt.Errorf("error parsing document: %w", err)
 	}
 	codec := robloxCodec{
 		DiscardInvalidProperties: d.DiscardInvalidProperties,
 	}
 	root, err = codec.Decode(document)
 	if err != nil {
-		return nil, errors.New("error decoding data: " + err.Error())
+		return nil, fmt.Errorf("error decoding data: %w", err)
 	}
 	return root, nil
 }
@@ -58,10 +59,10 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 	}
 	document, err := codec.Encode(root)
 	if err != nil {
-		return errors.New("error encoding data: " + err.Error())
+		return fmt.Errorf("error encoding data: %w", err)
 	}
 	if _, err = document.WriteTo(w); err != nil {
-		return errors.New("error encoding format: " + err.Error())
+		return fmt.Errorf("error encoding format: %w", err)
 	}
 	return nil
 }
