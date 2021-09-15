@@ -14,9 +14,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// RobloxCodec implements Decoder and Encoder to emulate Roblox's internal
+// robloxCodec implements Decoder and Encoder to emulate Roblox's internal
 // codec as closely as possible.
-type RobloxCodec struct {
+type robloxCodec struct {
 	// ExcludeReferent determines whether the "referent" attribute should be
 	// added to Item tags when encoding.
 	ExcludeReferent bool
@@ -37,7 +37,7 @@ type RobloxCodec struct {
 	DiscardInvalidProperties bool
 }
 
-func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) {
+func (c robloxCodec) Decode(document *documentRoot) (root *rbxfile.Root, err error) {
 	if document == nil {
 		return nil, fmt.Errorf("document is nil")
 	}
@@ -54,8 +54,8 @@ func (c RobloxCodec) Decode(document *Document) (root *rbxfile.Root, err error) 
 }
 
 type rdecoder struct {
-	document   *Document
-	codec      RobloxCodec
+	document   *documentRoot
+	codec      robloxCodec
 	root       *rbxfile.Root
 	err        error
 	instLookup rbxfile.References
@@ -115,7 +115,7 @@ func (dec *rdecoder) decode() error {
 	return nil
 }
 
-func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag) (instances []*rbxfile.Instance, properties map[string]rbxfile.Value) {
+func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*documentTag) (instances []*rbxfile.Instance, properties map[string]rbxfile.Value) {
 	properties = make(map[string]rbxfile.Value)
 	hasProps := false
 
@@ -166,7 +166,7 @@ func (dec *rdecoder) getItems(parent *rbxfile.Instance, tags []*Tag) (instances 
 
 // DecodeProperties decodes a list of tags as properties to a given instance.
 // Returns a list of unresolved references.
-func (c RobloxCodec) DecodeProperties(tags []*Tag, inst *rbxfile.Instance, refs rbxfile.References) (propRefs []rbxfile.PropRef) {
+func (c robloxCodec) DecodeProperties(tags []*documentTag, inst *rbxfile.Instance, refs rbxfile.References) (propRefs []rbxfile.PropRef) {
 	dec := &rdecoder{
 		codec:      c,
 		instLookup: refs,
@@ -182,7 +182,7 @@ func (c RobloxCodec) DecodeProperties(tags []*Tag, inst *rbxfile.Instance, refs 
 	return dec.propRefs
 }
 
-func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance) (name string, value rbxfile.Value, ok bool) {
+func (dec *rdecoder) getProperty(tag *documentTag, instance *rbxfile.Instance) (name string, value rbxfile.Value, ok bool) {
 	name, ok = tag.AttrValue("name")
 	if !ok {
 		return "", nil, false
@@ -219,7 +219,7 @@ func (dec *rdecoder) getProperty(tag *Tag, instance *rbxfile.Instance) (name str
 
 // GetCanonType converts a string (usually from a tag name) to a decodable
 // type.
-func (RobloxCodec) GetCanonType(valueType string) string {
+func (robloxCodec) GetCanonType(valueType string) string {
 	switch strings.ToLower(valueType) {
 	case "axes":
 		return "Axes"
@@ -289,7 +289,7 @@ func (RobloxCodec) GetCanonType(valueType string) string {
 // the tag is interpreted. valueType must be an existing type as it appears in
 // the API dump. If guessing the type, it should be converted to one of these
 // first.
-func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, ok bool) {
+func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile.Value, ok bool) {
 	switch valueType {
 	case "Axes":
 		var bits int32
@@ -487,7 +487,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 		return rbxfile.ValueProtectedString(getContent(tag)), true
 
 	case "Ray":
-		var origin, direction *Tag
+		var origin, direction *documentTag
 		ok := components{
 			"origin":    &origin,
 			"direction": &direction,
@@ -685,7 +685,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 		return v, true
 
 	case "Rect2D":
-		var min, max *Tag
+		var min, max *documentTag
 		ok := components{
 			"min": &min,
 			"max": &max,
@@ -721,7 +721,7 @@ func (dec *rdecoder) getValue(tag *Tag, valueType string) (value rbxfile.Value, 
 
 	case "PhysicalProperties":
 		var v rbxfile.ValuePhysicalProperties
-		var cp *Tag
+		var cp *documentTag
 		ok := components{
 			"CustomPhysics": &cp,
 		}.getFrom(tag)
@@ -837,7 +837,7 @@ func scanFloat(b []byte, i int) (float32, int) {
 
 type components map[string]interface{}
 
-func (c components) getFrom(tag *Tag) (ok bool) {
+func (c components) getFrom(tag *documentTag) (ok bool) {
 	if tag == nil {
 		return false
 	}
@@ -881,7 +881,7 @@ func (c components) getFrom(tag *Tag) (ok bool) {
 				if n, err := strconv.ParseFloat(getContent(subtag), 32); err == nil {
 					*v = float32(n)
 				}
-			case **Tag:
+			case **documentTag:
 				*v = subtag
 			}
 		}
@@ -891,7 +891,7 @@ func (c components) getFrom(tag *Tag) (ok bool) {
 }
 
 // Reads either the CData or the text of a tag.
-func getContent(tag *Tag) string {
+func getContent(tag *documentTag) string {
 	if tag.CData != nil {
 		// CData is preferred even if it is empty
 		return string(tag.CData)
@@ -901,14 +901,14 @@ func getContent(tag *Tag) string {
 
 type rencoder struct {
 	root          *rbxfile.Root
-	codec         RobloxCodec
-	document      *Document
+	codec         robloxCodec
+	document      *documentRoot
 	refs          rbxfile.References
 	sharedStrings map[string][]byte
 	err           error
 }
 
-func (c RobloxCodec) Encode(root *rbxfile.Root) (document *Document, err error) {
+func (c robloxCodec) Encode(root *rbxfile.Root) (document *documentRoot, err error) {
 	enc := &rencoder{
 		root:          root,
 		codec:         c,
@@ -921,7 +921,7 @@ func (c RobloxCodec) Encode(root *rbxfile.Root) (document *Document, err error) 
 
 }
 
-type sortTagsByNameAttr []*Tag
+type sortTagsByNameAttr []*documentTag
 
 func (t sortTagsByNameAttr) Len() int {
 	return len(t)
@@ -968,18 +968,18 @@ func (w *wrapWriter) Write(p []byte) (n int, err error) {
 }
 
 func (enc *rencoder) encode() {
-	enc.document = &Document{
+	enc.document = &documentRoot{
 		Prefix: "",
 		Indent: "\t",
 		Suffix: "",
-		Root:   NewRoot(),
+		Root:   newRoot(),
 	}
 	if !enc.codec.ExcludeMetadata {
-		enc.document.Root.Tags = make([]*Tag, 0, len(enc.root.Metadata))
+		enc.document.Root.Tags = make([]*documentTag, 0, len(enc.root.Metadata))
 		for key, value := range enc.root.Metadata {
-			enc.document.Root.Tags = append(enc.document.Root.Tags, &Tag{
+			enc.document.Root.Tags = append(enc.document.Root.Tags, &documentTag{
 				StartName: "Meta",
-				Attr:      []Attr{{Name: "name", Value: key}},
+				Attr:      []documentAttr{{Name: "name", Value: key}},
 				Text:      value,
 			})
 		}
@@ -987,8 +987,8 @@ func (enc *rencoder) encode() {
 	}
 	if !enc.codec.ExcludeExternal {
 		enc.document.Root.Tags = append(enc.document.Root.Tags,
-			&Tag{StartName: "External", Text: "null"},
-			&Tag{StartName: "External", Text: "nil"},
+			&documentTag{StartName: "External", Text: "null"},
+			&documentTag{StartName: "External", Text: "nil"},
 		)
 	}
 
@@ -1004,15 +1004,15 @@ func (enc *rencoder) encode() {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		tag := &Tag{StartName: "SharedStrings", Tags: make([]*Tag, len(keys))}
+		tag := &documentTag{StartName: "SharedStrings", Tags: make([]*documentTag, len(keys))}
 		var s strings.Builder
 		for i, key := range keys {
 			b64 := base64.NewEncoder(base64.StdEncoding, newWrapWriter(72, &s))
 			b64.Write(enc.sharedStrings[key])
 			b64.Close()
-			tag.Tags[i] = &Tag{
+			tag.Tags[i] = &documentTag{
 				StartName: "SharedString",
-				Attr: []Attr{{
+				Attr: []documentAttr{{
 					Name:  "md5",
 					Value: base64.StdEncoding.EncodeToString([]byte(key)),
 				}},
@@ -1024,10 +1024,10 @@ func (enc *rencoder) encode() {
 	}
 }
 
-func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
+func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *documentTag) {
 	ref := enc.refs.Get(instance)
 	properties := enc.encodeProperties(instance)
-	item := NewItem(instance.ClassName, ref, properties...)
+	item := newItem(instance.ClassName, ref, properties...)
 	if enc.codec.ExcludeReferent {
 		item.SetAttrValue("referent", "")
 	}
@@ -1038,12 +1038,12 @@ func (enc *rencoder) encodeInstance(instance *rbxfile.Instance, parent *Tag) {
 	}
 }
 
-func (c RobloxCodec) EncodeProperties(instance *rbxfile.Instance) (properties []*Tag) {
+func (c robloxCodec) EncodeProperties(instance *rbxfile.Instance) (properties []*documentTag) {
 	enc := &rencoder{codec: c}
 	return enc.encodeProperties(instance)
 }
 
-func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []*Tag) {
+func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []*documentTag) {
 	// Sort properties by name
 	sorted := make([]string, 0, len(instance.Properties))
 	for name := range instance.Properties {
@@ -1062,8 +1062,8 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 	return properties
 }
 
-func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Tag {
-	attr := []Attr{{Name: "name", Value: prop}}
+func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *documentTag {
+	attr := []documentAttr{{Name: "name", Value: prop}}
 	switch value := value.(type) {
 	case rbxfile.ValueAxes:
 		var n uint64
@@ -1072,10 +1072,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 				n |= (1 << uint(i))
 			}
 		}
-		return &Tag{
+		return &documentTag{
 			StartName: "Axes",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{
 					StartName: "axes",
 					NoIndent:  true,
@@ -1090,7 +1090,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		bw := base64.NewEncoder(base64.StdEncoding, sw)
 		bw.Write([]byte(value))
 		bw.Close()
-		tag := &Tag{
+		tag := &documentTag{
 			StartName: "BinaryString",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1105,7 +1105,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		} else {
 			v = "false"
 		}
-		return &Tag{
+		return &documentTag{
 			StartName: "bool",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1113,7 +1113,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueBrickColor:
-		return &Tag{
+		return &documentTag{
 			StartName: "int",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1121,10 +1121,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueCFrame:
-		return &Tag{
+		return &documentTag{
 			StartName: "CoordinateFrame",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: encodeFloat(value.Position.X)},
 				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Position.Y)},
 				{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Position.Z)},
@@ -1141,10 +1141,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueColor3:
-		return &Tag{
+		return &documentTag{
 			StartName: "Color3",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "R", NoIndent: true, Text: encodeFloat(value.R)},
 				{StartName: "G", NoIndent: true, Text: encodeFloat(value.G)},
 				{StartName: "B", NoIndent: true, Text: encodeFloat(value.B)},
@@ -1152,11 +1152,11 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueContent:
-		tag := &Tag{
+		tag := &documentTag{
 			StartName: "Content",
 			Attr:      attr,
 			NoIndent:  true,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{
 					StartName: "",
 					NoIndent:  true,
@@ -1172,7 +1172,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		return tag
 
 	case rbxfile.ValueDouble:
-		return &Tag{
+		return &documentTag{
 			StartName: "double",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1186,10 +1186,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 				n |= (1 << uint(i))
 			}
 		}
-		return &Tag{
+		return &documentTag{
 			StartName: "Faces",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{
 					StartName: "faces",
 					NoIndent:  true,
@@ -1199,7 +1199,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueFloat:
-		return &Tag{
+		return &documentTag{
 			StartName: "float",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1207,7 +1207,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueInt:
-		return &Tag{
+		return &documentTag{
 			StartName: "int",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1215,7 +1215,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueProtectedString:
-		tag := &Tag{
+		tag := &documentTag{
 			StartName: "ProtectedString",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1224,13 +1224,13 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		return tag
 
 	case rbxfile.ValueRay:
-		return &Tag{
+		return &documentTag{
 			StartName: "Ray",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{
 					StartName: "origin",
-					Tags: []*Tag{
+					Tags: []*documentTag{
 						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Origin.X)},
 						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Origin.Y)},
 						{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Origin.Z)},
@@ -1238,7 +1238,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 				},
 				{
 					StartName: "direction",
-					Tags: []*Tag{
+					Tags: []*documentTag{
 						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Origin.X)},
 						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Origin.Y)},
 						{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Origin.Z)},
@@ -1248,7 +1248,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueReference:
-		tag := &Tag{
+		tag := &documentTag{
 			StartName: "Ref",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1263,7 +1263,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		return tag
 
 	case rbxfile.ValueString:
-		return &Tag{
+		return &documentTag{
 			StartName: "string",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1271,7 +1271,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueToken:
-		return &Tag{
+		return &documentTag{
 			StartName: "token",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1279,20 +1279,20 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueUDim:
-		return &Tag{
+		return &documentTag{
 			StartName: "UDim",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "S", NoIndent: true, Text: encodeFloat(value.Scale)},
 				{StartName: "O", NoIndent: true, Text: strconv.FormatInt(int64(value.Offset), 10)},
 			},
 		}
 
 	case rbxfile.ValueUDim2:
-		return &Tag{
+		return &documentTag{
 			StartName: "UDim2",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "XS", NoIndent: true, Text: encodeFloat(value.X.Scale)},
 				{StartName: "XO", NoIndent: true, Text: strconv.FormatInt(int64(value.X.Offset), 10)},
 				{StartName: "YS", NoIndent: true, Text: encodeFloat(value.Y.Scale)},
@@ -1301,30 +1301,30 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueVector2:
-		return &Tag{
+		return &documentTag{
 			StartName: "Vector2",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
 				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
 			},
 		}
 
 	case rbxfile.ValueVector2int16:
-		return &Tag{
+		return &documentTag{
 			StartName: "Vector2int16",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
 				{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
 			},
 		}
 
 	case rbxfile.ValueVector3:
-		return &Tag{
+		return &documentTag{
 			StartName: "Vector3",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
 				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
 				{StartName: "Z", NoIndent: true, Text: encodeFloat(value.Z)},
@@ -1332,10 +1332,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueVector3int16:
-		return &Tag{
+		return &documentTag{
 			StartName: "Vector3int16",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
 				{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
 				{StartName: "Z", NoIndent: true, Text: strconv.FormatInt(int64(value.Z), 10)},
@@ -1352,7 +1352,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			b = append(b, []byte(encodeFloatPrec(nsk.Envelope, 6))...)
 			b = append(b, ' ')
 		}
-		return &Tag{
+		return &documentTag{
 			StartName: "NumberSequence",
 			Attr:      attr,
 			Text:      string(b),
@@ -1372,7 +1372,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 			b = append(b, []byte(encodeFloatPrec(csk.Envelope, 6))...)
 			b = append(b, ' ')
 		}
-		return &Tag{
+		return &documentTag{
 			StartName: "ColorSequence",
 			Attr:      attr,
 			Text:      string(b),
@@ -1384,27 +1384,27 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		b = append(b, ' ')
 		b = append(b, []byte(encodeFloatPrec(value.Max, 6))...)
 		b = append(b, ' ')
-		return &Tag{
+		return &documentTag{
 			StartName: "NumberRange",
 			Attr:      attr,
 			Text:      string(b),
 		}
 
 	case rbxfile.ValueRect:
-		return &Tag{
+		return &documentTag{
 			StartName: "Rect2D",
 			Attr:      attr,
-			Tags: []*Tag{
+			Tags: []*documentTag{
 				{
 					StartName: "min",
-					Tags: []*Tag{
+					Tags: []*documentTag{
 						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Min.X)},
 						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Min.Y)},
 					},
 				},
 				{
 					StartName: "max",
-					Tags: []*Tag{
+					Tags: []*documentTag{
 						{StartName: "X", NoIndent: true, Text: encodeFloat(value.Max.X)},
 						{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Max.Y)},
 					},
@@ -1414,10 +1414,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 
 	case rbxfile.ValuePhysicalProperties:
 		if value.CustomPhysics {
-			return &Tag{
+			return &documentTag{
 				StartName: "PhysicalProperties",
 				Attr:      attr,
-				Tags: []*Tag{
+				Tags: []*documentTag{
 					{StartName: "CustomPhysics", Text: "true"},
 					{StartName: "Density", Text: encodeFloat(value.Density)},
 					{StartName: "Friction", Text: encodeFloat(value.Friction)},
@@ -1427,10 +1427,10 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 				},
 			}
 		} else {
-			return &Tag{
+			return &documentTag{
 				StartName: "PhysicalProperties",
 				Attr:      attr,
-				Tags: []*Tag{
+				Tags: []*documentTag{
 					{StartName: "CustomPhysics", Text: "false"},
 				},
 			}
@@ -1440,7 +1440,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		r := uint64(value.R)
 		g := uint64(value.G)
 		b := uint64(value.B)
-		return &Tag{
+		return &documentTag{
 			StartName: "Color3uint8",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1448,7 +1448,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		}
 
 	case rbxfile.ValueInt64:
-		return &Tag{
+		return &documentTag{
 			StartName: "int64",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1467,7 +1467,7 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *Ta
 		bw := base64.NewEncoder(base64.StdEncoding, sw)
 		bw.Write(sum[:16])
 		bw.Close()
-		tag := &Tag{
+		tag := &documentTag{
 			StartName: "SharedString",
 			Attr:      attr,
 			NoIndent:  true,
@@ -1536,7 +1536,7 @@ func encodeDouble(f float64) string {
 	return strconv.FormatFloat(f, 'g', 9, 64)
 }
 
-func encodeContent(tag *Tag, text string) {
+func encodeContent(tag *documentTag, text string) {
 	if strings.Index(text, "]]>") >= 0 {
 		tag.CData = []byte(text)
 		return

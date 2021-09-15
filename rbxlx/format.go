@@ -9,11 +9,11 @@ import (
 type Decoder struct{}
 
 func (Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
-	document := new(Document)
+	document := new(documentRoot)
 	if _, err = document.ReadFrom(r); err != nil {
 		return nil, errors.New("error parsing document: " + err.Error())
 	}
-	codec := RobloxCodec{}
+	codec := robloxCodec{}
 	root, err = codec.Decode(document)
 	if err != nil {
 		return nil, errors.New("error decoding data: " + err.Error())
@@ -24,7 +24,7 @@ func (Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 type Encoder struct{}
 
 func (Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
-	codec := RobloxCodec{}
+	codec := robloxCodec{}
 	document, err := codec.Encode(root)
 	if err != nil {
 		return errors.New("error encoding data: " + err.Error())

@@ -13,13 +13,13 @@ import (
 	"strconv"
 )
 
-// Tag represents a Roblox XML tag construct. Unlike standard XML, the content
-// of a tag must consist of the following, in order:
+// documentTag represents a Roblox XML tag construct. Unlike standard XML, the
+// content of a tag must consist of the following, in order:
 //     1) An optional CData section.
 //     2) A sequence of zero or more whitespace, which is ignored (usually newlines and indentation).
 //     3) A sequence of zero or more characters indicating textual content of the tag.
 //     4) A sequence of zero or more complete tags, with optional whitespace between each.
-type Tag struct {
+type documentTag struct {
 	// StartName is the name of the tag in the start tag.
 	StartName string
 
@@ -28,7 +28,7 @@ type Tag struct {
 	EndName string
 
 	// The attributes of the tag.
-	Attr []Attr
+	Attr []documentAttr
 
 	// Empty indicates whether the tag has an empty-tag format. When encoding,
 	// the tag will be written in the empty-tag format, and any content will
@@ -64,12 +64,12 @@ type Tag struct {
 	NoIndent bool
 
 	// Tags is a list of child tags within the tag.
-	Tags []*Tag
+	Tags []*documentTag
 }
 
 // AttrValue returns the value of the first attribute of the given name, and
 // whether or not it exists.
-func (t Tag) AttrValue(name string) (value string, exists bool) {
+func (t documentTag) AttrValue(name string) (value string, exists bool) {
 	for _, a := range t.Attr {
 		if a.Name == name {
 			return a.Value, true
@@ -82,7 +82,7 @@ func (t Tag) AttrValue(name string) (value string, exists bool) {
 // exists. If value is an empty string, then the attribute will be removed
 // instead. If the attribute does not exist and value is not empty, then the
 // attribute is added.
-func (t *Tag) SetAttrValue(name, value string) {
+func (t *documentTag) SetAttrValue(name, value string) {
 	for i, a := range t.Attr {
 		if a.Name == name {
 			if value == "" {
@@ -96,16 +96,16 @@ func (t *Tag) SetAttrValue(name, value string) {
 	if value == "" {
 		return
 	}
-	t.Attr = append(t.Attr, Attr{Name: name, Value: value})
+	t.Attr = append(t.Attr, documentAttr{Name: name, Value: value})
 }
 
-// NewRoot initializes a Tag containing values standard to a root tag.
+// newRoot initializes a Tag containing values standard to a root tag.
 // Optionally, Item tags can be given as arguments, which will be added to the
 // root as sub-tags.
-func NewRoot(items ...*Tag) *Tag {
-	return &Tag{
+func newRoot(items ...*documentTag) *documentTag {
+	return &documentTag{
 		StartName: "roblox",
-		Attr: []Attr{
+		Attr: []documentAttr{
 			{
 				Name:  "xmlns:xmime",
 				Value: "http://www.w3.org/2005/05/xmlmime",
@@ -127,15 +127,15 @@ func NewRoot(items ...*Tag) *Tag {
 	}
 }
 
-// NewItem initializes an "Item" Tag representing a Roblox class.
-func NewItem(class, referent string, properties ...*Tag) *Tag {
-	return &Tag{
+// newItem initializes an "Item" Tag representing a Roblox class.
+func newItem(class, referent string, properties ...*documentTag) *documentTag {
+	return &documentTag{
 		StartName: "Item",
-		Attr: []Attr{
+		Attr: []documentAttr{
 			{Name: "class", Value: class},
 			{Name: "referent", Value: referent},
 		},
-		Tags: []*Tag{
+		Tags: []*documentTag{
 			{
 				StartName: "Properties",
 				Tags:      properties,
@@ -144,12 +144,12 @@ func NewItem(class, referent string, properties ...*Tag) *Tag {
 	}
 }
 
-// NewProp initializes a basic property tag representing a property in a
+// newProp initializes a basic property tag representing a property in a
 // Roblox class.
-func NewProp(valueType, propName, value string) *Tag {
-	return &Tag{
+func newProp(valueType, propName, value string) *documentTag {
+	return &documentTag{
 		StartName: valueType,
-		Attr: []Attr{
+		Attr: []documentAttr{
 			{Name: "name", Value: propName},
 		},
 		Text:     value,
@@ -157,16 +157,16 @@ func NewProp(valueType, propName, value string) *Tag {
 	}
 }
 
-// Attr represents an attribute of a tag.
-type Attr struct {
+// documentAttr represents an attribute of a tag.
+type documentAttr struct {
 	Name  string
 	Value string
 }
 
 ////////////////////////////////////////////////////////////////
 
-// Document represents an entire XML document.
-type Document struct {
+// documentRoot represents an entire XML document.
+type documentRoot struct {
 	// Prefix is a string that appears at the start of each line in the
 	// document.
 	//
@@ -202,7 +202,7 @@ type Document struct {
 	ExcludeRoot bool
 
 	// Root is the root tag in the document.
-	Root *Tag
+	Root *documentTag
 
 	// Warnings is a list of non-fatal problems that have occurred. This will
 	// be cleared and populated when calling either ReadFrom and WriteTo.
@@ -227,7 +227,7 @@ type decoder struct {
 	r        io.ByteReader
 	buf      bytes.Buffer
 	nextByte []byte
-	doc      *Document
+	doc      *documentRoot
 	tagstack []int
 	n        int64
 	err      error
@@ -263,7 +263,7 @@ func (d *decoder) ignoreStartTag(err error) int {
 	return 0
 }
 
-func (d *decoder) decodeComment(tag *Tag) int {
+func (d *decoder) decodeComment(tag *documentTag) int {
 	d.buf.Reset()
 	for {
 		if b, ok := d.mustgetc(); !ok {
@@ -281,7 +281,7 @@ func (d *decoder) decodeComment(tag *Tag) int {
 
 //DIFF: Start tag parser has unexpected behavior that is difficult to
 //pin-point.
-func (d *decoder) decodeStartTag(tag *Tag) int {
+func (d *decoder) decodeStartTag(tag *documentTag) int {
 	b, ok := d.getc()
 	if !ok {
 		return -1
@@ -311,7 +311,7 @@ func (d *decoder) decodeStartTag(tag *Tag) int {
 		return d.ignoreStartTag(d.syntaxError("expected element name after <"))
 	}
 
-	tag.Attr = make([]Attr, 0, 4)
+	tag.Attr = make([]documentAttr, 0, 4)
 	for {
 		d.space()
 		if b, ok = d.mustgetc(); !ok {
@@ -334,7 +334,7 @@ func (d *decoder) decodeStartTag(tag *Tag) int {
 
 		n := len(tag.Attr)
 		if n >= cap(tag.Attr) {
-			nattr := make([]Attr, n, 2*cap(tag.Attr))
+			nattr := make([]documentAttr, n, 2*cap(tag.Attr))
 			copy(nattr, tag.Attr)
 			tag.Attr = nattr
 		}
@@ -361,7 +361,7 @@ func (d *decoder) decodeStartTag(tag *Tag) int {
 	return 1
 }
 
-func (d *decoder) decodeCData(tag *Tag) bool {
+func (d *decoder) decodeCData(tag *documentTag) bool {
 	tag.CData = nil
 
 	// attempt to read CData opener
@@ -387,7 +387,7 @@ func (d *decoder) decodeCData(tag *Tag) bool {
 	return true
 }
 
-func (d *decoder) decodeText(tag *Tag) bool {
+func (d *decoder) decodeText(tag *documentTag) bool {
 	text := d.text(-1, false)
 	if text == nil {
 		tag.Text = ""
@@ -397,7 +397,7 @@ func (d *decoder) decodeText(tag *Tag) bool {
 	return true
 }
 
-func (d *decoder) decodeEndTag(tag *Tag) bool {
+func (d *decoder) decodeEndTag(tag *documentTag) bool {
 	b, ok := d.getc()
 	if !ok {
 		return false
@@ -434,12 +434,12 @@ func (d *decoder) decodeEndTag(tag *Tag) bool {
 	return true
 }
 
-func (d *decoder) decodeTag(root bool) (tag *Tag, err error) {
+func (d *decoder) decodeTag(root bool) (tag *documentTag, err error) {
 	if d.err != nil {
 		return nil, d.err
 	}
 
-	tag = new(Tag)
+	tag = new(documentTag)
 	noindent := false
 	nocontent := true
 
@@ -936,7 +936,7 @@ func isNameByte(c byte, t int) bool {
 }
 
 // ReadFrom decode data from r into the Document.
-func (doc *Document) ReadFrom(r io.Reader) (n int64, err error) {
+func (doc *documentRoot) ReadFrom(r io.Reader) (n int64, err error) {
 	if r == nil {
 		return 0, errors.New("reader is nil")
 	}
@@ -976,7 +976,7 @@ func (doc *Document) ReadFrom(r io.Reader) (n int64, err error) {
 
 type encoder struct {
 	*bufio.Writer
-	d          *Document
+	d          *documentRoot
 	putNewline bool
 	depth      int
 	indentedIn bool
@@ -984,7 +984,7 @@ type encoder struct {
 	err        error
 }
 
-func (e *encoder) encodeCData(tag *Tag) bool {
+func (e *encoder) encodeCData(tag *documentTag) bool {
 	if tag.CData == nil {
 		return true
 	}
@@ -998,7 +998,7 @@ func (e *encoder) encodeCData(tag *Tag) bool {
 	return true
 }
 
-func (e *encoder) encodeText(tag *Tag) bool {
+func (e *encoder) encodeText(tag *documentTag) bool {
 	e.escapeString(tag.Text, true)
 	if !e.flush() {
 		return false
@@ -1018,7 +1018,7 @@ func (e *encoder) checkName(name string, typ int) bool {
 	return true
 }
 
-func (e *encoder) encodeTag(tag *Tag, noTags bool, noindent bool) int {
+func (e *encoder) encodeTag(tag *documentTag, noTags bool, noindent bool) int {
 	if e.err != nil {
 		return -1
 	}
@@ -1271,7 +1271,7 @@ func (e *encoder) escapeString(s string, escapeLead bool) {
 }
 
 // WriteTo encodes the Document as bytes to w.
-func (d *Document) WriteTo(w io.Writer) (n int64, err error) {
+func (d *documentRoot) WriteTo(w io.Writer) (n int64, err error) {
 	d.Warnings = d.Warnings[:0]
 
 	e := &encoder{Writer: bufio.NewWriter(w), d: d}
