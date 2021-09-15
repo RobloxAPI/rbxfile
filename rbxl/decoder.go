@@ -33,7 +33,7 @@ func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, warn, err error) {
 		return nil, warn, err
 	}
 	if buf != nil {
-		root, err = rbxlx.Decoder{}.Decode(buf)
+		root, warn, err = rbxlx.Decoder{}.Decode(buf)
 		if err != nil {
 			return nil, warn, XMLError{Cause: err}
 		}
