@@ -6,8 +6,11 @@ import (
 	"io"
 )
 
+// Decoder decodes a stream of bytes into a rbxfile.Root according to the rbxlx
+// format.
 type Decoder struct{}
 
+// Decode reads data from r and decodes it into root.
 func (Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	document := new(documentRoot)
 	if _, err = document.ReadFrom(r); err != nil {
@@ -21,8 +24,11 @@ func (Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
 	return root, nil
 }
 
+// Encoder encodes a rbxfile.Root into a stream of bytes according to the rbxlx
+// format.
 type Encoder struct{}
 
+// Encode formats root, writing the result to w.
 func (Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 	codec := robloxCodec{}
 	document, err := codec.Encode(root)
