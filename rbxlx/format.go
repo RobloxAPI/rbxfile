@@ -19,19 +19,19 @@ type Decoder struct {
 }
 
 // Decode reads data from r and decodes it into root.
-func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, err error) {
+func (d Decoder) Decode(r io.Reader) (root *rbxfile.Root, warn, err error) {
 	document := new(documentRoot)
 	if _, err = document.ReadFrom(r); err != nil {
-		return nil, fmt.Errorf("error parsing document: %w", err)
+		return nil, document.Warnings.Return(), fmt.Errorf("error parsing document: %w", err)
 	}
 	codec := robloxCodec{
 		DiscardInvalidProperties: d.DiscardInvalidProperties,
 	}
 	root, err = codec.Decode(document)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding data: %w", err)
+		return nil, document.Warnings.Return(), fmt.Errorf("error decoding data: %w", err)
 	}
-	return root, nil
+	return root, document.Warnings.Return(), nil
 }
 
 // Encoder encodes a rbxfile.Root into a stream of bytes according to the rbxlx
@@ -51,7 +51,7 @@ type Encoder struct {
 }
 
 // Encode formats root, writing the result to w.
-func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
+func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (warn, err error) {
 	codec := robloxCodec{
 		ExcludeReferent: e.ExcludeReferent,
 		ExcludeExternal: e.ExcludeExternal,
@@ -59,10 +59,10 @@ func (e Encoder) Encode(w io.Writer, root *rbxfile.Root) (err error) {
 	}
 	document, err := codec.Encode(root)
 	if err != nil {
-		return fmt.Errorf("error encoding data: %w", err)
+		return document.Warnings.Return(), fmt.Errorf("error encoding data: %w", err)
 	}
 	if _, err = document.WriteTo(w); err != nil {
-		return fmt.Errorf("error encoding format: %w", err)
+		return document.Warnings.Return(), fmt.Errorf("error encoding format: %w", err)
 	}
-	return nil
+	return document.Warnings.Return(), nil
 }
