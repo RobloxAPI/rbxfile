@@ -188,8 +188,18 @@ func (dec *rdecoder) getProperty(tag *documentTag, instance *rbxfile.Instance) (
 		return "", nil, false
 	}
 
-	// Guess property type from tag name
-	valueType := dec.codec.GetCanonType(tag.StartName)
+	// Guess property type from tag name.
+	valueType, optional := dec.codec.GetCanonType(tag.StartName)
+	if optional {
+		tag, ok = dec.getOptional(tag, valueType)
+		if !ok {
+			return "", nil, false
+		}
+		if tag == nil {
+			return name, rbxfile.None(rbxfile.TypeFromString(valueType)), true
+		}
+	}
+
 	value, ok = dec.getValue(tag, valueType)
 	if !ok {
 		return "", nil, false
@@ -214,75 +224,97 @@ func (dec *rdecoder) getProperty(tag *documentTag, instance *rbxfile.Instance) (
 		return "", nil, false
 	}
 
+	if optional {
+		value = rbxfile.Some(value)
+	}
+
 	return name, value, ok
+}
+
+func (dec *rdecoder) getOptional(tag *documentTag, valueType string) (subtag *documentTag, ok bool) {
+	if len(tag.Tags) == 0 {
+		return nil, true
+	}
+	switch valueType {
+	case "CoordinateFrame":
+		ok = components{
+			"CFrame": &subtag, //TODO: case-sensitive?
+		}.getFrom(tag)
+	}
+	return subtag, ok
 }
 
 // GetCanonType converts a string (usually from a tag name) to a decodable
 // type.
-func (robloxCodec) GetCanonType(valueType string) string {
-	switch strings.ToLower(valueType) {
-	case "axes":
-		return "Axes"
-	case "binarystring":
-		return "BinaryString"
-	case "bool":
-		return "bool"
-	case "brickcolor":
-		return "BrickColor"
-	case "cframe", "coordinateframe":
-		return "CoordinateFrame"
-	case "color3":
-		return "Color3"
-	case "content":
-		return "Content"
-	case "double":
-		return "double"
-	case "faces":
-		return "Faces"
-	case "float":
-		return "float"
-	case "int":
-		return "int"
-	case "protectedstring":
-		return "ProtectedString"
-	case "ray":
-		return "Ray"
-	case "object", "ref":
-		return "Object"
-	case "string":
-		return "string"
-	case "token":
-		return "token"
-	case "udim":
-		return "UDim"
-	case "udim2":
-		return "UDim2"
-	case "vector2":
-		return "Vector2"
-	case "vector2int16":
-		return "Vector2int16"
-	case "vector3":
-		return "Vector3"
-	case "vector3int16":
-		return "Vector3int16"
-	case "numbersequence":
-		return "NumberSequence"
-	case "colorsequence":
-		return "ColorSequence"
-	case "numberrange":
-		return "NumberRange"
-	case "rect2d":
-		return "Rect2D"
-	case "physicalproperties":
-		return "PhysicalProperties"
-	case "color3uint8":
-		return "Color3uint8"
-	case "int64":
-		return "int64"
-	case "sharedstring":
-		return "SharedString"
+func (robloxCodec) GetCanonType(valueType string) (canonType string, optional bool) {
+	valueType = strings.ToLower(valueType)
+	if strings.HasPrefix(valueType, "optional") {
+		valueType = strings.TrimPrefix(valueType, "optional")
+		optional = true
 	}
-	return ""
+	switch valueType {
+	case "axes":
+		canonType = "Axes"
+	case "binarystring":
+		canonType = "BinaryString"
+	case "bool":
+		canonType = "bool"
+	case "brickcolor":
+		canonType = "BrickColor"
+	case "cframe", "coordinateframe":
+		canonType = "CoordinateFrame"
+	case "color3":
+		canonType = "Color3"
+	case "content":
+		canonType = "Content"
+	case "double":
+		canonType = "double"
+	case "faces":
+		canonType = "Faces"
+	case "float":
+		canonType = "float"
+	case "int":
+		canonType = "int"
+	case "protectedstring":
+		canonType = "ProtectedString"
+	case "ray":
+		canonType = "Ray"
+	case "object", "ref":
+		canonType = "Object"
+	case "string":
+		canonType = "string"
+	case "token":
+		canonType = "token"
+	case "udim":
+		canonType = "UDim"
+	case "udim2":
+		canonType = "UDim2"
+	case "vector2":
+		canonType = "Vector2"
+	case "vector2int16":
+		canonType = "Vector2int16"
+	case "vector3":
+		canonType = "Vector3"
+	case "vector3int16":
+		canonType = "Vector3int16"
+	case "numbersequence":
+		canonType = "NumberSequence"
+	case "colorsequence":
+		canonType = "ColorSequence"
+	case "numberrange":
+		canonType = "NumberRange"
+	case "rect2d":
+		canonType = "Rect2D"
+	case "physicalproperties":
+		canonType = "PhysicalProperties"
+	case "color3uint8":
+		canonType = "Color3uint8"
+	case "int64":
+		canonType = "int64"
+	case "sharedstring":
+		canonType = "SharedString"
+	}
+	return canonType, optional
 }
 
 // Gets a rbxfile.Value from a property tag, using valueType to determine how
@@ -1474,6 +1506,24 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		}
 		encodeContent(tag, buf.String())
 		return tag
+
+	case rbxfile.ValueOptional:
+		t, _ := enc.codec.GetCanonType(value.ValueType().String())
+		parent := &documentTag{
+			StartName: "Optional" + t,
+			Attr:      attr,
+		}
+		switch value := value.Value().(type) {
+		case nil:
+			parent.NoIndent = true
+
+		case rbxfile.ValueCFrame:
+			tag := enc.encodeProperty(class, prop, value)
+			tag.StartName = "CFrame"
+			tag.Attr = nil
+			parent.Tags = append(parent.Tags, tag)
+		}
+		return parent
 	}
 
 	return nil
