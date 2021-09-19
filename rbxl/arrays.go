@@ -1418,28 +1418,23 @@ func (a arrayOptional) Len() int {
 }
 
 func (a arrayOptional) Get(i int) value {
-	if a.Values == nil || !a.Present[i] {
-		return &valueOptional{}
+	if a.Values == nil {
+		panic("nil value array")
 	}
-	return &valueOptional{value: a.Values.Get(i)}
+	if !a.Present[i] {
+		return nil
+	}
+	return a.Values.Get(i)
 }
 
 func (a arrayOptional) Set(i int, v value) {
 	if a.Values == nil {
-		return
+		panic("nil value array")
 	}
 	switch v := v.(type) {
 	case nil:
 		a.Values.Set(i, newValue(a.Values.Type()))
 		a.Present[i] = false
-	case *valueOptional:
-		if v.value == nil {
-			a.Values.Set(i, newValue(a.Values.Type()))
-			a.Present[i] = false
-			return
-		}
-		a.Values.Set(i, v.value)
-		a.Present[i] = true
 	default:
 		a.Values.Set(i, v)
 		a.Present[i] = true

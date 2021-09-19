@@ -488,7 +488,7 @@ func newValue(typ typeID) value {
 	case typeSharedString:
 		return new(valueSharedString)
 	case typeOptional:
-		return new(valueOptional)
+		return nil
 	}
 	return nil
 }
@@ -2152,61 +2152,3 @@ func (v valueSharedString) Dump(w *bufio.Writer, indent int) {
 ////////////////////////////////////////////////////////////////
 
 const zOptional = zOpt
-
-type valueOptional struct {
-	value
-}
-
-func (valueOptional) Type() typeID {
-	return typeOptional
-}
-
-func (v valueOptional) BytesLen() int {
-	if v.value == nil {
-		return 0
-	}
-	return v.value.BytesLen()
-}
-
-func (v valueOptional) Bytes(b []byte) []byte {
-	// Unused.
-
-	if v.value == nil {
-		return append(b, 0)
-	}
-	b = append(b, byte(v.value.Type()))
-	b = v.value.Bytes(b)
-	return b
-}
-
-func (v *valueOptional) FromBytes(b []byte) (n int, err error) {
-	// Unused.
-
-	if len(b) < zb {
-		return 0, buflenError{exp: zb, got: len(b)}
-	}
-	t := typeID(b[0])
-	if t == 0 {
-		v.value = nil
-		return
-	}
-	b = b[zb:]
-	value := newValue(t)
-	nn, err := value.FromBytes(b)
-	if err != nil {
-		return n, err
-	}
-	n += nn
-	v.value = value
-	return n, nil
-}
-
-func (v valueOptional) Dump(w *bufio.Writer, indent int) {
-	if v.value == nil {
-		w.WriteString("nil")
-		return
-	}
-	v.value.Dump(w, indent)
-}
-
-////////////////////////////////////////////////////////////////

@@ -124,6 +124,15 @@ loop:
 					}
 					inst.Properties[chunk.PropertyName] = value
 				}
+			case arrayOptional:
+				for i := 0; i < length; i++ {
+					inst := instLookup[instChunk.InstanceIDs[i]]
+					if props.Present[i] {
+						inst.Properties[chunk.PropertyName] = rbxfile.Some(decodeValue(props.Values.Get(i)))
+					} else {
+						inst.Properties[chunk.PropertyName] = rbxfile.None(props.Values.Type().ValueType())
+					}
+				}
 			default:
 				for i := 0; i < length; i++ {
 					bvalue := props.Get(i)
@@ -387,9 +396,6 @@ func decodeValue(val value) rbxfile.Value {
 		// Must be resolved elsewhere.
 		return nil
 
-	case *valueOptional:
-		return rbxfile.ValueOptional{Value: decodeValue(value.value)}
-
 	default:
 		return nil
 	}
@@ -509,6 +515,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 		for name, propChunk := range propChunkMap {
 			var instRef int32 = nilInstance
 			dataType := typeInvalid
+			valueType := typeInvalid
 			for _, ref := range instChunk.InstanceIDs {
 				inst := instList[ref]
 				prop, ok := inst.Properties[name]
@@ -522,6 +529,13 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 						warns = chunkWarn(warns, i, instChunk, "unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(prop.Type()), instList[instRef].ClassName, name, instRef)
 						continue checkPropType
 					}
+					if opt, ok := prop.(rbxfile.ValueOptional); ok {
+						valueType = fromValueType(opt.ValueType())
+						if valueType == typeInvalid {
+							warns = chunkWarn(warns, i, instChunk, "unknown type %d for optional in property %s.%s in instance #%d, chunk skipped", byte(opt.ValueType()), instList[instRef].ClassName, name, instRef)
+							continue checkPropType
+						}
+					}
 					instRef = ref
 					continue
 				}
@@ -532,11 +546,26 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					warns = chunkWarn(warns, i, instChunk, "mismatched types %s and %s for property %s.%s, chunk skipped", t, dataType, instList[instRef].ClassName, name)
 					continue checkPropType
 				}
+				if dataType == typeOptional {
+					if opt, ok := prop.(rbxfile.ValueOptional); ok {
+						if t := fromValueType(opt.ValueType()); t != valueType {
+							warns = chunkWarn(warns, i, instChunk, "mismatched optional types %s and %s for property %s.%s, chunk skipped", t, valueType, instList[instRef].ClassName, name)
+							continue checkPropType
+						}
+					}
+				}
 			}
 			// Because propChunkMap was populated from InstanceIDs, dataType
 			// should always be a valid value by this point.
 			t = dataType
-			propChunk.Properties = newArray(dataType, len(instChunk.InstanceIDs))
+			if dataType == typeOptional {
+				propChunk.Properties = &arrayOptional{
+					Values:  newArray(valueType, len(instChunk.InstanceIDs)),
+					Present: make(arrayBool, len(instChunk.InstanceIDs)),
+				}
+			} else {
+				propChunk.Properties = newArray(dataType, len(instChunk.InstanceIDs))
+			}
 		}
 
 		// Set the values for each property chunk.
@@ -925,7 +954,7 @@ func encodeValue(val rbxfile.Value) value {
 		return nil
 
 	case rbxfile.ValueOptional:
-		return &valueOptional{value: encodeValue(value.Value)}
+		return encodeValue(value.Value())
 
 	default:
 		return nil

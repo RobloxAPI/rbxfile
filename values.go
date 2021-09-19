@@ -931,25 +931,72 @@ func (t ValueSharedString) Copy() Value {
 ////////////////
 
 type ValueOptional struct {
-	Value
+	typ   Type
+	value Value
 }
 
 func newValueOptional() Value {
 	return ValueOptional{}
 }
 
+// Some returns a ValueOptional with the given value and value's type.
+func Some(value Value) ValueOptional {
+	if value == nil {
+		panic("option value cannot be nil")
+	}
+	return ValueOptional{
+		typ:   value.Type(),
+		value: value,
+	}
+}
+
+// None returns a ValueOptional with type t and no value.
+func None(t Type) ValueOptional {
+	return ValueOptional{
+		typ:   t,
+		value: nil,
+	}
+}
+
 func (ValueOptional) Type() Type {
 	return TypeOptional
 }
 func (t ValueOptional) String() string {
-	if t.Value == nil {
+	if t.value == nil {
 		return "nil"
 	}
-	return t.Value.String()
+	return t.value.String()
 }
 func (t ValueOptional) Copy() Value {
-	if t.Value == nil {
+	if t.value == nil {
 		return ValueOptional{}
 	}
-	return ValueOptional{Value: t.Value.Copy()}
+	return ValueOptional{value: t.value.Copy()}
+}
+
+// Some sets the option to have the given value and value's type.
+func (v *ValueOptional) Some(value Value) ValueOptional {
+	if value == nil {
+		panic("option value cannot be nil")
+	}
+	v.typ = value.Type()
+	v.value = value
+	return *v
+}
+
+// None sets the option to have type t with no value.
+func (v *ValueOptional) None(t Type) ValueOptional {
+	v.typ = t
+	v.value = nil
+	return *v
+}
+
+// Value returns the value of the option, or nil if the option has no value.
+func (v ValueOptional) Value() Value {
+	return v.value
+}
+
+// ValueType returns the the value type of the option.
+func (v ValueOptional) ValueType() Type {
+	return v.typ
 }
