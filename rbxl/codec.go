@@ -519,7 +519,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					// Set data type to the first valid property.
 					dataType = fromValueType(prop.Type())
 					if dataType == typeInvalid {
-						warns = chunkWarn(warns, i, instChunk, "unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(dataType), instList[instRef].ClassName, name, instRef)
+						warns = chunkWarn(warns, i, instChunk, "unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(prop.Type()), instList[instRef].ClassName, name, instRef)
 						continue checkPropType
 					}
 					instRef = ref
