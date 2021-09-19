@@ -406,6 +406,11 @@ func ValueToJSONInterface(value rbxfile.Value, refs rbxfile.References) interfac
 		bw := base64.NewEncoder(base64.StdEncoding, &buf)
 		bw.Write([]byte(value))
 		return buf.String()
+	case rbxfile.ValueOptional:
+		return map[string]interface{}{
+			"type":  value.ValueType(),
+			"value": ValueToJSONInterface(value.Value(), refs),
+		}
 	}
 	return nil
 }
@@ -706,6 +711,16 @@ func ValueFromJSONInterface(typ rbxfile.Type, ivalue interface{}) (value rbxfile
 			return rbxfile.ValueSharedString(v)
 		}
 		return rbxfile.ValueSharedString(b)
+	case rbxfile.TypeOptional:
+		v, ok := ivalue.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		t := rbxfile.TypeFromString(v["type"].(string))
+		if v["value"] == nil {
+			return rbxfile.None(t)
+		}
+		return rbxfile.Some(ValueFromJSONInterface(t, v["value"]))
 	}
 	return nil
 }
