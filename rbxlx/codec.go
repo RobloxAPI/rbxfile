@@ -1085,8 +1085,9 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 
 	for _, name := range sorted {
 		value := instance.Properties[name]
-		tag := enc.encodeProperty(instance.ClassName, name, value)
+		tag := enc.encodeProperty(value)
 		if tag != nil {
+			tag.Attr = []documentAttr{{Name: "name", Value: name}}
 			properties = append(properties, tag)
 		}
 	}
@@ -1094,8 +1095,7 @@ func (enc *rencoder) encodeProperties(instance *rbxfile.Instance) (properties []
 	return properties
 }
 
-func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *documentTag {
-	attr := []documentAttr{{Name: "name", Value: prop}}
+func (enc *rencoder) encodeProperty(value rbxfile.Value) *documentTag {
 	switch value := value.(type) {
 	case rbxfile.ValueAxes:
 		var n uint64
@@ -1106,7 +1106,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		}
 		return &documentTag{
 			StartName: "Axes",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{
 					StartName: "axes",
@@ -1124,7 +1123,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		bw.Close()
 		tag := &documentTag{
 			StartName: "BinaryString",
-			Attr:      attr,
 			NoIndent:  true,
 		}
 		encodeContent(tag, buf.String())
@@ -1139,7 +1137,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		}
 		return &documentTag{
 			StartName: "bool",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      v,
 		}
@@ -1147,7 +1144,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueBrickColor:
 		return &documentTag{
 			StartName: "int",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      strconv.FormatUint(uint64(value), 10),
 		}
@@ -1155,7 +1151,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueCFrame:
 		return &documentTag{
 			StartName: "CoordinateFrame",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: encodeFloat(value.Position.X)},
 				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Position.Y)},
@@ -1175,7 +1170,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueColor3:
 		return &documentTag{
 			StartName: "Color3",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "R", NoIndent: true, Text: encodeFloat(value.R)},
 				{StartName: "G", NoIndent: true, Text: encodeFloat(value.G)},
@@ -1186,7 +1180,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueContent:
 		tag := &documentTag{
 			StartName: "Content",
-			Attr:      attr,
 			NoIndent:  true,
 			Tags: []*documentTag{
 				{
@@ -1206,7 +1199,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueDouble:
 		return &documentTag{
 			StartName: "double",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      encodeDouble(float64(value)),
 		}
@@ -1220,7 +1212,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		}
 		return &documentTag{
 			StartName: "Faces",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{
 					StartName: "faces",
@@ -1233,7 +1224,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueFloat:
 		return &documentTag{
 			StartName: "float",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      encodeFloat(float32(value)),
 		}
@@ -1241,7 +1231,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueInt:
 		return &documentTag{
 			StartName: "int",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      strconv.FormatInt(int64(value), 10),
 		}
@@ -1249,7 +1238,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueProtectedString:
 		tag := &documentTag{
 			StartName: "ProtectedString",
-			Attr:      attr,
 			NoIndent:  true,
 		}
 		encodeContent(tag, string(value))
@@ -1258,7 +1246,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueRay:
 		return &documentTag{
 			StartName: "Ray",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{
 					StartName: "origin",
@@ -1282,7 +1269,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueReference:
 		tag := &documentTag{
 			StartName: "Ref",
-			Attr:      attr,
 			NoIndent:  true,
 		}
 
@@ -1297,7 +1283,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueString:
 		return &documentTag{
 			StartName: "string",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      string(value),
 		}
@@ -1305,7 +1290,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueToken:
 		return &documentTag{
 			StartName: "token",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      strconv.FormatUint(uint64(value), 10),
 		}
@@ -1313,7 +1297,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueUDim:
 		return &documentTag{
 			StartName: "UDim",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "S", NoIndent: true, Text: encodeFloat(value.Scale)},
 				{StartName: "O", NoIndent: true, Text: strconv.FormatInt(int64(value.Offset), 10)},
@@ -1323,7 +1306,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueUDim2:
 		return &documentTag{
 			StartName: "UDim2",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "XS", NoIndent: true, Text: encodeFloat(value.X.Scale)},
 				{StartName: "XO", NoIndent: true, Text: strconv.FormatInt(int64(value.X.Offset), 10)},
@@ -1335,7 +1317,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueVector2:
 		return &documentTag{
 			StartName: "Vector2",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
 				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
@@ -1345,7 +1326,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueVector2int16:
 		return &documentTag{
 			StartName: "Vector2int16",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
 				{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
@@ -1355,7 +1335,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueVector3:
 		return &documentTag{
 			StartName: "Vector3",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: encodeFloat(value.X)},
 				{StartName: "Y", NoIndent: true, Text: encodeFloat(value.Y)},
@@ -1366,7 +1345,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueVector3int16:
 		return &documentTag{
 			StartName: "Vector3int16",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{StartName: "X", NoIndent: true, Text: strconv.FormatInt(int64(value.X), 10)},
 				{StartName: "Y", NoIndent: true, Text: strconv.FormatInt(int64(value.Y), 10)},
@@ -1386,7 +1364,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		}
 		return &documentTag{
 			StartName: "NumberSequence",
-			Attr:      attr,
 			Text:      string(b),
 		}
 
@@ -1406,7 +1383,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		}
 		return &documentTag{
 			StartName: "ColorSequence",
-			Attr:      attr,
 			Text:      string(b),
 		}
 
@@ -1418,14 +1394,12 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		b = append(b, ' ')
 		return &documentTag{
 			StartName: "NumberRange",
-			Attr:      attr,
 			Text:      string(b),
 		}
 
 	case rbxfile.ValueRect:
 		return &documentTag{
 			StartName: "Rect2D",
-			Attr:      attr,
 			Tags: []*documentTag{
 				{
 					StartName: "min",
@@ -1448,7 +1422,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		if value.CustomPhysics {
 			return &documentTag{
 				StartName: "PhysicalProperties",
-				Attr:      attr,
 				Tags: []*documentTag{
 					{StartName: "CustomPhysics", Text: "true"},
 					{StartName: "Density", Text: encodeFloat(value.Density)},
@@ -1461,7 +1434,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		} else {
 			return &documentTag{
 				StartName: "PhysicalProperties",
-				Attr:      attr,
 				Tags: []*documentTag{
 					{StartName: "CustomPhysics", Text: "false"},
 				},
@@ -1474,7 +1446,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		b := uint64(value.B)
 		return &documentTag{
 			StartName: "Color3uint8",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      strconv.FormatUint(0xFF<<24|r<<16|g<<8|b, 10),
 		}
@@ -1482,7 +1453,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 	case rbxfile.ValueInt64:
 		return &documentTag{
 			StartName: "int64",
-			Attr:      attr,
 			NoIndent:  true,
 			Text:      strconv.FormatInt(int64(value), 10),
 		}
@@ -1501,7 +1471,6 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		bw.Close()
 		tag := &documentTag{
 			StartName: "SharedString",
-			Attr:      attr,
 			NoIndent:  true,
 		}
 		encodeContent(tag, buf.String())
@@ -1511,16 +1480,14 @@ func (enc *rencoder) encodeProperty(class, prop string, value rbxfile.Value) *do
 		t, _ := enc.codec.GetCanonType(value.ValueType().String())
 		parent := &documentTag{
 			StartName: "Optional" + t,
-			Attr:      attr,
 		}
 		switch value := value.Value().(type) {
 		case nil:
 			parent.NoIndent = true
 
 		case rbxfile.ValueCFrame:
-			tag := enc.encodeProperty(class, prop, value)
+			tag := enc.encodeProperty(value)
 			tag.StartName = "CFrame"
-			tag.Attr = nil
 			parent.Tags = append(parent.Tags, tag)
 		}
 		return parent
