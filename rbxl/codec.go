@@ -509,29 +509,29 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 			}
 		}
 
-		var t typeID
+		var propChunkType typeID
 		// Check to see if all existing properties types match.
 	checkPropType:
 		for name, propChunk := range propChunkMap {
 			var instRef int32 = nilInstance
-			dataType := typeInvalid
-			valueType := typeInvalid
+			propType := typeInvalid
+			optionType := typeInvalid
 			for _, ref := range instChunk.InstanceIDs {
 				inst := instList[ref]
 				prop, ok := inst.Properties[name]
 				if !ok {
 					continue
 				}
-				if dataType == typeInvalid {
+				if propType == typeInvalid {
 					// Set data type to the first valid property.
-					dataType = fromValueType(prop.Type())
-					if dataType == typeInvalid {
+					propType = fromValueType(prop.Type())
+					if propType == typeInvalid {
 						warns = chunkWarn(warns, i, instChunk, "unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(prop.Type()), instList[instRef].ClassName, name, instRef)
 						continue checkPropType
 					}
 					if opt, ok := prop.(rbxfile.ValueOptional); ok {
-						valueType = fromValueType(opt.ValueType())
-						if valueType == typeInvalid {
+						optionType = fromValueType(opt.ValueType())
+						if optionType == typeInvalid {
 							warns = chunkWarn(warns, i, instChunk, "unknown type %d for optional in property %s.%s in instance #%d, chunk skipped", byte(opt.ValueType()), instList[instRef].ClassName, name, instRef)
 							continue checkPropType
 						}
@@ -539,32 +539,32 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					instRef = ref
 					continue
 				}
-				if t := fromValueType(prop.Type()); t != dataType {
+				if t := fromValueType(prop.Type()); t != propType {
 					// If at least one property type does not match with the
 					// rest, then stop.
 					delete(propChunkMap, name)
-					warns = chunkWarn(warns, i, instChunk, "mismatched types %s and %s for property %s.%s, chunk skipped", t, dataType, instList[instRef].ClassName, name)
+					warns = chunkWarn(warns, i, instChunk, "mismatched types %s and %s for property %s.%s, chunk skipped", t, propType, instList[instRef].ClassName, name)
 					continue checkPropType
 				}
-				if dataType == typeOptional {
+				if propType == typeOptional {
 					if opt, ok := prop.(rbxfile.ValueOptional); ok {
-						if t := fromValueType(opt.ValueType()); t != valueType {
-							warns = chunkWarn(warns, i, instChunk, "mismatched optional types %s and %s for property %s.%s, chunk skipped", t, valueType, instList[instRef].ClassName, name)
+						if t := fromValueType(opt.ValueType()); t != optionType {
+							warns = chunkWarn(warns, i, instChunk, "mismatched optional types %s and %s for property %s.%s, chunk skipped", t, optionType, instList[instRef].ClassName, name)
 							continue checkPropType
 						}
 					}
 				}
 			}
-			// Because propChunkMap was populated from InstanceIDs, dataType
+			// Because propChunkMap was populated from InstanceIDs, propType
 			// should always be a valid value by this point.
-			t = dataType
-			if dataType == typeOptional {
+			propChunkType = propType
+			if propType == typeOptional {
 				propChunk.Properties = &arrayOptional{
-					Values:  newArray(valueType, len(instChunk.InstanceIDs)),
+					Values:  newArray(optionType, len(instChunk.InstanceIDs)),
 					Present: make(arrayBool, len(instChunk.InstanceIDs)),
 				}
 			} else {
-				propChunk.Properties = newArray(dataType, len(instChunk.InstanceIDs))
+				propChunk.Properties = newArray(propType, len(instChunk.InstanceIDs))
 			}
 		}
 
@@ -607,9 +607,9 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					}
 				}
 
-				if bvalue == nil || bvalue.Type() != t {
+				if bvalue == nil || bvalue.Type() != propChunkType {
 					// Use default value for DataType.
-					bvalue = newValue(t)
+					bvalue = newValue(propChunkType)
 				}
 
 				propChunk.Properties.Set(i, bvalue)
