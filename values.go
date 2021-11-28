@@ -968,10 +968,10 @@ func (t ValueOptional) String() string {
 	return t.value.String()
 }
 func (t ValueOptional) Copy() Value {
-	if t.value == nil {
-		return ValueOptional{}
+	if t.value != nil {
+		t.value = t.value.Copy()
 	}
-	return ValueOptional{value: t.value.Copy()}
+	return t
 }
 
 // Some sets the option to have the given value and value's type.
