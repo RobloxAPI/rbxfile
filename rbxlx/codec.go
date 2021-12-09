@@ -196,7 +196,7 @@ func (dec *rdecoder) getProperty(tag *documentTag, instance *rbxfile.Instance) (
 			return "", nil, false
 		}
 		if tag == nil {
-			return name, rbxfile.None(rbxfile.TypeFromString(valueType)), true
+			return name, rbxfile.None(valueType), true
 		}
 	}
 
@@ -231,12 +231,12 @@ func (dec *rdecoder) getProperty(tag *documentTag, instance *rbxfile.Instance) (
 	return name, value, ok
 }
 
-func (dec *rdecoder) getOptional(tag *documentTag, valueType string) (subtag *documentTag, ok bool) {
+func (dec *rdecoder) getOptional(tag *documentTag, valueType rbxfile.Type) (subtag *documentTag, ok bool) {
 	if len(tag.Tags) == 0 {
 		return nil, true
 	}
 	switch valueType {
-	case "CoordinateFrame":
+	case rbxfile.TypeCFrame:
 		ok = components{
 			"CFrame": &subtag, //TODO: case-sensitive?
 		}.getFrom(tag)
@@ -244,9 +244,78 @@ func (dec *rdecoder) getOptional(tag *documentTag, valueType string) (subtag *do
 	return subtag, ok
 }
 
-// GetCanonType converts a string (usually from a tag name) to a decodable
-// type.
-func (robloxCodec) GetCanonType(valueType string) (canonType string, optional bool) {
+// GetCanonTag converts a rbxfile.Type to its canonical tag name.
+func (robloxCodec) GetCanonTag(valueType rbxfile.Type, optional bool) (canonTag string) {
+	switch valueType {
+	case rbxfile.TypeAxes:
+		canonTag = "Axes"
+	case rbxfile.TypeBinaryString:
+		canonTag = "BinaryString"
+	case rbxfile.TypeBool:
+		canonTag = "bool"
+	case rbxfile.TypeBrickColor:
+		canonTag = "BrickColor"
+	case rbxfile.TypeCFrame:
+		canonTag = "CoordinateFrame"
+	case rbxfile.TypeColor3:
+		canonTag = "Color3"
+	case rbxfile.TypeContent:
+		canonTag = "Content"
+	case rbxfile.TypeDouble:
+		canonTag = "double"
+	case rbxfile.TypeFaces:
+		canonTag = "Faces"
+	case rbxfile.TypeFloat:
+		canonTag = "float"
+	case rbxfile.TypeInt:
+		canonTag = "int"
+	case rbxfile.TypeProtectedString:
+		canonTag = "ProtectedString"
+	case rbxfile.TypeRay:
+		canonTag = "Ray"
+	case rbxfile.TypeReference:
+		canonTag = "Object"
+	case rbxfile.TypeString:
+		canonTag = "string"
+	case rbxfile.TypeToken:
+		canonTag = "token"
+	case rbxfile.TypeUDim:
+		canonTag = "UDim"
+	case rbxfile.TypeUDim2:
+		canonTag = "UDim2"
+	case rbxfile.TypeVector2:
+		canonTag = "Vector2"
+	case rbxfile.TypeVector2int16:
+		canonTag = "Vector2int16"
+	case rbxfile.TypeVector3:
+		canonTag = "Vector3"
+	case rbxfile.TypeVector3int16:
+		canonTag = "Vector3int16"
+	case rbxfile.TypeNumberSequence:
+		canonTag = "NumberSequence"
+	case rbxfile.TypeColorSequence:
+		canonTag = "ColorSequence"
+	case rbxfile.TypeNumberRange:
+		canonTag = "NumberRange"
+	case rbxfile.TypeRect:
+		canonTag = "Rect2D"
+	case rbxfile.TypePhysicalProperties:
+		canonTag = "PhysicalProperties"
+	case rbxfile.TypeColor3uint8:
+		canonTag = "Color3uint8"
+	case rbxfile.TypeInt64:
+		canonTag = "int64"
+	case rbxfile.TypeSharedString:
+		canonTag = "SharedString"
+	}
+	if optional {
+		canonTag = "Optional" + canonTag
+	}
+	return canonTag
+}
+
+// GetCanonType converts a string from a tag name to a rbxfile.Type.
+func (robloxCodec) GetCanonType(valueType string) (canonType rbxfile.Type, optional bool) {
 	valueType = strings.ToLower(valueType)
 	if strings.HasPrefix(valueType, "optional") {
 		valueType = strings.TrimPrefix(valueType, "optional")
@@ -254,65 +323,65 @@ func (robloxCodec) GetCanonType(valueType string) (canonType string, optional bo
 	}
 	switch valueType {
 	case "axes":
-		canonType = "Axes"
+		canonType = rbxfile.TypeAxes
 	case "binarystring":
-		canonType = "BinaryString"
+		canonType = rbxfile.TypeBinaryString
 	case "bool":
-		canonType = "bool"
+		canonType = rbxfile.TypeBool
 	case "brickcolor":
-		canonType = "BrickColor"
+		canonType = rbxfile.TypeBrickColor
 	case "cframe", "coordinateframe":
-		canonType = "CoordinateFrame"
+		canonType = rbxfile.TypeCFrame
 	case "color3":
-		canonType = "Color3"
+		canonType = rbxfile.TypeColor3
 	case "content":
-		canonType = "Content"
+		canonType = rbxfile.TypeContent
 	case "double":
-		canonType = "double"
+		canonType = rbxfile.TypeDouble
 	case "faces":
-		canonType = "Faces"
+		canonType = rbxfile.TypeFaces
 	case "float":
-		canonType = "float"
+		canonType = rbxfile.TypeFloat
 	case "int":
-		canonType = "int"
+		canonType = rbxfile.TypeInt
 	case "protectedstring":
-		canonType = "ProtectedString"
+		canonType = rbxfile.TypeProtectedString
 	case "ray":
-		canonType = "Ray"
+		canonType = rbxfile.TypeRay
 	case "object", "ref":
-		canonType = "Object"
+		canonType = rbxfile.TypeReference
 	case "string":
-		canonType = "string"
+		canonType = rbxfile.TypeString
 	case "token":
-		canonType = "token"
+		canonType = rbxfile.TypeToken
 	case "udim":
-		canonType = "UDim"
+		canonType = rbxfile.TypeUDim
 	case "udim2":
-		canonType = "UDim2"
+		canonType = rbxfile.TypeUDim2
 	case "vector2":
-		canonType = "Vector2"
+		canonType = rbxfile.TypeVector2
 	case "vector2int16":
-		canonType = "Vector2int16"
+		canonType = rbxfile.TypeVector2int16
 	case "vector3":
-		canonType = "Vector3"
+		canonType = rbxfile.TypeVector3
 	case "vector3int16":
-		canonType = "Vector3int16"
+		canonType = rbxfile.TypeVector3int16
 	case "numbersequence":
-		canonType = "NumberSequence"
+		canonType = rbxfile.TypeNumberSequence
 	case "colorsequence":
-		canonType = "ColorSequence"
+		canonType = rbxfile.TypeColorSequence
 	case "numberrange":
-		canonType = "NumberRange"
-	case "rect2d":
-		canonType = "Rect2D"
+		canonType = rbxfile.TypeNumberRange
+	case "rect", "rect2d":
+		canonType = rbxfile.TypeRect
 	case "physicalproperties":
-		canonType = "PhysicalProperties"
+		canonType = rbxfile.TypePhysicalProperties
 	case "color3uint8":
-		canonType = "Color3uint8"
+		canonType = rbxfile.TypeColor3uint8
 	case "int64":
-		canonType = "int64"
+		canonType = rbxfile.TypeInt64
 	case "sharedstring":
-		canonType = "SharedString"
+		canonType = rbxfile.TypeSharedString
 	}
 	return canonType, optional
 }
@@ -321,9 +390,9 @@ func (robloxCodec) GetCanonType(valueType string) (canonType string, optional bo
 // the tag is interpreted. valueType must be an existing type as it appears in
 // the API dump. If guessing the type, it should be converted to one of these
 // first.
-func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile.Value, ok bool) {
+func (dec *rdecoder) getValue(tag *documentTag, valueType rbxfile.Type) (value rbxfile.Value, ok bool) {
 	switch valueType {
-	case "Axes":
+	case rbxfile.TypeAxes:
 		var bits int32
 		ok := components{
 			"axes": &bits,
@@ -340,7 +409,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 			Z: bits&(1<<2) > 0,
 		}, true
 
-	case "BinaryString":
+	case rbxfile.TypeBinaryString:
 		d := base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag)))
 		v, err := io.ReadAll(d)
 		if err != nil {
@@ -351,7 +420,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueBinaryString(v), true
 
-	case "bool":
+	case rbxfile.TypeBool:
 		switch getContent(tag) {
 		case "false", "False", "FALSE":
 			return rbxfile.ValueBool(false), true
@@ -363,7 +432,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueBool(false), true
 
-	case "BrickColor":
+	case rbxfile.TypeBrickColor:
 		v, err := strconv.ParseUint(getContent(tag), 10, 32)
 		if err != nil && !errors.Is(err, strconv.ErrRange) {
 			if dec.codec.DiscardInvalidProperties {
@@ -373,7 +442,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueBrickColor(v), true
 
-	case "CoordinateFrame":
+	case rbxfile.TypeCFrame:
 		var v rbxfile.ValueCFrame
 		ok := components{
 			"X":   &v.Position.X,
@@ -397,7 +466,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Color3":
+	case rbxfile.TypeColor3:
 		content := getContent(tag)
 		if len(content) > 0 {
 			v, err := strconv.ParseUint(content, 10, 32)
@@ -429,7 +498,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 			return v, true
 		}
 
-	case "Content":
+	case rbxfile.TypeContent:
 		if tag.CData == nil && len(tag.Text) > 0 || tag.CData != nil && len(tag.CData) > 0 {
 			// Succeeds if CData is not nil but empty, even if Text is not
 			// empty. This is correct according to Roblox's codec.
@@ -462,7 +531,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueContent(nil), true
 
-	case "double":
+	case rbxfile.TypeDouble:
 		// TODO: check inf, nan, and overflow. ParseFloat reads special numbers
 		// in several forms. Depending on how Roblox parses such values, we may
 		// have to catch these forms early and treat them as invalid.
@@ -475,7 +544,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueDouble(v), true
 
-	case "Faces":
+	case rbxfile.TypeFaces:
 		var bits int32
 		ok := components{
 			"faces": &bits,
@@ -495,7 +564,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 			Front:  bits&(1<<5) > 0,
 		}, true
 
-	case "float":
+	case rbxfile.TypeFloat:
 		v, err := strconv.ParseFloat(getContent(tag), 32)
 		if err != nil {
 			if dec.codec.DiscardInvalidProperties {
@@ -505,7 +574,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueFloat(v), true
 
-	case "int":
+	case rbxfile.TypeInt:
 		v, err := strconv.ParseInt(getContent(tag), 10, 32)
 		if err != nil && !errors.Is(err, strconv.ErrRange) {
 			if dec.codec.DiscardInvalidProperties {
@@ -515,10 +584,10 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueInt(v), true
 
-	case "ProtectedString":
+	case rbxfile.TypeProtectedString:
 		return rbxfile.ValueProtectedString(getContent(tag)), true
 
-	case "Ray":
+	case rbxfile.TypeRay:
 		var origin, direction *documentTag
 		ok := components{
 			"origin":    &origin,
@@ -555,15 +624,15 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Object":
+	case rbxfile.TypeReference:
 		// Return empty ValueReference; this signals that the value will be
 		// acquired later.
 		return rbxfile.ValueReference{}, true
 
-	case "string":
+	case rbxfile.TypeString:
 		return rbxfile.ValueString(getContent(tag)), true
 
-	case "token":
+	case rbxfile.TypeToken:
 		v, err := strconv.ParseInt(getContent(tag), 10, 32)
 		if err != nil && !errors.Is(err, strconv.ErrRange) {
 			if dec.codec.DiscardInvalidProperties {
@@ -573,7 +642,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueToken(v), true
 
-	case "UDim":
+	case rbxfile.TypeUDim:
 		var v rbxfile.ValueUDim
 		ok := components{
 			"S": &v.Scale,
@@ -587,7 +656,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "UDim2":
+	case rbxfile.TypeUDim2:
 		// DIFF: UDim2 is initialized with odd values
 		var v rbxfile.ValueUDim2
 		ok := components{
@@ -604,7 +673,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Vector2":
+	case rbxfile.TypeVector2:
 		var v rbxfile.ValueVector2
 		ok := components{
 			"X": &v.X,
@@ -618,7 +687,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Vector2int16":
+	case rbxfile.TypeVector2int16:
 		// Unknown; guessed
 		var v rbxfile.ValueVector2int16
 		ok := components{
@@ -633,7 +702,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Vector3":
+	case rbxfile.TypeVector3:
 		var v rbxfile.ValueVector3
 		ok := components{
 			"X": &v.X,
@@ -648,7 +717,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Vector3int16":
+	case rbxfile.TypeVector3int16:
 		// Unknown; guessed
 		var v rbxfile.ValueVector3int16
 		ok := components{
@@ -664,7 +733,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "NumberSequence":
+	case rbxfile.TypeNumberSequence:
 		b := []byte(getContent(tag))
 		v := make(rbxfile.ValueNumberSequence, 0, 4)
 		for i := 0; i < len(b); {
@@ -682,7 +751,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "ColorSequence":
+	case rbxfile.TypeColorSequence:
 		b := []byte(getContent(tag))
 		v := make(rbxfile.ValueColorSequence, 0, 4)
 		for i := 0; i < len(b); {
@@ -702,7 +771,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "NumberRange":
+	case rbxfile.TypeNumberRange:
 		b := []byte(getContent(tag))
 		var v rbxfile.ValueNumberRange
 		i := 0
@@ -716,7 +785,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Rect2D":
+	case rbxfile.TypeRect:
 		var min, max *documentTag
 		ok := components{
 			"min": &min,
@@ -751,7 +820,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "PhysicalProperties":
+	case rbxfile.TypePhysicalProperties:
 		var v rbxfile.ValuePhysicalProperties
 		var cp *documentTag
 		ok := components{
@@ -763,7 +832,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 			}
 			return rbxfile.ValuePhysicalProperties{}, true
 		}
-		vb, ok := dec.getValue(cp, "bool")
+		vb, ok := dec.getValue(cp, rbxfile.TypeBool)
 		if !ok {
 			if dec.codec.DiscardInvalidProperties {
 				return nil, false
@@ -789,7 +858,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return v, true
 
-	case "Color3uint8":
+	case rbxfile.TypeColor3uint8:
 		content := getContent(tag)
 		if len(content) > 0 {
 			v, err := strconv.ParseUint(content, 10, 32)
@@ -821,7 +890,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 			return v, true
 		}
 
-	case "int64":
+	case rbxfile.TypeInt64:
 		v, err := strconv.ParseInt(getContent(tag), 10, 64)
 		if err != nil && !errors.Is(err, strconv.ErrRange) {
 			if dec.codec.DiscardInvalidProperties {
@@ -831,7 +900,7 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType string) (value rbxfile
 		}
 		return rbxfile.ValueInt64(v), true
 
-	case "SharedString":
+	case rbxfile.TypeSharedString:
 		v, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, strings.NewReader(getContent(tag))))
 		if err != nil {
 			if dec.codec.DiscardInvalidProperties {
@@ -1477,9 +1546,8 @@ func (enc *rencoder) encodeProperty(value rbxfile.Value) *documentTag {
 		return tag
 
 	case rbxfile.ValueOptional:
-		t, _ := enc.codec.GetCanonType(value.ValueType().String())
 		parent := &documentTag{
-			StartName: "Optional" + t,
+			StartName: enc.codec.GetCanonTag(value.ValueType(), true),
 		}
 		switch value := value.Value().(type) {
 		case nil:
