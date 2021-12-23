@@ -600,6 +600,9 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 						}
 						index := uint32(entry.index)
 						bvalue = (*valueSharedString)(&index)
+					case rbxfile.ValueOptional:
+						propChunk.Properties.Set(i, encodeValue(value.Value()))
+						continue
 					default:
 						bvalue = encodeValue(value)
 					}
@@ -952,7 +955,8 @@ func encodeValue(val rbxfile.Value) value {
 		return nil
 
 	case rbxfile.ValueOptional:
-		return encodeValue(value.Value())
+		// Must be resolved elsewhere.
+		return nil
 
 	default:
 		return nil
