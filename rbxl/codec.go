@@ -124,7 +124,7 @@ loop:
 					}
 					inst.Properties[chunk.PropertyName] = value
 				}
-			case arrayOptional:
+			case *arrayOptional:
 				for i := 0; i < length; i++ {
 					inst := instLookup[instChunk.InstanceIDs[i]]
 					if props.Present[i] {
