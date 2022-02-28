@@ -664,7 +664,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 
 	// Make end chunk.
 	endChunk := &chunkEnd{
-		compressed: true,
+		compressed: false,
 		Content:    []byte("</roblox>"),
 	}
 
@@ -697,8 +697,9 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 
 	if len(sharedStrings) > 0 {
 		chunk := chunkSharedStrings{
-			Version: 0,
-			Values:  make([]sharedString, len(sharedStrings)),
+			compressed: true,
+			Version:    0,
+			Values:     make([]sharedString, len(sharedStrings)),
 		}
 		for _, entry := range sharedStrings {
 			chunk.Values[entry.index] = entry.value
