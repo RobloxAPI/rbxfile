@@ -577,13 +577,25 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 			}
 		}
 
+		// Sort the chunks by PropertyName.
+		propChunks := make(sortPropChunks, len(propChunkMap))
+		if len(propChunkMap) > 0 {
+			i := 0
+			for _, chunk := range propChunkMap {
+				propChunks[i] = chunk
+				i++
+			}
+
+			sort.Sort(propChunks)
+		}
+
 		// Set the values for each property chunk.
-		for name, propChunk := range propChunkMap {
+		for _, propChunk := range propChunks {
 			for i, ref := range instChunk.InstanceIDs {
 				inst := instList[ref]
 
 				var bvalue value
-				if value, ok := inst.Properties[name]; ok {
+				if value, ok := inst.Properties[propChunk.PropertyName]; ok {
 					switch value := value.(type) {
 					case rbxfile.ValueReference:
 						// Convert an instance reference to a reference number.
@@ -626,18 +638,6 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 
 				propChunk.Properties.Set(i, bvalue)
 			}
-		}
-
-		// Sort the chunks by PropertyName.
-		propChunks := make(sortPropChunks, len(propChunkMap))
-		if len(propChunkMap) > 0 {
-			i := 0
-			for _, chunk := range propChunkMap {
-				propChunks[i] = chunk
-				i++
-			}
-
-			sort.Sort(propChunks)
 		}
 
 		propChunkList = append(propChunkList, propChunks...)
