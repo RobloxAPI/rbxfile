@@ -333,6 +333,8 @@ func newArray(t typeID, n int) array {
 			Values:  nil,
 			Present: make(arrayBool, n),
 		}
+	case typeUniqueId:
+		return make(arrayUniqueId, n)
 	}
 	return nil
 }
@@ -1503,5 +1505,39 @@ func (a arrayOptional) Dump(w *bufio.Writer, indent int) {
 	dumpNewline(w, indent+1)
 	w.WriteByte('}')
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayUniqueId []valueUniqueId
+
+func (arrayUniqueId) Type() typeID {
+	return typeUniqueId
+}
+
+func (a arrayUniqueId) Len() int {
+	return len(a)
+}
+
+func (a arrayUniqueId) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayUniqueId) Set(i int, v value) {
+	a[i] = *v.(*valueUniqueId)
+}
+
+func (a arrayUniqueId) BytesLen() int {
+	return len(a) * zUniqueId
+}
+
+func (a arrayUniqueId) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
+
+func (a arrayUniqueId) Interleaved() {}
 
 ////////////////////////////////////////////////////////////////////////////////

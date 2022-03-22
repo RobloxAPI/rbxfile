@@ -396,6 +396,13 @@ func decodeValue(val value) rbxfile.Value {
 		// Must be resolved elsewhere.
 		return nil
 
+	case *valueUniqueId:
+		return rbxfile.ValueUniqueId{
+			Random: int64(value.Random),
+			Time:   value.Time,
+			Index:  value.Index,
+		}
+
 	default:
 		return nil
 	}
@@ -526,6 +533,10 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					propType = fromValueType(prop.Type())
 					if propType == typeInvalid {
 						warns = chunkWarn(warns, i, instChunk, "unknown type %d for property %s.%s in instance #%d, chunk skipped", byte(prop.Type()), instList[instRef].ClassName, name, instRef)
+						continue checkPropType
+					}
+					if c.Mode != Place && propType == typeUniqueId {
+						// UniqueId type only present in place format.
 						continue checkPropType
 					}
 					if opt, ok := prop.(rbxfile.ValueOptional); ok {
@@ -958,6 +969,13 @@ func encodeValue(val rbxfile.Value) value {
 	case rbxfile.ValueOptional:
 		// Must be resolved elsewhere.
 		return nil
+
+	case rbxfile.ValueUniqueId:
+		return &valueUniqueId{
+			Random: valueInt64(value.Random),
+			Time:   value.Time,
+			Index:  value.Index,
+		}
 
 	default:
 		return nil

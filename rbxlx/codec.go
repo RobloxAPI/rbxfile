@@ -3,6 +3,8 @@ package rbxlx
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -307,6 +309,8 @@ func (robloxCodec) GetCanonTag(valueType rbxfile.Type, optional bool) (canonTag 
 		canonTag = "int64"
 	case rbxfile.TypeSharedString:
 		canonTag = "SharedString"
+	case rbxfile.TypeUniqueId:
+		canonTag = "UniqueId"
 	}
 	if optional {
 		canonTag = "Optional" + canonTag
@@ -382,6 +386,8 @@ func (robloxCodec) GetCanonType(valueType string) (canonType rbxfile.Type, optio
 		canonType = rbxfile.TypeInt64
 	case "sharedstring":
 		canonType = rbxfile.TypeSharedString
+	case "uniqueid":
+		canonType = rbxfile.TypeUniqueId
 	}
 	return canonType, optional
 }
@@ -910,6 +916,24 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType rbxfile.Type) (value r
 		}
 		return rbxfile.ValueSharedString(v), true
 
+	case rbxfile.TypeUniqueId:
+		//TODO: Not included in model format.
+		var v rbxfile.ValueUniqueId
+		text := tag.Text
+		if len(text) > 32 {
+			text = text[:32]
+		}
+		b, err := hex.DecodeString(text)
+		if err != nil || len(b) < 16 {
+			if dec.codec.DiscardInvalidProperties {
+				return nil, false
+			}
+			return rbxfile.ValueUniqueId{}, true
+		}
+		v.Random = int64(binary.BigEndian.Uint64(b[0:8]))
+		v.Time = binary.BigEndian.Uint32(b[8:12])
+		v.Index = binary.BigEndian.Uint32(b[12:16])
+		return v, true
 	}
 	return nil, false
 }
@@ -1559,6 +1583,16 @@ func (enc *rencoder) encodeProperty(value rbxfile.Value) *documentTag {
 			parent.Tags = append(parent.Tags, tag)
 		}
 		return parent
+
+	case rbxfile.ValueUniqueId:
+		var b [16]byte
+		binary.BigEndian.PutUint64(b[0:8], uint64(value.Random))
+		binary.BigEndian.PutUint32(b[8:12], value.Time)
+		binary.BigEndian.PutUint32(b[12:16], value.Index)
+		return &documentTag{
+			StartName: "UniqueId",
+			Text:      hex.EncodeToString(b[:]),
+		}
 	}
 
 	return nil

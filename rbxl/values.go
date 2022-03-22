@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/robloxapi/rbxfile"
 )
@@ -88,11 +89,12 @@ const (
 	typeSharedString       typeID = 0x1C
 	typeSignedString       typeID = 0x1D //TODO
 	typeOptional           typeID = 0x1E
+	typeUniqueId           typeID = 0x1F
 )
 
 // Valid returns whether the type has a valid value.
 func (t typeID) Valid() bool {
-	return typeString <= t && t <= typeOptional && t != typeSignedString
+	return typeString <= t && t <= typeUniqueId && t != typeSignedString
 }
 
 // Size returns the number of bytes required to hold a value of the type.
@@ -160,6 +162,8 @@ func (t typeID) Size() int {
 		return zSharedString
 	case typeOptional:
 		return zOptional
+	case typeUniqueId:
+		return zUniqueId
 	default:
 		return zInvalid
 	}
@@ -267,6 +271,8 @@ func (t typeID) String() string {
 		return "SharedString"
 	case typeOptional:
 		return "Optional"
+	case typeUniqueId:
+		return "UniqueId"
 	default:
 		return "Invalid"
 	}
@@ -333,6 +339,8 @@ func (t typeID) ValueType() rbxfile.Type {
 		return rbxfile.TypeSharedString
 	case typeOptional:
 		return rbxfile.TypeOptional
+	case typeUniqueId:
+		return rbxfile.TypeUniqueId
 	default:
 		return rbxfile.TypeInvalid
 	}
@@ -403,6 +411,8 @@ func fromValueType(t rbxfile.Type) typeID {
 		return typeSharedString
 	case rbxfile.TypeOptional:
 		return typeOptional
+	case rbxfile.TypeUniqueId:
+		return typeUniqueId
 	default:
 		return typeInvalid
 	}
@@ -489,6 +499,8 @@ func newValue(typ typeID) value {
 		return new(valueSharedString)
 	case typeOptional:
 		return nil
+	case typeUniqueId:
+		return new(valueUniqueId)
 	}
 	return nil
 }
@@ -2152,3 +2164,67 @@ func (v valueSharedString) Dump(w *bufio.Writer, indent int) {
 ////////////////////////////////////////////////////////////////
 
 const zOptional = zOpt
+
+////////////////////////////////////////////////////////////////
+
+const zUniqueId = zb * 16
+
+type valueUniqueId struct {
+	Random valueInt64
+	Time   uint32
+	Index  uint32
+}
+
+func (valueUniqueId) Type() typeID {
+	return typeUniqueId
+}
+
+func (v valueUniqueId) BytesLen() int {
+	return zUniqueId
+}
+
+func (v valueUniqueId) Bytes(b []byte) []byte {
+	b = appendUint32(b, be, v.Index)
+	b = appendUint32(b, be, v.Time)
+	b = v.Random.Bytes(b)
+	return b
+}
+
+func (v *valueUniqueId) FromBytes(b []byte) (n int, err error) {
+	if n, err = checkLengthConst(v, b); err != nil {
+		return n, err
+	}
+	v.Index = readUint32(&b, be)
+	v.Time = readUint32(&b, be)
+	b = fromBytes(b, &v.Random)
+	return n, nil
+}
+
+func (v valueUniqueId) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("(String): ")
+	w.WriteString(rbxfile.ValueUniqueId{
+		Random: int64(v.Random),
+		Time:   v.Time,
+		Index:  v.Index,
+	}.String())
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Random: ")
+	w.Write(strconv.AppendInt(nil, int64(v.Random), 10))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Time: ")
+	const epoch = 1609459200 // 2021-01-01 00:00:00
+	t := time.Unix(int64(v.Time)+epoch, 0).UTC()
+	w.WriteString(t.Format(time.RFC3339))
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Index: ")
+	w.Write(strconv.AppendUint(nil, uint64(v.Index), 10))
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}

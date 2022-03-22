@@ -1,6 +1,7 @@
 package rbxfile
 
 import (
+	"encoding/binary"
 	"strconv"
 	"strings"
 )
@@ -51,6 +52,7 @@ const (
 	TypeInt64
 	TypeSharedString
 	TypeOptional
+	TypeUniqueId
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -96,6 +98,7 @@ var typeStrings = map[Type]string{
 	TypeInt64:              "Int64",
 	TypeSharedString:       "SharedString",
 	TypeOptional:           "Optional",
+	TypeUniqueId:           "UniqueId",
 }
 
 // Value holds a value of a particular Type.
@@ -155,6 +158,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeInt64:              newValueInt64,
 	TypeSharedString:       newValueSharedString,
 	TypeOptional:           newValueOptional,
+	TypeUniqueId:           newValueUniqueId,
 }
 
 func joinstr(a ...string) string {
@@ -999,4 +1003,52 @@ func (v ValueOptional) Value() Value {
 // ValueType returns the the value type of the option.
 func (v ValueOptional) ValueType() Type {
 	return v.typ
+}
+
+////////////////
+
+// ValueUniqueId represents the value of a unique identifier.
+//
+// In Roblox's implementation, it would appear that there is a base value held
+// in memory, which is updated by certain conditions, then copied to a new
+// instance.
+//
+// When a session starts, Random is initialized to a random value, apparently
+// always positive. Time is initialized to the current time. Index seems to be
+// initialized to 0x10000.
+//
+// Index is incremented every time an instance is created. If Index rolls over
+// back to 0, Random and Time are updated.
+type ValueUniqueId struct {
+	// A pseudo-randomly generated value.
+	Random int64
+	// The number of seconds after 2021-01-01 00:00:00.
+	Time uint32
+	// A sequential value.
+	Index uint32
+}
+
+func newValueUniqueId() Value {
+	return *new(ValueUniqueId)
+}
+
+func (ValueUniqueId) Type() Type {
+	return TypeUniqueId
+}
+
+func (v ValueUniqueId) String() string {
+	var b [32]byte
+	binary.BigEndian.PutUint64(b[0:8], uint64(v.Random))
+	binary.BigEndian.PutUint32(b[8:12], v.Time)
+	binary.BigEndian.PutUint32(b[12:16], v.Index)
+	const hextable = "0123456789abcdef"
+	for i := len(b)/2 - 1; i >= 0; i-- {
+		b[i*2+1] = hextable[b[i]&0x0f]
+		b[i*2] = hextable[b[i]>>4]
+	}
+	return string(b[:])
+}
+
+func (t ValueUniqueId) Copy() Value {
+	return t
 }
