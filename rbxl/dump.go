@@ -80,9 +80,9 @@ func dumpChunk(w *bufio.Writer, indent, i int, chunk chunk, classes map[int32]*c
 		fmt.Fprintf(w, "Version: %d", chunk.Version)
 		dumpNewline(w, indent+1)
 		fmt.Fprintf(w, "Values: (count:%d) {", len(chunk.Values))
-		for _, s := range chunk.Values {
+		for i, s := range chunk.Values {
 			dumpNewline(w, indent+2)
-			w.WriteByte('{')
+			fmt.Fprintf(w, "%d: {", i)
 			dumpNewline(w, indent+3)
 			w.WriteString("Hash: ")
 			dumpBytes(w, indent+3, s.Hash[:])
