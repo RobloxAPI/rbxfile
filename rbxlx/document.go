@@ -753,10 +753,7 @@ Input:
 		}
 
 		// Stop reading text if we see a <.
-		if b == '<' && !cdata {
-			if quote >= 0 {
-				return nil
-			}
+		if b == '<' && !cdata && quote < 0 {
 			d.ungetc('<')
 			break Input
 		}
