@@ -1276,6 +1276,11 @@ func (e *encoder) escapeString(s string, escapeLead bool) {
 func (d *documentRoot) WriteTo(w io.Writer) (n int64, err error) {
 	d.Warnings = errors.Errors{}
 
+	if d.Root == nil {
+		d.Warnings.Append(errors.New("no root tag"))
+		return 0, nil
+	}
+
 	e := &encoder{Writer: bufio.NewWriter(w), d: d}
 
 	e.writeString(e.d.Prefix)
