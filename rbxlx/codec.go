@@ -69,6 +69,9 @@ func (dec *rdecoder) decode() error {
 	if dec.err != nil {
 		return dec.err
 	}
+	if dec.document.Root == nil {
+		return errors.New("no root tag")
+	}
 
 	dec.root = new(rbxfile.Root)
 	dec.root.Instances, _ = dec.getItems(nil, dec.document.Root.Tags)
