@@ -749,7 +749,10 @@ Input:
 				trunc = 2
 				break Input
 			}
-			return nil
+			if quote < 0 {
+				d.err = d.syntaxError("unexpected ']]>'")
+				return nil
+			}
 		}
 
 		// Stop reading text if we see a <.
