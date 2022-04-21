@@ -1,0 +1,107 @@
+name: Create draft release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  PROJECT   : 'rbxfile' # Name of project.
+  COMMANDS  : './cmd'   # Root location of programs.
+  GOVERSION : 1.18.1    # Version of Go to compile with.
+  DIST      : './dist'  # Scratch directory for building executables.
+
+jobs:
+
+  build:
+    name: Build executables
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { os: 'windows' , arch: 'amd64' , command: 'rbxfile-dump'  , output: './dist/rbxfile-dump.exe'  }
+          - { os: 'windows' , arch: '386'   , command: 'rbxfile-dump'  , output: './dist/rbxfile-dump.exe'  }
+          - { os: 'darwin'  , arch: 'amd64' , command: 'rbxfile-dump'  , output: './dist/rbxfile-dump'      }
+          - { os: 'linux'   , arch: '386'   , command: 'rbxfile-dump'  , output: './dist/rbxfile-dump'      }
+          - { os: 'linux'   , arch: 'amd64' , command: 'rbxfile-dump'  , output: './dist/rbxfile-dump'      }
+          - { os: 'windows' , arch: 'amd64' , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp.exe' }
+          - { os: 'windows' , arch: '386'   , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp.exe' }
+          - { os: 'darwin'  , arch: 'amd64' , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp'     }
+          - { os: 'linux'   , arch: '386'   , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp'     }
+          - { os: 'linux'   , arch: 'amd64' , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp'     }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{env.GOVERSION}}
+
+      - name: Set version variable
+        run: echo VERSION=${GITHUB_REF#refs/tags/} >> $GITHUB_ENV
+
+      - name: Make build directory
+        run: mkdir ${{env.DIST}}
+
+      - name: Build executable
+        env:
+          GOOS: ${{matrix.os}}
+          GOARCH: ${{matrix.arch}}
+          OUTPUT: ${{matrix.output}}
+        run: go build -v -trimpath -tags="release" -o $OUTPUT ${{env.COMMANDS}}/${{matrix.command}}
+
+      - name: Create archive
+        id: archive
+        env:
+          GOOS: ${{matrix.os}}
+          GOARCH: ${{matrix.arch}}
+          OUTPUT: ${{matrix.output}}
+        run: |
+          NAME=${{matrix.command}}-$VERSION-$GOOS-$GOARCH
+          ARCHIVE=${{env.DIST}}/$NAME.zip
+          zip --junk-paths $ARCHIVE $OUTPUT
+          echo ::set-output name=name::$NAME
+          echo ::set-output name=path::$ARCHIVE
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{steps.archive.outputs.name}}
+          path: ${{steps.archive.outputs.path}}
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Create release
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set version variable
+        run: echo VERSION=${GITHUB_REF#refs/tags/} >> $GITHUB_ENV
+
+      - name: Download all archives
+        id: download
+        uses: actions/download-artifact@v3
+
+      - name: Move files
+        run: |
+          mkdir files
+          mv $(find ${{steps.download.outputs.download-path}} -iname *.zip) files
+
+      - name: Check files
+        run: find .
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          path: repo
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          name: ${{env.PROJECT}} ${{env.VERSION}}
+          draft: true
+          files: files/*.zip
