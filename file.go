@@ -93,7 +93,6 @@ type Instance struct {
 func NewInstance(className string) *Instance {
 	inst := &Instance{
 		ClassName:  className,
-		Reference:  GenerateReference(),
 		Properties: make(map[string]Value, 0),
 	}
 	return inst
