@@ -496,6 +496,7 @@ func (d *decoder) decodeTag(root bool) (tag *documentTag, err error) {
 	// Remember location of opening tag.
 	d.tagstack = append(d.tagstack, d.line)
 
+	d.space()
 	if !d.decodeCData(tag) {
 		return nil, d.err
 	}
