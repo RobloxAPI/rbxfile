@@ -29,6 +29,11 @@ jobs:
           - { os: 'darwin'  , arch: 'amd64' , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp'     }
           - { os: 'linux'   , arch: '386'   , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp'     }
           - { os: 'linux'   , arch: 'amd64' , command: 'rbxfile-dcomp' , output: './dist/rbxfile-dcomp'     }
+          - { os: 'windows' , arch: 'amd64' , command: 'rbxfile-stat'  , output: './dist/rbxfile-stat.exe'  }
+          - { os: 'windows' , arch: '386'   , command: 'rbxfile-stat'  , output: './dist/rbxfile-stat.exe'  }
+          - { os: 'darwin'  , arch: 'amd64' , command: 'rbxfile-stat'  , output: './dist/rbxfile-stat'      }
+          - { os: 'linux'   , arch: '386'   , command: 'rbxfile-stat'  , output: './dist/rbxfile-stat'      }
+          - { os: 'linux'   , arch: 'amd64' , command: 'rbxfile-stat'  , output: './dist/rbxfile-stat'      }
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
