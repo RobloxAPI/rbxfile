@@ -10,6 +10,16 @@ import (
 	"github.com/robloxapi/rbxfile/rbxlx"
 )
 
+// DecoderStats contains statistics generated while decoding the format.
+type DecoderStats struct {
+	XML           bool           // Whether the format is XML.
+	Version       uint16         // Version of the format.
+	ClassCount    uint32         // Number of classes reported by the header.
+	InstanceCount uint32         // Number of instances reported by the header.
+	Chunks        int            // Total number of chunks.
+	ChunkTypes    map[string]int // Number of chunks per signature.
+}
+
 // Decoder decodes a stream of bytes into an rbxfile.Root.
 type Decoder struct {
 	// Mode indicates which type of format is decoded.
@@ -18,6 +28,9 @@ type Decoder struct {
 	// If NoXML is true, then the decoder will not attempt to decode the legacy
 	// XML format for backward compatibility.
 	NoXML bool
+
+	// If not nil, stats will be set while decoding.
+	Stats *DecoderStats
 }
 
 // Decode reads data from r and decodes it into root according to the rbxl
@@ -100,6 +113,9 @@ func (d Decoder) decode(r io.Reader, dcomp bool) (f *formatModel, o io.Reader, w
 
 	// Check for legacy XML.
 	if !bytes.Equal(signature[len(robloxSig):], []byte(binaryMarker)) {
+		if d.Stats != nil {
+			d.Stats.XML = true
+		}
 		if d.NoXML {
 			return nil, nil, nil, decodeError(fr, errInvalidSig)
 		} else {
@@ -121,6 +137,9 @@ func (d Decoder) decode(r io.Reader, dcomp bool) (f *formatModel, o io.Reader, w
 	if fr.Number(&f.Version) {
 		return nil, nil, nil, decodeError(fr, nil)
 	}
+	if d.Stats != nil {
+		d.Stats.Version = f.Version
+	}
 	if f.Version != 0 {
 		return nil, nil, nil, decodeError(fr, errUnrecognizedVersion(f.Version))
 	}
@@ -129,11 +148,17 @@ func (d Decoder) decode(r io.Reader, dcomp bool) (f *formatModel, o io.Reader, w
 	if fr.Number(&f.ClassCount) {
 		return nil, nil, nil, decodeError(fr, nil)
 	}
+	if d.Stats != nil {
+		d.Stats.ClassCount = f.ClassCount
+	}
 	f.groupLookup = make(map[int32]*chunkInstance, f.ClassCount)
 
 	// Get Instance count.
 	if fr.Number(&f.InstanceCount) {
 		return nil, nil, nil, decodeError(fr, nil)
+	}
+	if d.Stats != nil {
+		d.Stats.InstanceCount = f.InstanceCount
 	}
 
 	// Check reserved bytes.
@@ -171,6 +196,12 @@ func (d Decoder) decodeChunks(f *formatModel, fr *parse.BinaryReader, warns *err
 		rawChunk := new(rawChunk)
 		if rawChunk.Decode(fr) {
 			return decodeError(fr, nil)
+		}
+		if d.Stats != nil {
+			if d.Stats.ChunkTypes == nil {
+				d.Stats.ChunkTypes = map[string]int{}
+			}
+			d.Stats.ChunkTypes[sig(rawChunk.signature).String()]++
 		}
 
 		var n int64
@@ -224,6 +255,9 @@ func (d Decoder) decodeChunks(f *formatModel, fr *parse.BinaryReader, warns *err
 		}
 
 		f.Chunks = append(f.Chunks, chunk)
+		if d.Stats != nil {
+			d.Stats.Chunks++
+		}
 
 		if chunk, ok := chunk.(*chunkEnd); ok {
 			if chunk.Compressed() {
@@ -245,10 +279,19 @@ func (d Decoder) decompressChunks(f *formatModel, fr *parse.BinaryReader) (err e
 		if rawChunk.Decode(fr) {
 			return decodeError(fr, nil)
 		}
+		if d.Stats != nil {
+			if d.Stats.ChunkTypes == nil {
+				d.Stats.ChunkTypes = map[string]int{}
+			}
+			d.Stats.ChunkTypes[sig(rawChunk.signature).String()]++
+		}
 
 		chunk := &chunkUnknown{rawChunk: *rawChunk}
 		chunk.SetCompressed(bool(rawChunk.compressed))
 		f.Chunks = append(f.Chunks, chunk)
+		if d.Stats != nil {
+			d.Stats.Chunks++
+		}
 
 		if rawChunk.signature == sigEND {
 			break
