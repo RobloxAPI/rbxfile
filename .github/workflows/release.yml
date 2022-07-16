@@ -8,7 +8,7 @@ on:
 env:
   PROJECT   : 'rbxfile' # Name of project.
   COMMANDS  : './cmd'   # Root location of programs.
-  GOVERSION : 1.18.1    # Version of Go to compile with.
+  GOVERSION : 1.18.4    # Version of Go to compile with.
   DIST      : './dist'  # Scratch directory for building executables.
 
 jobs:
