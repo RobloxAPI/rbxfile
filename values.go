@@ -53,6 +53,7 @@ const (
 	TypeSharedString
 	TypeOptional
 	TypeUniqueId
+	TypeFont
 )
 
 // TypeFromString returns a Type from its string representation. TypeInvalid
@@ -99,6 +100,7 @@ var typeStrings = map[Type]string{
 	TypeSharedString:       "SharedString",
 	TypeOptional:           "Optional",
 	TypeUniqueId:           "UniqueId",
+	TypeFont:               "Font",
 }
 
 // Value holds a value of a particular Type.
@@ -159,6 +161,7 @@ var valueGenerators = map[Type]valueGenerator{
 	TypeSharedString:       newValueSharedString,
 	TypeOptional:           newValueOptional,
 	TypeUniqueId:           newValueUniqueId,
+	TypeFont:               newValueFont,
 }
 
 func joinstr(a ...string) string {
@@ -1051,4 +1054,135 @@ func (v ValueUniqueId) String() string {
 
 func (t ValueUniqueId) Copy() Value {
 	return t
+}
+
+////////////////
+
+type FontStyle uint8
+
+const (
+	FontStyleNormal = 0
+	FontStyleItalic = 1
+)
+
+func FontStyleFromString(s string) (fs FontStyle, ok bool) {
+	switch s {
+	case "Normal":
+		return FontStyleNormal, true
+	case "Italic":
+		return FontStyleItalic, true
+	default:
+		return 0, false
+	}
+}
+
+func (f FontStyle) String() string {
+	switch f {
+	case FontStyleNormal:
+		return "Normal"
+	case FontStyleItalic:
+		return "Italic"
+	default:
+		return "<invalid>"
+	}
+}
+
+type FontWeight uint16
+
+const (
+	FontWeightThin       = 100
+	FontWeightExtraLight = 200
+	FontWeightLight      = 300
+	FontWeightRegular    = 400
+	FontWeightMedium     = 500
+	FontWeightSemiBold   = 600
+	FontWeightBold       = 700
+	FontWeightExtraBold  = 800
+	FontWeightHeavy      = 900
+)
+
+func FontWeightFromString(s string) (fs FontWeight, ok bool) {
+	switch s {
+	case "Thin":
+		return FontWeightThin, true
+	case "ExtraLight":
+		return FontWeightExtraLight, true
+	case "Light":
+		return FontWeightLight, true
+	case "Regular":
+		return FontWeightRegular, true
+	case "Medium":
+		return FontWeightMedium, true
+	case "SemiBold":
+		return FontWeightSemiBold, true
+	case "Bold":
+		return FontWeightBold, true
+	case "ExtraBold":
+		return FontWeightExtraBold, true
+	case "Heavy":
+		return FontWeightHeavy, true
+	default:
+		return 0, false
+	}
+}
+
+func (f FontWeight) String() string {
+	switch f {
+	case FontWeightThin:
+		return "Thin"
+	case FontWeightExtraLight:
+		return "ExtraLight"
+	case FontWeightLight:
+		return "Light"
+	case FontWeightRegular:
+		return "Regular"
+	case FontWeightMedium:
+		return "Medium"
+	case FontWeightSemiBold:
+		return "SemiBold"
+	case FontWeightBold:
+		return "Bold"
+	case FontWeightExtraBold:
+		return "ExtraBold"
+	case FontWeightHeavy:
+		return "Heavy"
+	default:
+		return "<invalid>"
+	}
+}
+
+type ValueFont struct {
+	Family       ValueContent
+	Weight       FontWeight
+	Style        FontStyle
+	CachedFaceId ValueContent
+}
+
+func newValueFont() Value {
+	return *new(ValueFont)
+}
+
+func (ValueFont) Type() Type {
+	return TypeFont
+}
+
+func (v ValueFont) String() string {
+	var s strings.Builder
+	s.WriteString("Font { Family = ")
+	s.Write(v.Family)
+	s.WriteString(", Weight = ")
+	s.WriteString(v.Weight.String())
+	s.WriteString(", Style = ")
+	s.WriteString(v.Style.String())
+	s.WriteString(" }")
+	return s.String()
+}
+
+func (t ValueFont) Copy() Value {
+	return ValueFont{
+		Family:       t.Family.Copy().(ValueContent),
+		Weight:       t.Weight,
+		Style:        t.Style,
+		CachedFaceId: t.Family.Copy().(ValueContent),
+	}
 }

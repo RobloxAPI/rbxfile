@@ -403,6 +403,14 @@ func decodeValue(val value) rbxfile.Value {
 			Index:  value.Index,
 		}
 
+	case *valueFont:
+		return rbxfile.ValueFont{
+			Family:       rbxfile.ValueContent(value.Family),
+			Weight:       rbxfile.FontWeight(value.Weight),
+			Style:        rbxfile.FontStyle(value.Style),
+			CachedFaceId: rbxfile.ValueContent(value.CachedFaceId),
+		}
+
 	default:
 		return nil
 	}
@@ -975,6 +983,14 @@ func encodeValue(val rbxfile.Value) value {
 			Random: valueInt64(value.Random),
 			Time:   value.Time,
 			Index:  value.Index,
+		}
+
+	case rbxfile.ValueFont:
+		return &valueFont{
+			Family:       valueString(value.Family),
+			Weight:       uint16(value.Weight),
+			Style:        uint8(value.Style),
+			CachedFaceId: valueString(value.CachedFaceId),
 		}
 
 	default:

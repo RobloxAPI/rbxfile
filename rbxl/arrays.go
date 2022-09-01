@@ -322,6 +322,8 @@ func newArray(t typeID, n int) array {
 		}
 	case typeUniqueId:
 		return make(arrayUniqueId, n)
+	case typeFont:
+		return make(arrayFont, n)
 	}
 	return nil
 }
@@ -1526,5 +1528,41 @@ func (a arrayUniqueId) Bytes(b []byte) []byte {
 }
 
 func (a arrayUniqueId) Interleaved() {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type arrayFont []valueFont
+
+func (arrayFont) Type() typeID {
+	return typeFont
+}
+
+func (a arrayFont) Len() int {
+	return len(a)
+}
+
+func (a arrayFont) Get(i int) value {
+	v := a[i]
+	return &v
+}
+
+func (a arrayFont) Set(i int, v value) {
+	a[i] = *v.(*valueFont)
+}
+
+func (a arrayFont) BytesLen() int {
+	var n int
+	for _, v := range a {
+		n += v.BytesLen()
+	}
+	return n
+}
+
+func (a arrayFont) Bytes(b []byte) []byte {
+	for _, v := range a {
+		b = v.Bytes(b)
+	}
+	return b
+}
 
 ////////////////////////////////////////////////////////////////////////////////

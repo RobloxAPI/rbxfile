@@ -34,6 +34,9 @@ const (
 	// Variable size, where the type is optional.
 	zOpt = -3
 
+	// Variable size, custom implementation.
+	zOther = -4
+
 	// Number of bytes used to contain length of a zArray type.
 	zArrayLen = 4
 
@@ -90,11 +93,12 @@ const (
 	typeSignedString       typeID = 0x1D //TODO
 	typeOptional           typeID = 0x1E
 	typeUniqueId           typeID = 0x1F
+	typeFont               typeID = 0x20
 )
 
 // Valid returns whether the type has a valid value.
 func (t typeID) Valid() bool {
-	return typeString <= t && t <= typeUniqueId && t != typeSignedString
+	return typeString <= t && t <= typeFont && t != typeSignedString
 }
 
 // Size returns the number of bytes required to hold a value of the type.
@@ -164,6 +168,8 @@ func (t typeID) Size() int {
 		return zOptional
 	case typeUniqueId:
 		return zUniqueId
+	case typeFont:
+		return zFont
 	default:
 		return zInvalid
 	}
@@ -273,6 +279,8 @@ func (t typeID) String() string {
 		return "Optional"
 	case typeUniqueId:
 		return "UniqueId"
+	case typeFont:
+		return "Font"
 	default:
 		return "Invalid"
 	}
@@ -341,6 +349,8 @@ func (t typeID) ValueType() rbxfile.Type {
 		return rbxfile.TypeOptional
 	case typeUniqueId:
 		return rbxfile.TypeUniqueId
+	case typeFont:
+		return rbxfile.TypeFont
 	default:
 		return rbxfile.TypeInvalid
 	}
@@ -413,6 +423,8 @@ func fromValueType(t rbxfile.Type) typeID {
 		return typeOptional
 	case rbxfile.TypeUniqueId:
 		return typeUniqueId
+	case rbxfile.TypeFont:
+		return typeFont
 	default:
 		return typeInvalid
 	}
@@ -501,6 +513,8 @@ func newValue(typ typeID) value {
 		return nil
 	case typeUniqueId:
 		return new(valueUniqueId)
+	case typeFont:
+		return new(valueFont)
 	}
 	return nil
 }
@@ -2228,3 +2242,95 @@ func (v valueUniqueId) Dump(w *bufio.Writer, indent int) {
 	dumpNewline(w, indent)
 	w.WriteByte('}')
 }
+
+////////////////////////////////////////////////////////////////
+
+const zFont = zOther // String + u16 + u8 + String
+
+type valueFont struct {
+	Family       valueString
+	Weight       uint16
+	Style        uint8
+	CachedFaceId valueString
+}
+
+func (valueFont) Type() typeID {
+	return typeFont
+}
+
+func (v valueFont) BytesLen() int {
+	return v.Family.BytesLen() + zu16 + zu8 + v.CachedFaceId.BytesLen()
+}
+
+func (v valueFont) Bytes(b []byte) []byte {
+	b = v.Family.Bytes(b)
+	b = appendUint16(b, le, v.Weight)
+	b = append(b, v.Style)
+	b = v.CachedFaceId.Bytes(b)
+	return b
+}
+
+func (v *valueFont) FromBytes(b []byte) (n int, err error) {
+	l := len(b)
+
+	nn, err := v.Family.FromBytes(b)
+	n += nn
+	if err != nil {
+		return n, err
+	}
+	b = b[nn:]
+
+	nn = zu16
+	n += nn
+	if len(b) < nn {
+		return n, buflenError{exp: uint64(n), got: l}
+	}
+	v.Weight = readUint16(&b, le)
+
+	nn = zu8
+	n += nn
+	if len(b) < nn {
+		return n, buflenError{exp: uint64(n), got: l}
+	}
+	v.Style = readUint8(&b)
+
+	nn, err = v.CachedFaceId.FromBytes(b)
+	n += nn
+	if err != nil {
+		return n, err
+	}
+	b = b[nn:]
+
+	return n, nil
+}
+
+func (v valueFont) Dump(w *bufio.Writer, indent int) {
+	w.WriteByte('{')
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Family: ")
+	v.Family.Dump(w, indent+1)
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Weight: ")
+	w.WriteString(rbxfile.FontWeight(v.Weight).String())
+	w.WriteString(" (")
+	w.Write(strconv.AppendInt(nil, int64(v.Weight), 10))
+	w.WriteString(")")
+
+	dumpNewline(w, indent+1)
+	w.WriteString("Style: ")
+	w.WriteString(rbxfile.FontStyle(v.Style).String())
+	w.WriteString(" (")
+	w.Write(strconv.AppendInt(nil, int64(v.Style), 10))
+	w.WriteString(")")
+
+	dumpNewline(w, indent+1)
+	w.WriteString("CachedFaceId: ")
+	v.CachedFaceId.Dump(w, indent+1)
+
+	dumpNewline(w, indent)
+	w.WriteByte('}')
+}
+
+////////////////////////////////////////////////////////////////

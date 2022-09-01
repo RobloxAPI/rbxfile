@@ -314,6 +314,8 @@ func (robloxCodec) GetCanonTag(valueType rbxfile.Type, optional bool) (canonTag 
 		canonTag = "SharedString"
 	case rbxfile.TypeUniqueId:
 		canonTag = "UniqueId"
+	case rbxfile.TypeFont:
+		canonTag = "Font"
 	}
 	if optional {
 		canonTag = "Optional" + canonTag
@@ -391,6 +393,8 @@ func (robloxCodec) GetCanonType(valueType string) (canonType rbxfile.Type, optio
 		canonType = rbxfile.TypeSharedString
 	case "uniqueid":
 		canonType = rbxfile.TypeUniqueId
+	case "font":
+		canonType = rbxfile.TypeFont
 	}
 	return canonType, optional
 }
@@ -937,6 +941,39 @@ func (dec *rdecoder) getValue(tag *documentTag, valueType rbxfile.Type) (value r
 		v.Time = binary.BigEndian.Uint32(b[8:12])
 		v.Index = binary.BigEndian.Uint32(b[12:16])
 		return v, true
+
+	case rbxfile.TypeFont:
+		var v rbxfile.ValueFont
+		var family *documentTag
+		var cachedFaceId *documentTag
+		ok := components{
+			"Family": &family,
+			"Weight": &v.Weight,
+			"Style":  &v.Style,
+		}.getFrom(tag)
+		if !ok {
+			goto fontFailed
+		}
+		{
+			vFamily, ok := dec.getValue(family, rbxfile.TypeContent)
+			if !ok {
+				goto fontFailed
+			}
+			v.Family = vFamily.(rbxfile.ValueContent)
+		}
+		if ok := (components{"CachedFaceId": &cachedFaceId}.getFrom(tag)); ok {
+			vCachedFaceId, ok := dec.getValue(cachedFaceId, rbxfile.TypeContent)
+			if !ok {
+				goto fontFailed
+			}
+			v.CachedFaceId = vCachedFaceId.(rbxfile.ValueContent)
+		}
+		return v, true
+	fontFailed:
+		if dec.codec.DiscardInvalidProperties {
+			return nil, false
+		}
+		return rbxfile.ValueFont{}, true
 	}
 	return nil, false
 }
@@ -1008,6 +1045,22 @@ func (c components) getFrom(tag *documentTag) (ok bool) {
 			case *float32:
 				if n, err := strconv.ParseFloat(getContent(subtag), 32); err == nil {
 					*v = float32(n)
+				}
+			case *rbxfile.FontStyle:
+				f, ok := rbxfile.FontStyleFromString(getContent(subtag))
+				if !ok {
+					return false
+				}
+				*v = f
+			case *rbxfile.FontWeight:
+				// Parse as uint16.
+				n, err := strconv.ParseInt(getContent(subtag), 10, 16)
+				*v = rbxfile.FontWeight(n)
+				if err != nil {
+					if errors.Is(err, strconv.ErrRange) {
+						return true
+					}
+					return false
 				}
 			case **documentTag:
 				*v = subtag
@@ -1596,6 +1649,24 @@ func (enc *rencoder) encodeProperty(value rbxfile.Value) *documentTag {
 			StartName: "UniqueId",
 			Text:      hex.EncodeToString(b[:]),
 		}
+
+	case rbxfile.ValueFont:
+		family := enc.encodeProperty(value.Family)
+		family.StartName = "Family"
+		parent := &documentTag{
+			StartName: "Font",
+			Tags: []*documentTag{
+				family,
+				{StartName: "Weight", NoIndent: true, Text: strconv.FormatInt(int64(value.Weight), 10)},
+				{StartName: "Style", NoIndent: true, Text: value.Style.String()},
+			},
+		}
+		if len(value.CachedFaceId) > 0 {
+			cachedFaceId := enc.encodeProperty(value.CachedFaceId)
+			cachedFaceId.StartName = "CachedFaceId"
+			parent.Tags = append(parent.Tags, cachedFaceId)
+		}
+		return parent
 	}
 
 	return nil
