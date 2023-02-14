@@ -545,6 +545,7 @@ func (c robloxCodec) Encode(root *rbxfile.Root) (model *formatModel, warn, err e
 					}
 					if c.Mode != Place && propType == typeUniqueId {
 						// UniqueId type only present in place format.
+						delete(propChunkMap, name)
 						continue checkPropType
 					}
 					if opt, ok := prop.(rbxfile.ValueOptional); ok {
